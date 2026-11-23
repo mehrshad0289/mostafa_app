@@ -1,0 +1,13 @@
+---
+description: Next.js app with JSON file storage
+alwaysApply: true
+---
+
+# Stack
+
+- Next.js App Router only (no extra backend or database)
+- Data lives in `data/db.json`; read/write through `lib/db.ts`
+- HTTP API: `GET/POST /api/items`, `PATCH/DELETE /api/items/[id]`
+- UI is RTL Persian in `app/page.tsx`
+- Production: Vercel, auto-deploys from `main` (`https://mostafaapp.vercel.app`)
+- Prefer editing existing files over adding new libraries

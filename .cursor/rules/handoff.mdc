@@ -1,0 +1,16 @@
+---
+description: Continue work after disconnects; keep HANDOFF.md current
+alwaysApply: true
+---
+
+# Session continuity
+
+At the start of every task, read `docs/HANDOFF.md` and `docs/AGENT_PROMPT.md` before changing code.
+
+Work in small, complete steps. After each finished change:
+
+1. Update `docs/HANDOFF.md` (status, files touched, what the next agent should do).
+2. Commit with a short message that explains why.
+3. Push to `origin/main`.
+
+Never leave the next session guessing. If you stop mid-task, write the blocker and the exact next command or file in `docs/HANDOFF.md`.

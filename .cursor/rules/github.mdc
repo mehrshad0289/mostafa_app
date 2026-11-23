@@ -1,0 +1,14 @@
+---
+description: GitHub remote, push rules, and secret handling
+alwaysApply: true
+---
+
+# GitHub
+
+- Remote: `https://github.com/mehrshad0289/mostafa_app.git`
+- Default branch: `main`
+- After a completed change: `git add`, `git commit`, `git push origin main`
+- Do not force-push, amend published commits, or change git config
+- Do not commit `.env*`, `.vercel`, `node_modules`, `.next`, tokens, or passwords
+- Authenticate with existing git credentials or a local `GITHUB_TOKEN` env var
+- Never write a GitHub PAT into the repo, docs, rules, or commit messages
