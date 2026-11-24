@@ -264,7 +264,7 @@ export default function AdminUsersPage() {
           <div>
             <h2 className="text-lg font-semibold">مدیریت کاربران</h2>
             <p className="text-xs text-zinc-500">
-              ساخت حساب ورود برای ادمین‌ها و اعضای صندوق
+              ساخت حساب ورود برای ادمین‌ها و اعضای بانک
             </p>
           </div>
           <button type="button" onClick={openCreate} className={btnPrimary}>
@@ -290,7 +290,7 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3 font-medium">نقش</th>
                 <th className="px-4 py-3 font-medium">وضعیت</th>
                 <th className="px-4 py-3 font-medium">ورود با رمز</th>
-                <th className="px-4 py-3 font-medium">عضو صندوق</th>
+                <th className="px-4 py-3 font-medium">عضو بانک</th>
                 <th className="px-4 py-3 font-medium">عملیات</th>
               </tr>
             </thead>
@@ -463,7 +463,7 @@ export default function AdminUsersPage() {
               </select>
             </Field>
             {fRole === "member" && (
-              <Field label="اتصال به عضو صندوق">
+              <Field label="اتصال به عضو بانک">
                 <select value={fMemberId} onChange={(e) => setFMemberId(e.target.value)} className={inputClass}>
                   <option value="">— بدون اتصال —</option>
                   {members.map((m) => (
@@ -507,7 +507,7 @@ export default function AdminUsersPage() {
               </select>
             </Field>
             {eRole === "member" && (
-              <Field label="اتصال به عضو صندوق">
+              <Field label="اتصال به عضو بانک">
                 <select value={eMemberId} onChange={(e) => setEMemberId(e.target.value)} className={inputClass}>
                   <option value="">— بدون اتصال —</option>
                   {members.map((m) => (

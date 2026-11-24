@@ -62,7 +62,7 @@ export default function AdminRequestsPage() {
         setError(data.error || "بررسی درخواست ناموفق بود.");
         return;
       }
-      setNotice(action === "approve" ? "درخواست تأیید و در صندوق ثبت شد." : "درخواست رد شد.");
+      setNotice(action === "approve" ? "درخواست تأیید و در بانک ثبت شد." : "درخواست رد شد.");
       await load();
     } catch {
       setError("بررسی درخواست ناموفق بود.");
@@ -80,7 +80,7 @@ export default function AdminRequestsPage() {
         <div>
           <h2 className="text-lg font-semibold">درخواست‌های اعضا</h2>
           <p className="text-xs text-zinc-500">
-            تأیید پرداخت سهام، واریزی را در صندوق ثبت می‌کند؛ تأیید پرداخت قسط، آن را در وام ثبت می‌کند.
+            تأیید پرداخت سهام، واریزی را در بانک ثبت می‌کند؛ تأیید پرداخت قسط، آن را در وام ثبت می‌کند.
           </p>
         </div>
 
@@ -182,7 +182,7 @@ export default function AdminRequestsPage() {
                     </p>
                     {r.status === "approved" && (
                       <p className="text-xs text-amber-600 dark:text-amber-400">
-                        یادآوری: وام واقعی را از بخش «وام‌ها و اقساط» صندوق ثبت کنید.
+                        یادآوری: وام واقعی را از بخش «وام‌ها و اقساط» بانک ثبت کنید.
                       </p>
                     )}
                   </div>

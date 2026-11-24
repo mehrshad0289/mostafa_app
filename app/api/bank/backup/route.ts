@@ -41,7 +41,7 @@ function validateBackup(raw: unknown): { bank?: BankDatabase; error?: string } {
 
   // تنظیمات
   if (!isObj(candidate.settings)) {
-    return { error: "فایل پشتیبان معتبر نیست: تنظیمات صندوق یافت نشد." };
+    return { error: "فایل پشتیبان معتبر نیست: تنظیمات بانک یافت نشد." };
   }
   const s = candidate.settings;
   if (!isNum(s.amountPerShare) || s.amountPerShare <= 0) {

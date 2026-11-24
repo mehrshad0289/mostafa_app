@@ -53,7 +53,7 @@ export default function BankPage() {
       setLoans(Array.isArray(l) ? l : []);
       setSettings(s && typeof s === "object" ? s : null);
     } catch {
-      setError("دریافت اطلاعات صندوق ناموفق بود.");
+      setError("دریافت اطلاعات بانک ناموفق بود.");
     } finally {
       setLoading(false);
     }
@@ -97,10 +97,9 @@ export default function BankPage() {
         data-noprint
       >
         <div className="space-y-2">
-          <p className="text-sm text-zinc-500">صندوق قرض‌الحسنه</p>
           <h1 className="text-3xl font-semibold tracking-tight">فم بانک</h1>
           <p className="text-zinc-600 dark:text-zinc-400">
-            مدیریت اعضا، واریزی‌ها، وام‌ها و گزارش‌های صندوق.
+            مدیریت اعضا، واریزی‌ها، وام‌ها و گزارش‌های بانک.
           </p>
         </div>
         <button
@@ -126,7 +125,7 @@ export default function BankPage() {
 
       <section className="grid grid-cols-3 gap-3" data-noprint>
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <p className="text-xs text-zinc-500">موجودی صندوق</p>
+          <p className="text-xs text-zinc-500">موجودی بانک</p>
           <p className="mt-1 text-lg font-semibold sm:text-xl">
             {faNum(summary.balance)}
             <span className="mr-1 text-xs font-normal text-zinc-500">تومان</span>

@@ -338,7 +338,7 @@ export function memberDebt(
   return loanDebt + share.left;
 }
 
-// ---------- خلاصه صندوق و گردش ماهانه ----------
+// ---------- خلاصه بانک و گردش ماهانه ----------
 
 export type BankFundSummary = {
   totalShares: number;
@@ -346,7 +346,7 @@ export type BankFundSummary = {
   totalInterest: number;
 };
 
-/** موجودی صندوق = همه واریزی‌ها + بازپرداخت‌ها − مبالغ پرداختی وام */
+/** موجودی بانک = همه واریزی‌ها + بازپرداخت‌ها − مبالغ پرداختی وام */
 export function recalcFund(
   bank: Pick<BankDatabase, "members" | "deposits" | "loans">,
 ): BankFundSummary {

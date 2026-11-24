@@ -63,7 +63,7 @@ const expectedBalance =
   deposits.reduce((s, d) => s + d.amount, 0) -
   loans.reduce((s, l) => s + (l.disbursedAmount ?? l.principal ?? 0), 0) +
   loans.reduce((s, l) => s + loanPaid(l), 0);
-check("موجودی صندوق (recalcFund) == واریزی − پرداختی وام + بازپرداخت", fund.balance, expectedBalance);
+check("موجودی بانک (recalcFund) == واریزی − پرداختی وام + بازپرداخت", fund.balance, expectedBalance);
 check("جمع سهم‌ها", fund.totalShares, members.reduce((s, m) => s + m.shares, 0));
 
 console.log(fails === 0 ? "\nALL GREEN ✅" : `\n${fails} مورد مغایرت ❌`);

@@ -365,7 +365,7 @@ export default function DashboardPage() {
         {loading && <p className="text-sm text-zinc-500">در حال دریافت اطلاعات…</p>}
         {!loading && !member && (
           <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-            حساب شما هنوز به عضوی از صندوق متصل نشده است؛ با مدیر تماس بگیرید.
+            حساب شما هنوز به عضوی از بانک متصل نشده است؛ با مدیر تماس بگیرید.
           </p>
         )}
 
@@ -405,7 +405,7 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <h3 className="mb-2 text-sm font-medium">واریزی‌های تأییدشده در صندوق</h3>
+              <h3 className="mb-2 text-sm font-medium">واریزی‌های تأییدشده در بانک</h3>
               <div className="space-y-2">
                 {deposits.length === 0 && <p className="text-xs text-zinc-500">واریزی تأییدشده‌ای وجود ندارد.</p>}
                 {deposits.map((d) => (

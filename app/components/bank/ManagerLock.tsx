@@ -94,7 +94,7 @@ export default function ManagerLock({ onUnlock }: ManagerLockProps) {
     <div className="mx-auto max-w-sm space-y-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
       <h2 className="text-base font-medium">قفل مدیر</h2>
       <p className="text-xs text-zinc-500">
-        این قفل فقط ظاهری است (مطابق نمونه) — امنیت سروری نیست و داده‌های صندوق
+        این قفل فقط ظاهری است (مطابق نمونه) — امنیت سروری نیست و داده‌های بانک
         در سرور باقی می‌مانند.
       </p>
 

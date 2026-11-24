@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "فم بانک",
-  description: "مدیریت صندوق قرض‌الحسنه: اعضا، واریزی‌ها و وام‌ها",
+  description: "مدیریت فم بانک: اعضا، واریزی‌ها و وام‌ها",
 };
 
 export default function BankLayout({
