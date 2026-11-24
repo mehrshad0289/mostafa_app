@@ -319,7 +319,7 @@ export default function MembersTab({
         <button
           type="button"
           onClick={openAdd}
-          className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white dark:bg-primary-500 dark:text-white"
         >
           افزودن عضو
         </button>
@@ -353,7 +353,7 @@ export default function MembersTab({
               }),
             )
           }
-          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-primary-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
         >
           خروجی CSV
         </button>
@@ -440,7 +440,7 @@ export default function MembersTab({
             <button
               type="submit"
               disabled={busy}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+              className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
             >
               {editingId ? "ذخیره" : "ثبت عضو"}
             </button>
@@ -547,7 +547,7 @@ export default function MembersTab({
                 <button
                   type="submit"
                   disabled={accountBusy}
-                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+                  className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
                 >
                   {accountBusy ? "در حال ساخت…" : "ساخت حساب"}
                 </button>
@@ -608,7 +608,7 @@ export default function MembersTab({
                     <button
                       type="button"
                       onClick={() => setDetailId(member.id)}
-                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 transition-colors hover:border-primary-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
                     >
                       پرونده مالی
                     </button>
@@ -640,7 +640,7 @@ export default function MembersTab({
                     <button
                       type="button"
                       onClick={() => openEdit(member)}
-                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 transition-colors hover:border-primary-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
                     >
                       ویرایش
                     </button>

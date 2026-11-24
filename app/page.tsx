@@ -31,7 +31,10 @@ export default function HomePage() {
   }, [router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 p-4 dark:bg-black dark:text-zinc-50">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gradient-to-b from-primary-100/70 via-zinc-50 to-zinc-50 p-4 dark:from-zinc-950 dark:via-black dark:to-black dark:text-zinc-50">
+      <span className="grid size-14 place-items-center rounded-2xl bg-primary-600 text-2xl font-bold text-white shadow-lg shadow-primary-600/30 dark:bg-primary-500">
+        م
+      </span>
       <p className="text-sm text-zinc-500">در حال انتقال…</p>
     </main>
   );

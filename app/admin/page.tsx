@@ -67,10 +67,10 @@ export default function AdminOverviewPage() {
             <Link
               key={card.label}
               href={card.href}
-              className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600"
+              className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition hover:border-primary-400 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600"
             >
               <p className="text-xs text-zinc-500">{card.label}</p>
-              <p className="mt-2 text-2xl font-semibold">
+              <p className="mt-2 text-2xl font-bold text-primary-700 dark:text-primary-300">
                 {card.value === null ? "…" : card.value.toLocaleString("fa-IR")}
               </p>
             </Link>

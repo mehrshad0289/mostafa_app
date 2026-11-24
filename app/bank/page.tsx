@@ -93,19 +93,41 @@ export default function BankPage() {
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-12">
       <header
-        className="flex flex-wrap items-start justify-between gap-3"
+        className="card flex flex-wrap items-center justify-between gap-3 p-5"
         data-noprint
       >
-        <div className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight">فم بانک</h1>
-          <p className="text-zinc-600 dark:text-zinc-400">
-            مدیریت اعضا، واریزی‌ها، وام‌ها و گزارش‌های بانک.
-          </p>
+        <div className="flex items-center gap-3">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary-600 text-white shadow-sm dark:bg-primary-500">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="size-6"
+            >
+              <path d="M3 21h18" />
+              <path d="M4 18h16" />
+              <path d="M6 18v-7" />
+              <path d="M10 18v-7" />
+              <path d="M14 18v-7" />
+              <path d="M18 18v-7" />
+              <path d="M12 3 4 8h16l-8-5Z" />
+            </svg>
+          </span>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">فم بانک</h1>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              مدیریت اعضا، واریزی‌ها، وام‌ها و گزارش‌های بانک.
+            </p>
+          </div>
         </div>
         <button
           type="button"
           onClick={() => setLocked(true)}
-          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+          className="btn-outline"
         >
           قفل مدیر
         </button>
@@ -118,26 +140,26 @@ export default function BankPage() {
       <Link
         href="/"
         data-noprint
-        className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+        className="text-sm font-medium text-primary-700 underline-offset-4 hover:underline dark:text-primary-300"
       >
         ← بازگشت به Mostafa App
       </Link>
 
       <section className="grid grid-cols-3 gap-3" data-noprint>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="card p-4">
           <p className="text-xs text-zinc-500">موجودی بانک</p>
-          <p className="mt-1 text-lg font-semibold sm:text-xl">
+          <p className="mt-1 text-lg font-bold text-primary-700 sm:text-xl dark:text-primary-300">
             {faNum(summary.balance)}
             <span className="mr-1 text-xs font-normal text-zinc-500">تومان</span>
           </p>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="card p-4">
           <p className="text-xs text-zinc-500">جمع سهم‌ها</p>
-          <p className="mt-1 text-lg font-semibold sm:text-xl">{faNum(summary.totalShares)}</p>
+          <p className="mt-1 text-lg font-bold sm:text-xl">{faNum(summary.totalShares)}</p>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="card p-4">
           <p className="text-xs text-zinc-500">تعداد اعضا</p>
-          <p className="mt-1 text-lg font-semibold sm:text-xl">{faNum(members.length)}</p>
+          <p className="mt-1 text-lg font-bold sm:text-xl">{faNum(members.length)}</p>
         </div>
       </section>
 
@@ -152,7 +174,10 @@ export default function BankPage() {
         </p>
       )}
 
-      <nav className="flex flex-wrap gap-2" data-noprint>
+      <nav
+        className="flex flex-wrap gap-1 rounded-2xl border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-800 dark:bg-zinc-900"
+        data-noprint
+      >
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -160,8 +185,8 @@ export default function BankPage() {
             onClick={() => setTab(t.key)}
             className={
               tab === t.key
-                ? "rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+                ? "min-w-fit flex-1 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-primary-700 shadow-sm dark:bg-zinc-800 dark:text-primary-300"
+                : "min-w-fit flex-1 rounded-xl px-4 py-2 text-sm text-zinc-600 transition-colors hover:bg-white/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
             }
           >
             {t.label}

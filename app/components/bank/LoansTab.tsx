@@ -290,7 +290,7 @@ export default function LoansTab({ members, loans, onRefresh }: LoansTabProps) {
         <button
           type="button"
           onClick={openAdd}
-          className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
+          className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white dark:bg-primary-500 dark:text-white"
         >
           ثبت وام
         </button>
@@ -323,7 +323,7 @@ export default function LoansTab({ members, loans, onRefresh }: LoansTabProps) {
               ]),
             )
           }
-          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-primary-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
         >
           خروجی CSV
         </button>
@@ -521,7 +521,7 @@ export default function LoansTab({ members, loans, onRefresh }: LoansTabProps) {
             <button
               type="submit"
               disabled={busy}
-              className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+              className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
             >
               ثبت وام
             </button>

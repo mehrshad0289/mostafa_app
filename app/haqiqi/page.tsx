@@ -24,13 +24,13 @@ export default function HaqiqiPage() {
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         <Link
           href="/"
-          className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          className="text-sm font-medium text-primary-700 underline-offset-4 hover:underline dark:text-primary-300"
         >
           ← بازگشت به Mostafa App
         </Link>
         <Link
           href="/bank"
-          className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+          className="text-sm font-medium text-primary-700 underline-offset-4 hover:underline dark:text-primary-300"
         >
           → فم بانک
         </Link>

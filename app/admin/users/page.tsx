@@ -37,7 +37,7 @@ async function copyText(text: string): Promise<boolean> {
 const inputClass =
   "w-full rounded-xl border border-zinc-200 bg-transparent px-3 py-2.5 text-sm dark:border-zinc-800";
 const btnPrimary =
-  "rounded-xl bg-zinc-900 px-4 py-2.5 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900";
+  "rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2.5 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white";
 const btnGhost =
   "rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700";
 

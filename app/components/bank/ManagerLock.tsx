@@ -118,7 +118,7 @@ export default function ManagerLock({ onUnlock }: ManagerLockProps) {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className="w-full rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
           >
             باز کردن قفل
           </button>
@@ -154,7 +154,7 @@ export default function ManagerLock({ onUnlock }: ManagerLockProps) {
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+            className="w-full rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
           >
             ذخیره PIN و فعال‌سازی قفل
           </button>

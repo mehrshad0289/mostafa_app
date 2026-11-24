@@ -65,7 +65,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const linkClass = (active: boolean) =>
     `block rounded-xl px-3 py-2 text-sm transition ${
       active
-        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+        ? "bg-primary-50 font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300"
         : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
     }`;
 
@@ -76,9 +76,31 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         data-noprint
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-xs text-zinc-500">Mostafa App</p>
-            <h1 className="truncate text-base font-semibold">پنل مدیریت</h1>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-600 text-white shadow-sm dark:bg-primary-500">
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-5"
+              >
+                <path d="M3 21h18" />
+                <path d="M4 18h16" />
+                <path d="M6 18v-7" />
+                <path d="M10 18v-7" />
+                <path d="M14 18v-7" />
+                <path d="M18 18v-7" />
+                <path d="M12 3 4 8h16l-8-5Z" />
+              </svg>
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs text-zinc-500">Mostafa App</p>
+              <h1 className="truncate text-base font-semibold">پنل مدیریت</h1>
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
             <span className="max-w-[10rem] truncate text-xs text-zinc-500">
@@ -87,7 +109,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700"
+              className="rounded-xl border border-zinc-300 px-3 py-2 text-xs transition-colors hover:border-red-300 hover:text-red-600 dark:border-zinc-700 dark:hover:border-red-900 dark:hover:text-red-400"
             >
               خروج
             </button>
@@ -100,7 +122,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               href={item.href}
               className={`shrink-0 rounded-xl px-3 py-2 text-xs ${
                 pathname === item.href
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  ? "bg-primary-50 font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300"
                   : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
               }`}
             >
@@ -108,6 +130,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </Link>
           ))}
         </nav>
+        <div className="h-1 bg-gradient-to-l from-primary-700 via-primary-500 to-primary-400" />
       </header>
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-6">
         <aside className="hidden w-52 shrink-0 md:block" data-noprint>

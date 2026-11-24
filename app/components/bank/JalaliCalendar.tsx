@@ -111,7 +111,7 @@ export default function JalaliCalendar({ value, onChange }: JalaliCalendarProps)
         <button
           type="button"
           onClick={() => shiftMonth(-1)}
-          className="rounded-xl border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+          className="rounded-xl border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:border-primary-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
         >
           ماه قبل
         </button>
@@ -121,7 +121,7 @@ export default function JalaliCalendar({ value, onChange }: JalaliCalendarProps)
         <button
           type="button"
           onClick={() => shiftMonth(1)}
-          className="rounded-xl border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+          className="rounded-xl border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:border-primary-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
         >
           ماه بعد
         </button>

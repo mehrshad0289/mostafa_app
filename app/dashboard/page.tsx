@@ -329,9 +329,9 @@ export default function DashboardPage() {
   }
 
   const inputClass =
-    "w-full rounded-xl border border-zinc-200 bg-transparent px-3 py-3 text-sm dark:border-zinc-800";
+    "w-full rounded-xl border border-zinc-200 bg-transparent px-3 py-3 text-sm outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-zinc-800 dark:focus:ring-primary-500/20";
   const btnPrimary =
-    "rounded-xl bg-zinc-900 px-4 py-3 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900";
+    "rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-3 text-sm font-medium text-white transition-colors disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-600 dark:text-white";
   const btnGhost =
     "rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700";
 
@@ -339,18 +339,24 @@ export default function DashboardPage() {
     <div className="flex min-h-screen flex-col bg-zinc-50 pb-24 dark:bg-black dark:text-zinc-50">
       <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
-          <div className="min-w-0">
-            <p className="text-xs text-zinc-500">پنل عضو</p>
-            <h1 className="truncate text-base font-semibold">{me.fullName || me.username}</h1>
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-600 text-base font-bold text-white shadow-sm dark:bg-primary-500">
+              م
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs text-zinc-500">پنل عضو</p>
+              <h1 className="truncate text-base font-semibold">{me.fullName || me.username}</h1>
+            </div>
           </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="shrink-0 rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700"
+            className="shrink-0 rounded-xl border border-zinc-300 px-3 py-2 text-xs transition-colors hover:border-red-300 hover:text-red-600 dark:border-zinc-700 dark:hover:border-red-900 dark:hover:text-red-400"
           >
             خروج
           </button>
         </div>
+        <div className="h-1 bg-gradient-to-l from-primary-700 via-primary-500 to-primary-400" />
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-5">
@@ -651,9 +657,9 @@ export default function DashboardPage() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+    <div className="card p-4">
       <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-1 text-base font-semibold">{value}</p>
+      <p className="mt-1 text-base font-bold text-primary-700 dark:text-primary-300">{value}</p>
     </div>
   );
 }
@@ -663,10 +669,10 @@ function SubTab({ active, onClick, label, count }: { active: boolean; onClick: (
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 rounded-xl border px-3 py-3 text-sm ${
+      className={`flex-1 rounded-xl border px-3 py-3 text-sm transition-colors ${
         active
-          ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900"
-          : "border-zinc-200 text-zinc-600 dark:border-zinc-800 dark:text-zinc-400"
+          ? "border-primary-600 bg-primary-600 font-medium text-white dark:border-primary-500 dark:bg-primary-600"
+          : "border-zinc-200 text-zinc-600 hover:border-primary-300 hover:text-primary-700 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-primary-700 dark:hover:text-primary-300"
       }`}
     >
       {label} ({count.toLocaleString("fa-IR")})
