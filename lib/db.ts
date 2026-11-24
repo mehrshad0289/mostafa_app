@@ -909,3 +909,128 @@ export async function findUserByUsername(username: string): Promise<User | null>
   const wanted = username.trim();
   return db.users.find((u) => u.username === wanted) ?? null;
 }
+
+// ---------- مدیریت کاربران (فقط ادمین) ----------
+
+export type UserPatch = {
+  fullName?: string;
+  phone?: string;
+  role?: UserRole;
+  active?: boolean;
+  memberId?: string | null;
+  password?: string;
+};
+
+function assertRole(role: unknown): UserRole {
+  if (role === "admin" || role === "member") return role;
+  throw new Error("نقش کاربر فقط می‌تواند admin یا member باشد.");
+}
+
+function assertMemberExists(bank: BankDatabase, memberId: string | null | undefined) {
+  if (memberId === null || memberId === undefined || memberId === "") return null;
+  const member = bank.members.find((m) => m.id === memberId);
+  if (!member) {
+    throw new Error("عضو صندوق انتخاب‌شده پیدا نشد.");
+  }
+  return member.id;
+}
+
+function assertNewPassword(password: string): string {
+  if (typeof password !== "string" || password.length < 6) {
+    throw new Error("رمز عبور باید حداقل ۶ نویسه باشد.");
+  }
+  return password;
+}
+
+export async function listUsers(): Promise<User[]> {
+  const db = await readDb();
+  return db.users;
+}
+
+export async function createUser(input: {
+  username: string;
+  password: string;
+  fullName?: string;
+  phone?: string;
+  role?: unknown;
+  memberId?: string | null;
+}): Promise<User> {
+  const username = input.username.trim();
+  if (username.length < 3) {
+    throw new Error("نام کاربری باید حداقل ۳ نویسه باشد.");
+  }
+  assertNewPassword(input.password);
+  const role = assertRole(input.role);
+  const db = await readDb();
+  if (db.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+    throw new Error("این نام کاربری قبلاً ثبت شده است.");
+  }
+  const memberId = assertMemberExists(db.bank, input.memberId);
+  const { hash, salt } = hashPassword(input.password);
+  const user: User = {
+    id: bankUid(),
+    username,
+    passwordHash: hash,
+    salt,
+    role,
+    fullName: input.fullName?.trim() ?? "",
+    phone: input.phone?.trim() ?? "",
+    memberId: role === "member" ? memberId : null,
+    active: true,
+    createdAt: new Date().toISOString(),
+  };
+  db.users.push(user);
+  await writeDb(db);
+  return user;
+}
+
+/** تعداد ادمین‌های فعال فعلی — برای جلوگیری از قفل شدن سیستم */
+function countActiveAdmins(db: Database): number {
+  return db.users.filter((u) => u.role === "admin" && u.active).length;
+}
+
+export async function updateUser(id: string, patch: UserPatch): Promise<User | null> {
+  const db = await readDb();
+  const user = db.users.find((u) => u.id === id);
+  if (!user) return null;
+  const nextRole = patch.role !== undefined ? assertRole(patch.role) : user.role;
+  const nextActive = patch.active !== undefined ? patch.active : user.active;
+  if (
+    user.role === "admin" &&
+    user.active &&
+    (nextRole !== "admin" || !nextActive) &&
+    countActiveAdmins(db) <= 1
+  ) {
+    throw new Error("آخرین ادمین فعال را نمی‌توان غیرفعال یا عضو کرد؛ ابتدا یک ادمین دیگر بسازید.");
+  }
+  const memberId =
+    patch.memberId !== undefined ? assertMemberExists(db.bank, patch.memberId) : user.memberId;
+  if (patch.password !== undefined) {
+    assertNewPassword(patch.password);
+    const { hash, salt } = hashPassword(patch.password);
+    user.passwordHash = hash;
+    user.salt = salt;
+  }
+  if (patch.fullName !== undefined) user.fullName = patch.fullName.trim();
+  if (patch.phone !== undefined) user.phone = patch.phone.trim();
+  user.role = nextRole;
+  user.active = nextActive;
+  user.memberId = user.role === "member" ? memberId : null;
+  await writeDb(db);
+  return user;
+}
+
+export async function deleteUser(id: string): Promise<User | null> {
+  const db = await readDb();
+  const index = db.users.findIndex((u) => u.id === id);
+  if (index === -1) return null;
+  const [removed] = db.users.splice(index, 1);
+  if (removed.role === "admin" && removed.active && countActiveAdmins(db) < 1) {
+    // برگرداندن تغییر برای جلوگیری از قفل شدن سیستم
+    db.users.splice(index, 0, removed);
+    throw new Error("حذف آخرین ادمین مجاز نیست؛ ابتدا یک ادمین دیگر بسازید.");
+  }
+  db.sessions = db.sessions.filter((s) => s.userId !== id);
+  await writeDb(db);
+  return removed;
+}
