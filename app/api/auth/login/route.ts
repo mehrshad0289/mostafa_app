@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  ADMIN_USERNAME,
   SESSION_TTL_DAYS,
   createSessionToken,
   findUserByUsername,
@@ -7,6 +8,14 @@ import {
   verifyPassword,
 } from "@/lib/db";
 import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
+
+/**
+ * ورود بدون رمز برای ادمین اصلی (username=admin) — «فعلاً» فعال است تا ورود سریع
+ * داشته باشیم. برای بستن دوباره فقط این مقدار را false کنید؛ رمز قبلی ادمین دست
+ * نخورده باقی می‌ماند و همان موقع به‌عنوان لایه دوم برمی‌گردد. توجه: این اپ روی
+ * اینترنت عمومی است؛ تا وقتی true است هر کسی می‌تواند به‌عنوان admin وارد شود.
+ */
+const ADMIN_PASSWORDLESS_LOGIN = true;
 
 /** ورود: نام کاربری + رمز → کوکی sessionId هفت‌روزه (httpOnly, sameSite lax) + نقش کاربر */
 export async function POST(request: Request) {
@@ -18,15 +27,19 @@ export async function POST(request: Request) {
   }
   const username = typeof body.username === "string" ? body.username.trim() : "";
   const password = typeof body.password === "string" ? body.password : "";
-  if (!username || !password) {
+  const passwordlessAdmin =
+    ADMIN_PASSWORDLESS_LOGIN && username.toLowerCase() === ADMIN_USERNAME;
+  if (!username || (!password && !passwordlessAdmin)) {
     return NextResponse.json(
       { error: "نام کاربری و رمز عبور لازم است." },
       { status: 400 },
     );
   }
   const user = await findUserByUsername(username);
+  // ورود بدون رمز فقط برای ادمین اصلی فعال؛ بقیه باید رمز درست بدهند
+  const passwordlessOk = passwordlessAdmin && password === "";
   // پیام یکسان برای کاربر ناموجود و رمز اشتباه تا وضعیت حساب لو نرود
-  if (!user || !verifyPassword(password, user.salt, user.passwordHash)) {
+  if (!user || (!passwordlessOk && !verifyPassword(password, user.salt, user.passwordHash))) {
     return NextResponse.json(
       { error: "نام کاربری یا رمز عبور اشتباه است" },
       { status: 401 },
@@ -38,7 +51,7 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
-  if (!user.passwordLoginEnabled) {
+  if (!passwordlessOk && !user.passwordLoginEnabled) {
     return NextResponse.json(
       { error: "ورود با رمز عبور برای حساب شما غیرفعال است. با مدیر تماس بگیرید." },
       { status: 403 },

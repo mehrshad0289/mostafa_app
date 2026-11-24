@@ -923,7 +923,8 @@ export type Session = {
 };
 
 const DEFAULT_ADMIN_ID = "user-admin-default";
-const DEFAULT_ADMIN_USERNAME = "admin";
+/** نام کاربری ادمین اصلی — برای منطق ورود بدون رمز موقت در route ورود */
+export const ADMIN_USERNAME = "admin";
 const DEFAULT_ADMIN_PASSWORD = "Admin@12345";
 const DEFAULT_ADMIN_SALT = "mostafa-default-admin-salt-v1";
 
@@ -938,7 +939,7 @@ function ensureDefaultAdmin(db: Database) {
   db.users = db.users.filter((u) => u.id !== DEFAULT_ADMIN_ID);
   db.users.unshift({
     id: DEFAULT_ADMIN_ID,
-    username: DEFAULT_ADMIN_USERNAME,
+    username: ADMIN_USERNAME,
     passwordHash: scryptSync(DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_SALT, 64).toString("hex"),
     salt: DEFAULT_ADMIN_SALT,
     role: "admin",

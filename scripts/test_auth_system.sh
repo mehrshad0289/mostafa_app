@@ -160,6 +160,17 @@ else
   PASS=$((PASS+1)); say "PASS  رمز خام در فایل داده نیست (فقط hash)"
 fi
 
+say "== 11) ورود موقت بدون رمز ادمین =="
+code=$(post /api/auth/login '{"username":"admin","password":""}' "$ADMIN_JAR")
+chk_status "ورود ادمین با رمز خالی → 200" 200 "$code"
+chk_contains "نقش ادمین در پاسخ" '"role":"admin"' "$OUT"
+code=$(post /api/auth/login '{"username":"admin"}' "$ADMIN_JAR")
+chk_status "ورود ادمین بدون فیلد رمز → 200" 200 "$code"
+code=$(post /api/auth/login '{"username":"testuser1","password":""}')
+chk_status "کاربر عادی با رمز خالی → 400" 400 "$code"
+code=$(post /api/auth/login '{"username":"nosuchuser","password":""}')
+chk_status "کاربر ناموجود با رمز خالی → 400" 400 "$code"
+
 say ""
 say "RESULT: PASS=$PASS FAIL=$FAIL"
 rm -rf "$TMP"
