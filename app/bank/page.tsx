@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MembersTab from "@/app/components/bank/MembersTab";
 import DepositsTab from "@/app/components/bank/DepositsTab";
+import LoansTab from "@/app/components/bank/LoansTab";
 import { recalcFund } from "@/lib/bank";
 import type { BankDeposit, BankLoan, BankMember, BankSettings } from "@/lib/db";
 
@@ -153,6 +154,8 @@ export default function BankPage() {
           settings={settings}
           onRefresh={load}
         />
+      ) : tab === "loans" ? (
+        <LoansTab members={members} loans={loans} onRefresh={load} />
       ) : (
         <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <h2 className="text-base font-medium">

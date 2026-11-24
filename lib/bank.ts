@@ -215,7 +215,7 @@ export function makeSchedule(input: {
   if (input.mode === "manual") {
     amounts = normalizeDigits(String(input.manualText ?? ""))
       .split(/[\n,،]+/)
-      .map((x) => Number(x.trim()))
+      .map((x) => Number(x.replace(/[\u066c\u060c\s]/g, "").trim()))
       .filter((x) => Number.isFinite(x) && x > 0);
     const sum = amounts.reduce((a, b) => a + b, 0);
     if (amounts.length !== months || Math.abs(sum - total) > 0.01) {
