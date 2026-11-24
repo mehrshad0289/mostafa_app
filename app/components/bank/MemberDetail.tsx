@@ -1,7 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
-import { loanPaid, loanRemaining, memberShareDue } from "@/lib/bank";
+import { useMemo, useState } from "react";
+import {
+  loanPaid,
+  loanRemaining,
+  memberShareDue,
+  parseAmount,
+} from "@/lib/bank";
 import type { BankDeposit, BankLoan, BankMember } from "@/lib/db";
 import { useHydrated } from "./useHydrated";
 
@@ -11,6 +16,7 @@ type MemberDetailProps = {
   loans: BankLoan[];
   amountPerShare: number;
   onBack: () => void;
+  onRefresh: () => void;
 };
 
 const TYPE_LABELS: Record<BankDeposit["type"], string> = {
@@ -50,8 +56,16 @@ export default function MemberDetail({
   loans,
   amountPerShare,
   onBack,
+  onRefresh,
 }: MemberDetailProps) {
   const hydrated = useHydrated();
+  /** فرم تسویه باز است (استپ ۱۴) */
+  const [settleOpen, setSettleOpen] = useState(false);
+  const [claim, setClaim] = useState("");
+  const [debt, setDebt] = useState("");
+  const [unsettleConfirm, setUnsettleConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [settleError, setSettleError] = useState("");
 
   const detail = useMemo(() => {
     if (!hydrated) return null;
@@ -80,6 +94,84 @@ export default function MemberDetail({
 
   const inputClass =
     "rounded-xl border border-zinc-200 bg-transparent px-3 py-2 text-sm dark:border-zinc-800";
+
+  /** باز کردن فرم تسویه — پیش‌فرض طلب/بدهی از محاسبات پرونده (یا اعداد ثبت‌شده) */
+  function openSettle(editRecorded: boolean) {
+    setClaim(
+      String(
+        Math.round(
+          editRecorded
+            ? (member.settlementClaim ?? 0)
+            : (detail?.due.credit ?? 0),
+        ),
+      ),
+    );
+    setDebt(
+      String(
+        Math.round(
+          editRecorded ? (member.settlementDebt ?? 0) : (detail?.debt ?? 0),
+        ),
+      ),
+    );
+    setSettleOpen(true);
+    setUnsettleConfirm(false);
+    setSettleError("");
+  }
+
+  async function submitSettle(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setSettleError("");
+    try {
+      const response = await fetch(
+        `/api/bank/members/${member.id}/settlement`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            claim: parseAmount(claim),
+            debt: parseAmount(debt),
+          }),
+        },
+      );
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setSettleError(data.error || "ثبت تسویه ناموفق بود.");
+        return;
+      }
+      setSettleOpen(false);
+      onRefresh();
+    } catch {
+      setSettleError("ارتباط با سرور ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmUnsettle() {
+    setBusy(true);
+    setSettleError("");
+    try {
+      const response = await fetch(
+        `/api/bank/members/${member.id}/settlement`,
+        { method: "DELETE" },
+      );
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setSettleError(data.error || "لغو تسویه ناموفق بود.");
+        return;
+      }
+      setUnsettleConfirm(false);
+      onRefresh();
+    } catch {
+      setSettleError("ارتباط با سرور ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** مانده خالص زنده فرم تسویه — مبالغ قابل ویرایش دستی */
+  const liveNet = parseAmount(claim) - parseAmount(debt);
 
   return (
     <div className="space-y-4">
@@ -190,21 +282,129 @@ export default function MemberDetail({
                   {toMoney(member.settlementNet)}
                 </p>
               )}
-            <div className="mt-4 flex items-center gap-2">
-              <button
-                type="button"
-                disabled
-                title="در استپ ۱۴ فعال می‌شود"
-                className="rounded-xl bg-emerald-600 px-4 py-2 text-sm text-white opacity-40"
-              >
-                تسویه نهایی عضو
-              </button>
-              {!member.settled && (
-                <span className="text-xs text-zinc-400">
-                  دکمه تسویه در استپ ۱۴ فعال می‌شود.
-                </span>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {member.settled ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openSettle(true)}
+                    className={`${inputClass} bg-white dark:bg-zinc-950`}
+                  >
+                    ویرایش اعداد تسویه
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUnsettleConfirm(true);
+                      setSettleError("");
+                    }}
+                    className="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-600 transition-colors hover:border-red-400 dark:border-red-900 dark:text-red-400"
+                  >
+                    لغو تسویه
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openSettle(false)}
+                  className="rounded-xl bg-emerald-600 px-4 py-2 text-sm text-white"
+                >
+                  تسویه نهایی عضو
+                </button>
               )}
             </div>
+
+            {settleError && (
+              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                {settleError}
+              </p>
+            )}
+
+            {unsettleConfirm && (
+              <div className="mt-3 rounded-2xl border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950/40">
+                <p>وضعیت تسویه این عضو لغو شود؟ اعداد تسویه پاک می‌شوند.</p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={confirmUnsettle}
+                    disabled={busy}
+                    className="rounded-xl bg-red-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                  >
+                    بله، لغو تسویه
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUnsettleConfirm(false)}
+                    className="rounded-xl border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+                  >
+                    انصراف
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {settleOpen && (
+              <form
+                onSubmit={submitSettle}
+                className="mt-3 space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30"
+              >
+                <h4 className="text-xs font-medium">
+                  {member.settled ? "ویرایش تسویه" : "ثبت تسویه نهایی"}
+                  <span className="mr-2 font-normal text-zinc-500">
+                    پیش‌فرض‌ها از محاسبات پرونده‌اند و قابل ویرایش دستی‌اند.
+                  </span>
+                </h4>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <label className="space-y-1 text-xs text-zinc-500">
+                    طلب عضو (تومان) — مبنای محاسبه: اعتبار (جمع واریزی سهام)
+                    <input
+                      inputMode="numeric"
+                      value={claim}
+                      onChange={(e) => setClaim(e.target.value)}
+                      className={`${inputClass} w-full bg-white dark:bg-zinc-950`}
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs text-zinc-500">
+                    بدهی عضو (تومان) — مبنای محاسبه: مانده وام‌ها + مانده تعهد
+                    <input
+                      inputMode="numeric"
+                      value={debt}
+                      onChange={(e) => setDebt(e.target.value)}
+                      className={`${inputClass} w-full bg-white dark:bg-zinc-950`}
+                    />
+                  </label>
+                </div>
+                <p className="text-sm">
+                  مانده خالص زنده:{" "}
+                  <span
+                    className={
+                      liveNet < 0
+                        ? "font-semibold text-amber-700 dark:text-amber-400"
+                        : "font-semibold text-emerald-700 dark:text-emerald-400"
+                    }
+                    dir="ltr"
+                  >
+                    {toMoney(liveNet)}
+                  </span>
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm text-white disabled:opacity-50"
+                  >
+                    {member.settled ? "به‌روزرسانی تسویه" : "ثبت تسویه"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSettleOpen(false)}
+                    className="rounded-xl border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+                  >
+                    انصراف
+                  </button>
+                </div>
+              </form>
+            )}
           </section>
 
           <section className="space-y-2">

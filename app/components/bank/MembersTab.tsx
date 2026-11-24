@@ -248,6 +248,7 @@ export default function MembersTab({
           loans={loans}
           amountPerShare={amountPerShare}
           onBack={() => setDetailId(null)}
+          onRefresh={onRefresh}
         />
       ) : (
         <>
