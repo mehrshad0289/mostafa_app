@@ -1,49 +1,38 @@
-import Link from "next/link";
-import NotesPanel from "./components/NotesPanel";
+"use client";
 
-export default function Home() {
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+/**
+ * صفحه اصلی: اگر لاگین بود به پنل خودش (ادمین → /admin، عضو → /dashboard)
+ * وگرنه به /login هدایت می‌شود. صفحه یادداشت‌های حقیقی در /haqiqi باقی است.
+ */
+export default function HomePage() {
+  const router = useRouter();
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((data: { user?: { role: "admin" | "member" } | null }) => {
+        if (!alive) return;
+        if (!data.user) {
+          router.replace("/login");
+        } else {
+          router.replace(data.user.role === "admin" ? "/admin" : "/dashboard");
+        }
+      })
+      .catch(() => {
+        if (alive) router.replace("/login");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [router]);
+
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-16">
-      <header className="space-y-2">
-        <p className="text-sm text-zinc-500">JSON Database</p>
-        <h1 className="text-3xl font-semibold tracking-tight">Mostafa App</h1>
-        <p className="text-zinc-600 dark:text-zinc-400">
-          یادداشت‌ها در فایل JSON داخل خود Next.js ذخیره می‌شوند.
-        </p>
-      </header>
-
-      <Link
-        href="/haqiqi"
-        className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600"
-      >
-        <div className="space-y-1">
-          <h2 className="text-lg font-medium">Mostafa App حقیقی</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            پنل ویژه اشخاص حقیقی؛ یادداشت‌های این بخش جدا از صفحه اصلی نگهداری
-            می‌شود.
-          </p>
-        </div>
-        <span className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-          ورود
-        </span>
-      </Link>
-
-      <Link
-        href="/bank"
-        className="flex items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-600"
-      >
-        <div className="space-y-1">
-          <h2 className="text-lg font-medium">بانک حقیقی</h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            مدیریت صندوق قرض‌الحسنه: اعضا، واریزی‌ها، وام‌ها و گزارش‌ها.
-          </p>
-        </div>
-        <span className="shrink-0 rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900">
-          ورود
-        </span>
-      </Link>
-
-      <NotesPanel kind="general" emptyText="موردی ثبت نشده است." />
+    <main className="flex min-h-screen items-center justify-center bg-zinc-50 p-4 dark:bg-black dark:text-zinc-50">
+      <p className="text-sm text-zinc-500">در حال انتقال…</p>
     </main>
   );
 }
