@@ -9,6 +9,7 @@ import {
   normalizeSearchText,
 } from "@/lib/bank";
 import type { BankDeposit, BankLoan, BankMember } from "@/lib/db";
+import MemberDetail from "./MemberDetail";
 import { useHydrated } from "./useHydrated";
 
 type MembersTabProps = {
@@ -64,6 +65,8 @@ export default function MembersTab({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<BankMember | null>(null);
   const [quickPayId, setQuickPayId] = useState<string | null>(null);
+  /** عضو انتخاب‌شده برای پرونده مالی (استپ ۱۲) */
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -84,6 +87,10 @@ export default function MembersTab({
       normalizeSearchText(`${member.name} ${member.phone}`).includes(q),
     );
   }, [rows, query]);
+
+  const detailMember = detailId
+    ? (members.find((m) => m.id === detailId) ?? null)
+    : null;
 
   function openAdd() {
     setFormOpen(true);
@@ -234,6 +241,16 @@ export default function MembersTab({
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
 
+      {detailMember ? (
+        <MemberDetail
+          member={detailMember}
+          deposits={deposits}
+          loans={loans}
+          amountPerShare={amountPerShare}
+          onBack={() => setDetailId(null)}
+        />
+      ) : (
+        <>
       {formOpen && (
         <form
           onSubmit={submitForm}
@@ -384,6 +401,13 @@ export default function MembersTab({
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      onClick={() => setDetailId(member.id)}
+                      className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+                    >
+                      پرونده مالی
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void quickPayShare(member, due!.monthlyDue)}
                       disabled={
                         !due ||
@@ -461,6 +485,8 @@ export default function MembersTab({
             );
           })}
         </ul>
+      )}
+        </>
       )}
     </div>
   );
