@@ -66,6 +66,31 @@ export function jalaliMonthSerial(key: string): number {
   return (year || 0) * 12 + (month || 1) - 1;
 }
 
+/** تبدیل عددی تاریخ شمسی به Date میلادی (ساعت ۱۲:۰۰ محلی) یا null اگر نامعتبر */
+export function jalaliToGregorian(jy: number, jm: number, jd: number): Date | null {
+  if (jy < 1300 || jy > 1500 || jm < 1 || jm > 12 || jd < 1 || jd > 31) return null;
+  // تخمین اولیه: نوروز حدود ۲۱ مارس سال +۶۲۱؛ سپس اصلاح دقیق با مقایسه اجزای شمسی
+  const dayOfYear = (jm <= 6 ? 31 * (jm - 1) : 186 + 30 * (jm - 7)) + jd;
+  const estimate = new Date(jy + 621, 2, 21, 12, 0, 0);
+  estimate.setDate(estimate.getDate() + dayOfYear - 1);
+  // فاز ۱ — پرش درشت ماه‌به‌ماه تا فاصله کمتر از یک ماه
+  for (let i = 0; i < 8; i++) {
+    const p = jalaliParts(estimate);
+    const monthDiff = (p.year - jy) * 12 + (p.month - jm);
+    if (monthDiff === 0) break;
+    estimate.setDate(estimate.getDate() - monthDiff * 30);
+  }
+  // فاز ۲ — اصلاح ریز روزبه‌روز تا رسیدن دقیق (خطای تخمین حداکثر چند روز)
+  for (let i = 0; i < 62; i++) {
+    const p = jalaliParts(estimate);
+    if (p.year === jy && p.month === jm && p.day === jd) return estimate;
+    const monthDiff = (p.year - jy) * 12 + (p.month - jm);
+    const dayDiff = monthDiff !== 0 ? Math.sign(monthDiff) : Math.sign(p.day - jd);
+    estimate.setDate(estimate.getDate() - dayDiff);
+  }
+  return null;
+}
+
 /** تاریخ شمسی «yyyy/mm/dd» را به Date میلادی تبدیل می‌کند (پیش‌فرض ساعت ۱۲:۰۰) */
 export function jalaliToDate(input: string, time = "12:00"): Date | null {
   const cleaned = normalizeDigits(String(input ?? "").trim());
@@ -74,24 +99,24 @@ export function jalaliToDate(input: string, time = "12:00"): Date | null {
   const jy = Number(match[1]);
   const jm = Number(match[2]);
   const jd = Number(match[3]);
-  if (jy < 1300 || jm < 1 || jm > 12 || jd < 1 || jd > 31) return null;
   const timeMatch = normalizeDigits(String(time ?? "12:00")).match(/^(\d{1,2}):(\d{2})$/);
   const hours = timeMatch ? Number(timeMatch[1]) : 12;
   const minutes = timeMatch ? Number(timeMatch[2]) : 0;
-  // تخمین اولیه: نوروز حدود ۲۱ مارس سال +۶۲۱؛ سپس اصلاح دقیق با مقایسه اجزای شمسی
-  const dayOfYear = (jm <= 6 ? 31 * (jm - 1) : 186 + 30 * (jm - 7)) + jd;
-  const estimate = new Date(jy + 621, 2, 21, 12, 0, 0);
-  estimate.setDate(estimate.getDate() + dayOfYear - 1);
-  for (let i = 0; i < 8; i++) {
-    const p = jalaliParts(estimate);
-    const diff = (p.year - jy) * 12 * 30 + (p.month - jm) * 30 + (p.day - jd);
-    if (diff === 0) break;
-    estimate.setDate(estimate.getDate() - diff);
-  }
-  const final = jalaliParts(estimate);
-  if (final.year !== jy || final.month !== jm || final.day !== jd) return null;
-  estimate.setHours(hours, minutes, 0, 0);
-  return estimate;
+  const gregorian = jalaliToGregorian(jy, jm, jd);
+  if (!gregorian) return null;
+  gregorian.setHours(hours, minutes, 0, 0);
+  return gregorian;
+}
+
+/** تعداد روزهای ماه شمسی (فروردین..شهریور = ۳۱، مهر..بهمن = ۳۰، اسفند = ۲۹ یا ۳۰) */
+export function jalaliMonthLength(jy: number, jm: number): number {
+  const first = jalaliToGregorian(jy, jm, 1);
+  if (!first) return 0;
+  const ny = jm === 12 ? jy + 1 : jy;
+  const nm = jm === 12 ? 1 : jm + 1;
+  const next = jalaliToGregorian(ny, nm, 1);
+  if (!next) return 0;
+  return Math.round((next.getTime() - first.getTime()) / 86400000);
 }
 
 /** دوره ماه واریزی: periodKey اگر بود، وگرنه ماه شمسیِ تاریخ ثبت */

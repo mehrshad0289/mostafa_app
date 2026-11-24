@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import JalaliCalendar from "@/app/components/bank/JalaliCalendar";
 import { recalcFund } from "@/lib/bank";
 import type { BankDeposit, BankLoan, BankMember } from "@/lib/db";
 
@@ -36,6 +37,8 @@ export default function BankPage() {
   const [loans, setLoans] = useState<BankLoan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // استفاده موقت برای تست استپ ۹ — در استپ ۱۰ با فرم واقعی واریزی جایگزین می‌شود
+  const [depositDate, setDepositDate] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -139,12 +142,35 @@ export default function BankPage() {
         <h2 className="text-base font-medium">
           {TABS.find((t) => t.key === tab)?.label}
         </h2>
-        {tabCount[tab] && (
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            {tabCount[tab]}
-          </p>
+        {tab === "deposits" ? (
+          <div className="mt-3 space-y-3">
+            {tabCount.deposits && (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {tabCount.deposits}
+              </p>
+            )}
+            <JalaliCalendar value={depositDate} onChange={setDepositDate} />
+            <p className="text-xs text-zinc-500">
+              خروجی تقویم (ISO):{" "}
+              <span dir="ltr" className="font-mono">
+                {depositDate || "—"}
+              </span>
+            </p>
+            <p className="text-xs text-zinc-400">
+              استفاده موقت برای تست استپ ۹؛ در استپ ۱۰ با فرم واقعی واریزی
+              جایگزین می‌شود.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-1">
+            {tabCount[tab] && (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {tabCount[tab]}
+              </p>
+            )}
+            <p className="mt-2 text-sm text-zinc-500">{TAB_PLACEHOLDER[tab]}</p>
+          </div>
         )}
-        <p className="mt-2 text-sm text-zinc-500">{TAB_PLACEHOLDER[tab]}</p>
       </section>
     </main>
   );
