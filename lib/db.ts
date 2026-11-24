@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import seed from "@/data/db.json";
-import { bankUid, parseSharePeriod } from "./bank";
+import { bankUid, jalaliParts, loanRemaining, loanTotals, makeSchedule, parseSharePeriod } from "./bank";
 
 export type ItemKind = "general" | "haqiqi";
 
@@ -78,6 +78,7 @@ export type BankLoanPayment = {
 export type BankLoan = {
   id: string;
   memberId: string;
+  memberName: string;
   principal: number;
   interestMode: "beginning" | "end";
   interestAmount: number;
@@ -470,4 +471,213 @@ export async function deleteBankDeposit(id: string): Promise<BankDeposit | null>
   );
   await writeDb(db);
   return removed;
+}
+
+// ---------- بانک حقیقی: عملیات وام‌ها و اقساط ----------
+
+export async function createBankLoan(input: {
+  memberId: string;
+  principal: number;
+  interestAmount: number;
+  interestMode: BankLoan["interestMode"];
+  installmentCount: number;
+  firstDue: string;
+  scheduleMode: "auto" | "manual";
+  manualText?: string;
+  note?: string;
+}): Promise<BankLoan> {
+  const db = await readDb();
+  const member = db.bank.members.find((m) => m.id === input.memberId);
+  if (!member) {
+    throw new Error("عضو انتخاب‌شده پیدا نشد.");
+  }
+  const { totalAmount, disbursedAmount } = loanTotals(
+    input.principal,
+    input.interestAmount,
+    input.interestMode,
+  );
+  const schedule = makeSchedule({
+    total: totalAmount,
+    months: input.installmentCount,
+    firstDue: input.firstDue,
+    mode: input.scheduleMode,
+    manualText: input.manualText,
+  });
+  const loan: BankLoan = {
+    id: bankUid(),
+    memberId: member.id,
+    memberName: member.name,
+    principal: input.principal,
+    interestMode: input.interestMode,
+    interestAmount: input.interestAmount,
+    totalAmount,
+    disbursedAmount,
+    installmentCount: input.installmentCount,
+    schedule,
+    payments: [],
+    status: "active",
+    note: input.note?.trim() ?? "",
+    createdAt: new Date().toISOString(),
+  };
+  db.bank.loans.unshift(loan);
+  addAudit(
+    db.bank,
+    "ثبت",
+    "وام",
+    loan.id,
+    `وام ${faAmount(input.principal)} تومانی برای عضو «${member.name}» با ${input.installmentCount} قسط و کل بازپرداخت ${faAmount(totalAmount)} تومان ثبت شد.`,
+  );
+  await writeDb(db);
+  return loan;
+}
+
+export type BankLoanPatch = {
+  note?: string;
+  status?: BankLoan["status"];
+  principal?: number;
+  interestAmount?: number;
+  interestMode?: BankLoan["interestMode"];
+  installmentCount?: number;
+  firstDue?: string;
+  scheduleMode?: "auto" | "manual";
+  manualText?: string;
+};
+
+export async function updateBankLoan(
+  id: string,
+  patch: BankLoanPatch,
+): Promise<BankLoan | null> {
+  const db = await readDb();
+  const index = db.bank.loans.findIndex((l) => l.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const prev = db.bank.loans[index];
+  const next: BankLoan = { ...prev };
+  if (patch.note !== undefined) next.note = patch.note.trim();
+  if (patch.status !== undefined) next.status = patch.status;
+  const hasFinancial =
+    patch.principal !== undefined ||
+    patch.interestAmount !== undefined ||
+    patch.interestMode !== undefined ||
+    patch.installmentCount !== undefined ||
+    patch.firstDue !== undefined;
+  if (hasFinancial) {
+    const principal = patch.principal ?? prev.principal;
+    const interestAmount = patch.interestAmount ?? prev.interestAmount;
+    const interestMode = patch.interestMode ?? prev.interestMode;
+    const installmentCount = patch.installmentCount ?? prev.installmentCount;
+    // تاریخ اولین قسط: اگر داده نشد از جدول اقساط فعلی وام استخراج می‌شود
+    let firstDue = patch.firstDue ?? "";
+    if (!firstDue) {
+      const first = prev.schedule[0]?.dueAt ? new Date(prev.schedule[0].dueAt) : new Date();
+      const p = jalaliParts(first);
+      firstDue = `${p.year}/${String(p.month).padStart(2, "0")}/${String(p.day).padStart(2, "0")}`;
+    }
+    const { totalAmount, disbursedAmount } = loanTotals(principal, interestAmount, interestMode);
+    const schedule = makeSchedule({
+      total: totalAmount,
+      months: installmentCount,
+      firstDue,
+      mode: patch.scheduleMode ?? "auto",
+      manualText: patch.manualText,
+    });
+    next.principal = principal;
+    next.interestAmount = interestAmount;
+    next.interestMode = interestMode;
+    next.installmentCount = installmentCount;
+    next.totalAmount = totalAmount;
+    next.disbursedAmount = disbursedAmount;
+    next.schedule = schedule;
+  }
+  if (JSON.stringify(next) === JSON.stringify(prev)) {
+    return next;
+  }
+  db.bank.loans[index] = next;
+  addAudit(
+    db.bank,
+    "ویرایش",
+    "وام",
+    id,
+    `وام عضو «${next.memberName}» ویرایش شد (کل بازپرداخت فعلی ${faAmount(next.totalAmount)} تومان).`,
+  );
+  await writeDb(db);
+  return next;
+}
+
+export async function deleteBankLoan(id: string): Promise<BankLoan | null> {
+  const db = await readDb();
+  const index = db.bank.loans.findIndex((l) => l.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const [removed] = db.bank.loans.splice(index, 1);
+  addAudit(
+    db.bank,
+    "حذف",
+    "وام",
+    id,
+    `وام ${faAmount(removed.principal)} تومانی عضو «${removed.memberName}» حذف شد.`,
+  );
+  await writeDb(db);
+  return removed;
+}
+
+export async function addBankLoanPayment(
+  loanId: string,
+  input: { amount: number; paidAt: string; note?: string },
+): Promise<{ payment: BankLoanPayment; loan: BankLoan } | null> {
+  const db = await readDb();
+  const loan = db.bank.loans.find((l) => l.id === loanId);
+  if (!loan) {
+    return null;
+  }
+  const payment: BankLoanPayment = {
+    id: bankUid(),
+    amount: input.amount,
+    paidAt: input.paidAt,
+    note: input.note?.trim() ?? "",
+  };
+  loan.payments.push(payment);
+  const remaining = loanRemaining(loan);
+  if (remaining === 0 && loan.status === "active") {
+    loan.status = "paid";
+  }
+  addAudit(
+    db.bank,
+    "ثبت",
+    "پرداخت",
+    payment.id,
+    `پرداخت ${faAmount(input.amount)} تومانی برای وام عضو «${loan.memberName}» ثبت شد (مانده ${faAmount(remaining)} تومان).`,
+  );
+  await writeDb(db);
+  return { payment, loan };
+}
+
+export async function deleteBankLoanPayment(
+  loanId: string,
+  paymentId: string,
+): Promise<{ payment: BankLoanPayment; loan: BankLoan } | null> {
+  const db = await readDb();
+  const loan = db.bank.loans.find((l) => l.id === loanId);
+  if (!loan) {
+    return null;
+  }
+  const index = loan.payments.findIndex((p) => p.id === paymentId);
+  if (index === -1) {
+    return null;
+  }
+  const [removed] = loan.payments.splice(index, 1);
+  if (loan.status === "paid" && loanRemaining(loan) > 0) {
+    loan.status = "active";
+  }
+  addAudit(
+    db.bank,
+    "حذف",
+    "پرداخت",
+    paymentId,
+    `پرداخت ${faAmount(removed.amount)} تومانی وام عضو «${loan.memberName}» حذف شد (مانده ${faAmount(loanRemaining(loan))} تومان).`,
+  );
+  await writeDb(db);
+  return { payment: removed, loan };
 }

@@ -178,3 +178,22 @@ npm run dev
     auditLog جدیدترین‌اول و رگرسیون items/settings تأیید شد.
 - قدم بعدی مشخص: **استپ ۶ — API وام‌ها و اقساط** (`app/api/bank/loans/...` با
   `makeSchedule` و `loanTotals`؛ شرح کامل در `docs/STEPS.md`).
+
+### پیشرفت همین جلسه — استپ ۶ انجام شد
+
+- **استپ ۶ (API وام‌ها و اقساط) کامل و پوش شد. ۱۴ استپ از ۲۰ باقی مانده است.**
+  - `lib/db.ts`: `createBankLoan`، `updateBankLoan`، `deleteBankLoan`،
+    `addBankLoanPayment`، `deleteBankLoanPayment` + `BankLoanPatch`؛ فیلد
+    `memberName` به `BankLoan` اضافه شد (طبق spec — خالص نبود در استپ ۲).
+  - روت‌ها: `app/api/bank/loans/route.ts` (GET با فیلتر `?memberId=`/`?status=`،
+    POST)، `app/api/bank/loans/[id]/route.ts` (PATCH، DELETE)، و
+    `app/api/bank/loans/[id]/payments/route.ts` (POST ثبت پرداخت، DELETE با
+    `?paymentId=`).
+  - منطق: POST با `loanTotals` + `makeSchedule` (auto/manual)؛ خطاهای
+    makeSchedule به 400 فارسی؛ PATCH مالی → بازمحاسبه جدول اقساط؛ مانده صفر →
+    `status=paid`؛ حذف پرداخت → بازگشت به `active`؛ تاریخ پرداخت ISO یا شمسی.
+  - تست: lint و build پاس؛ **۲۹ شرط curl** روی سرور production همه پاس؛
+    اسکریپت `scripts/test_step6_api.sh` خارج از ریپو. (دو خطای TS وسط کار پیدا و
+    رفع شد: `manualText` در `BankLoanPatch` و مقایسه نوعی در روت.)
+- قدم بعدی مشخص: **استپ ۷ — API تسویه، تنظیمات و سوابق** (پایان مرحله ۱؛ شرح کامل
+  در `docs/STEPS.md`).

@@ -25,7 +25,7 @@
    سالم‌اند همان لحظه commit/push کن تا کار گم نشود.
 6. در پایان هر استپ به کاربر گزارش بده: کدام استپ انجام شد و چند استپ مانده.
 
-**باقی‌مانده: ۱۵ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
+**باقی‌مانده: ۱۴ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
 
 ## ۱) فهرست استپ‌ها
 
@@ -97,12 +97,24 @@
     ریپو) — شامل recalc totalDeposited پس از PATCH و DELETE، auditLog
     جدیدترین‌اول و حفظ items/settings.
 
-- [ ] **استپ ۶ — API وام‌ها و اقساط**
+- [x] **استپ ۶ — API وام‌ها و اقساط** ✅ (2026-11-24)
   - `app/api/bank/loans/route.ts` (GET، POST با ساخت `schedule` از `makeSchedule` و
     محاسبه `interestAmount`/`totalAmount`/`disbursedAmount` بر اساس `interestMode`) و
     `app/api/bank/loans/[id]/route.ts` (PATCH، DELETE).
   - `app/api/bank/loans/[id]/payments/route.ts` (POST ثبت پرداخت، DELETE با شناسه
     پرداخت)؛ با هر پرداخت اگر مانده صفر شد `status` به `paid` تغییر کند. تست curl.
+  - انجام شد: در `lib/db.ts` توابع `createBankLoan`، `updateBankLoan`،
+    `deleteBankLoan`، `addBankLoanPayment`، `deleteBankLoanPayment` + تایپ
+    `BankLoanPatch` + افزودن `memberName` به `BankLoan` (طبق spec). POST با
+    `loanTotals` + `makeSchedule` (auto/manual، خطاها فارسی به صورت 400)؛ GET با
+    فیلترهای `?memberId=` و `?status=`؛ PATCH یا note/status ویرایش می‌کند یا با
+    فیلدهای مالی، جدول اقساط و کل بدهی را بازمحاسبه می‌کند (تاریخ اولین قسط در
+    نبود `firstDue` از قسط اول فعلی استخراج می‌شود). پرداخت با تاریخ ISO یا شمسی
+    پذیرفته می‌شود؛ رسیدن مانده به صفر → `status=paid` و حذف پرداخت → بازگشت به
+    `active`. DELETE پرداخت با query `?paymentId=`. تست: lint و build پاس؛
+    **۲۹ شرط curl** روی سرور production همه پاس (اسکریپت
+    `scripts/test_step6_api.sh` خارج از ریپو) — شامل flip شدن status، بازمحاسبه
+    مالی، auditLog (ثبت/ویرایش/حذف برای وام و پرداخت) و رگرسیون items/settings.
 
 - [ ] **استپ ۷ — API تسویه، تنظیمات و سوابق**
   - `app/api/bank/members/[id]/settlement/route.ts`: POST ثبت/ویرایش تسویه
