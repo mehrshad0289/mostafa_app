@@ -171,6 +171,13 @@ chk_status "کاربر عادی با رمز خالی → 400" 400 "$code"
 code=$(post /api/auth/login '{"username":"nosuchuser","password":""}')
 chk_status "کاربر ناموجود با رمز خالی → 400" 400 "$code"
 
+say "== 12) وضعیت ذخیره‌سازی =="
+code=$(get /api/admin/storage-status "$ADMIN_JAR")
+chk_status "storage-status با ادمین → 200" 200 "$code"
+chk_contains "حالت ذخیره‌سازی در پاسخ هست" '"mode"' "$OUT"
+code=$(get /api/admin/storage-status "$MEMBER_JAR")
+chk_status "storage-status با کاربر عادی → 403" 403 "$code"
+
 say ""
 say "RESULT: PASS=$PASS FAIL=$FAIL"
 rm -rf "$TMP"

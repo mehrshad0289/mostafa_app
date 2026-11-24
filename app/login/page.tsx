@@ -12,9 +12,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // ورود بدون رمز موقت فقط برای ادمین اصلی — رمز برای او اختیاری است
-  const isAdminUsername = username.trim().toLowerCase() === "admin";
-
+  // کلید موقت ورود بدون رمز ادمین در route سرور می‌ماند؛ در UI هیچ نشانه‌ای از آن
+  // نمایش داده نمی‌شود تا بازدیدکنندگان سایت از وجود آن خبره نشوند
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
@@ -68,7 +67,7 @@ export default function LoginPage() {
           />
         </label>
         <label className="block space-y-1 text-xs text-zinc-500">
-          رمز عبور{isAdminUsername ? " (برای مدیر فعلاً اختیاری)" : ""}
+          رمز عبور
           <input
             type="password"
             value={password}
@@ -78,11 +77,6 @@ export default function LoginPage() {
             className={`${inputClass} text-left`}
           />
         </label>
-        {isAdminUsername && (
-          <p className="text-xs text-emerald-700 dark:text-emerald-400">
-            ورود مدیر فعلاً بدون رمز فعال است؛ رمز را خالی بگذارید و «ورود» را بزنید.
-          </p>
-        )}
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
             {error}

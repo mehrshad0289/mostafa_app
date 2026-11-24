@@ -169,6 +169,11 @@ const KV_TOKEN =
   process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
 const kvOn = Boolean(KV_URL && KV_TOKEN);
 
+/** حالت ذخیره‌سازی فعلی: «kv» یعنی ماندگار روی Vercel؛ «file» یعنی فایل محلی/tmp (موقتی — با سرد شدن سرور پاک می‌شود) */
+export function storageMode(): "kv" | "file" {
+  return kvOn ? "kv" : "file";
+}
+
 /** خواندن blob دیتابیس از KV؛ خطا یا نبودِ کلید = null (به seed برمی‌گردیم) */
 async function kvGet(): Promise<string | null> {
   try {
@@ -905,7 +910,7 @@ export type User = {
   role: UserRole;
   fullName: string;
   phone: string;
-  /** اتصال کاربر به عضو صندوق در بخش فم بانک (برای فیلتر داده عضو عادی) */
+  /** اتصال کاربر به عضو بانک در بخش فم بانک (برای فیلتر داده عضو عادی) */
   memberId: string | null;
   active: boolean;
   /** اگر false باشد، ورود با رمز عبور برای این کاربر بسته است (فقط ادمین می‌تواند بازش کند) */
@@ -1132,7 +1137,7 @@ function assertMemberExists(bank: BankDatabase, memberId: string | null | undefi
   if (memberId === null || memberId === undefined || memberId === "") return null;
   const member = bank.members.find((m) => m.id === memberId);
   if (!member) {
-    throw new Error("عضو صندوق انتخاب‌شده پیدا نشد.");
+    throw new Error("عضو بانک انتخاب‌شده پیدا نشد.");
   }
   return member.id;
 }
@@ -1388,7 +1393,7 @@ async function assertMemberAccount(user: User): Promise<string> {
   const db = await readDb();
   const memberId = user.memberId;
   if (!memberId || !db.bank.members.some((m) => m.id === memberId)) {
-    throw new Error("حساب شما به عضوی از صندوق متصل نیست؛ با مدیر تماس بگیرید.");
+    throw new Error("حساب شما به عضوی از بانک متصل نیست؛ با مدیر تماس بگیرید.");
   }
   return memberId;
 }
