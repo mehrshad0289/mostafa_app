@@ -762,3 +762,19 @@ export async function updateBankSettings(
   await writeDb(db);
   return settings;
 }
+
+/** بازیابی کامل داده بانک از فایل پشتیبان (استپ ۱۸) — ورودی باید از قبل با
+ *  اعتبارسنجی route پشتیبان پاس شده باشد؛ یک رکورد audit «بازیابی پشتیبان» ثبت می‌شود */
+export async function restoreBank(input: BankDatabase): Promise<BankDatabase> {
+  const db = await readDb();
+  db.bank = { ...input };
+  addAudit(
+    db.bank,
+    "بازیابی پشتیبان",
+    "بانک",
+    "backup",
+    `داده بانک از فایل پشتیبان بازیابی شد (${input.members.length} عضو، ${input.deposits.length} واریزی، ${input.loans.length} وام).`,
+  );
+  await writeDb(db);
+  return db.bank;
+}
