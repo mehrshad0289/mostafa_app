@@ -124,3 +124,23 @@ npm run dev
     سالم؛ پس از نوشتن، کلید `bank` در `data/db.json` حفظ شد.
 - قدم بعدی مشخص: **استپ ۳ — منطق محاسباتی خالص در `lib/bank.ts`** (شرح کامل در
   `docs/STEPS.md`؛ فرمول‌ها در `docs/BANK_SPEC.md` بخش ۳).
+
+### پیشرفت همین جلسه — استپ ۳ انجام شد
+
+- **استپ ۳ (منطق محاسباتی خالص در `lib/bank.ts`) کامل و پوش شد. ۱۷ استپ از ۲۰ باقی مانده است.**
+  - `lib/bank.ts` ساخته شد — فقط توابع خالص، بدون I/O و بدون کتابخانه خارجی:
+    - تقویم شمسی: `jalaliParts`، `monthKey`، `jalaliMonthSerial`، `jalaliToDate`
+      (تبدیل شمسی→میلادی با تخمین نوروز + اصلاح دقیق با Intl)، `parseSharePeriod`
+      (اعداد فارسی/عربی و نام ماه‌ها)، `normalizeDigits`، `depositPeriod`.
+    - وام: `loanPaid`، `loanRemaining`، `loanTotals`، `makeSchedule` (خودکار/
+      دستی با اعتبارسنجی جمع)، `bankUid`.
+    - عضو: `memberClaim` (اعتبار = جمع واریزی سهام)، `memberShareDue` (تعهد ماهانه،
+      carry، مانده، اعتبار، عقب‌افتادگی)، `memberDebt`.
+    - صندوق: `recalcFund` (موجودی = واریزی‌ها + بازپرداخت‌ها − پرداختی وام؛ سود کل)،
+      `monthlyTotals` (گردش ماهانه با کلید شمسی؛ متفرقه در ستون profit مطابق نمونه).
+  - تست عددی: `scripts/test_bank_step3.mjs` (خارج از ریپو) — **۵۵ شرط، همه پاس**
+    (round-trip شمسی شامل سال کبیسه ۱۴۰۳، اعضا و carry، اقساط خودکار/دستی،
+    موجودی صندوق، گردش ماهانه).
+  - `npm run lint` و `npm run build` بدون خطا.
+- قدم بعدی مشخص: **استپ ۴ — API اعضا** (`app/api/bank/members/...`؛ شرح کامل در
+  `docs/STEPS.md`).
