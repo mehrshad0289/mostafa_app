@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import MembersTab from "@/app/components/bank/MembersTab";
 import DepositsTab from "@/app/components/bank/DepositsTab";
 import LoansTab from "@/app/components/bank/LoansTab";
@@ -28,6 +29,7 @@ function faNum(value: number): string {
 }
 
 export default function BankPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<TabKey>("members");
   const [members, setMembers] = useState<BankMember[]>([]);
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
@@ -62,6 +64,26 @@ export default function BankPage() {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    // گارد دسترسی: فقط ادمین؛ عضو به /dashboard و مهمان به /login می‌رود (غیرهمزمان)
+    const timer = setTimeout(() => {
+      fetch("/api/auth/me")
+        .then((r) => r.json())
+        .then((d: { user?: { role: string } | null }) => {
+          if (!d.user) router.replace("/login");
+          else if (d.user.role !== "admin") router.replace("/dashboard");
+        })
+        .catch(() => router.replace("/login"));
+      // لینک عمیق ?tab= از منوی پنل ادمین (بعد از mount)
+      const param = new URLSearchParams(window.location.search).get("tab");
+      if (param && TABS.some((t) => t.key === param)) {
+        setTab(param as TabKey);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const summary = useMemo(
     () => recalcFund({ members, deposits, loans }),
