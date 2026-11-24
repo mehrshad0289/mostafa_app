@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   memberDebt,
   memberShareDue,
@@ -8,7 +8,7 @@ import {
   normalizeDigits,
   normalizeSearchText,
 } from "@/lib/bank";
-import type { BankDeposit, BankLoan, BankMember } from "@/lib/db";
+import type { BankDeposit, BankLoan, BankMember, PublicUser } from "@/lib/db";
 import MemberDetail from "./MemberDetail";
 import { useHydrated } from "./useHydrated";
 import { downloadCsv } from "./csv";
@@ -80,6 +80,27 @@ export default function MembersTab({
   const [detailId, setDetailId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  /** فهرست کاربران برای نشان دادن وضعیت حساب ورود هر عضو (فقط ادمین) */
+  const [users, setUsers] = useState<PublicUser[]>([]);
+  /** عضوی که پنل حساب ورود او باز است */
+  const [accountFor, setAccountFor] = useState<BankMember | null>(null);
+  const [accountForm, setAccountForm] = useState({ username: "", password: "" });
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountError, setAccountError] = useState("");
+  /** پس از ساخت حساب: نام کاربری/رمز برای ارسال به عضو (فقط همین یک‌بار نمایش) */
+  const [accountDone, setAccountDone] = useState<{
+    username: string;
+    password: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/users")
+      .then((r) => (r.ok ? r.json() : { users: [] }))
+      .then((d: { users?: PublicUser[] }) =>
+        setUsers(Array.isArray(d.users) ? d.users : []),
+      )
+      .catch(() => undefined);
+  }, []);
 
   const rows = useMemo(() => {
     if (!hydrated) return [];
@@ -98,6 +119,15 @@ export default function MembersTab({
       normalizeSearchText(`${member.name} ${member.phone}`).includes(q),
     );
   }, [rows, query]);
+
+  /** memberId → حساب کاربری متصل؛ برای نشان دادن وضعیت حساب ورود عضو */
+  const accountByMemberId = useMemo(() => {
+    const map = new Map<string, PublicUser>();
+    for (const u of users) {
+      if (u.memberId) map.set(u.memberId, u);
+    }
+    return map;
+  }, [users]);
 
   const detailMember = detailId
     ? (members.find((m) => m.id === detailId) ?? null)
@@ -207,6 +237,53 @@ export default function MembersTab({
       setError("ارتباط با سرور ناموفق بود.");
     } finally {
       setQuickPayId(null);
+    }
+  }
+
+  function openAccountPanel(member: BankMember) {
+    setAccountFor(member);
+    setAccountForm({ username: "", password: "" });
+    setAccountError("");
+    setAccountDone(null);
+  }
+
+  /** ساخت حساب ورود برای عضو و اتصال آن به همان عضو (role=member) */
+  async function submitAccount(event: React.FormEvent) {
+    event.preventDefault();
+    if (!accountFor) return;
+    setAccountBusy(true);
+    setAccountError("");
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: accountForm.username.trim(),
+          password: accountForm.password,
+          fullName: accountFor.name,
+          phone: accountFor.phone,
+          role: "member",
+          memberId: accountFor.id,
+        }),
+      });
+      const data = (await response.json()) as {
+        user?: PublicUser;
+        error?: string;
+      };
+      if (!response.ok) {
+        setAccountError(data.error || "ساخت حساب ورود ناموفق بود.");
+        return;
+      }
+      if (data.user) setUsers((prev) => [...prev, data.user as PublicUser]);
+      setAccountDone({
+        username: accountForm.username.trim(),
+        password: accountForm.password,
+      });
+      setAccountForm({ username: "", password: "" });
+    } catch {
+      setAccountError("ارتباط با سرور ناموفق بود.");
+    } finally {
+      setAccountBusy(false);
     }
   }
 
@@ -406,6 +483,89 @@ export default function MembersTab({
         </div>
       )}
 
+      {accountFor && (
+        <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 text-sm shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h3 className="text-sm font-medium">
+            حساب ورود برای عضو «{accountFor.name}»
+          </h3>
+          {accountByMemberId.get(accountFor.id) ? (
+            <p className="leading-7">
+              این عضو حساب ورود دارد: <span dir="ltr" className="font-medium">{accountByMemberId.get(accountFor.id)!.username}</span>
+              {" — "}مدیریت و تغییر رمز از بخش «مدیریت کاربران» انجام می‌شود.
+            </p>
+          ) : (
+            <p className="leading-7 text-zinc-500">
+              عضو ثبت‌شده در فم بانک خودش حساب ورود ندارد؛ با این فرم حساب بسازید و
+              نام کاربری و رمز را برای عضو بفرستید. ورود از صفحه /login انجام می‌شود.
+            </p>
+          )}
+          {accountDone && (
+            <p className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 leading-7 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+              حساب ساخته شد. نام کاربری: <span dir="ltr" className="font-medium">{accountDone.username}</span>
+              {" — "}رمز: <span dir="ltr" className="font-medium">{accountDone.password}</span>
+              {" ("}این پیام فقط همین یک‌بار نمایش داده می‌شود؛ برای عضو بفرستید.{")"}
+            </p>
+          )}
+          {!accountByMemberId.get(accountFor.id) && !accountDone && (
+            <form
+              onSubmit={submitAccount}
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              <label className="space-y-1 text-xs text-zinc-500">
+                نام کاربری (لاتین، حداقل ۳ نویسه)
+                <input
+                  dir="ltr"
+                  required
+                  minLength={3}
+                  value={accountForm.username}
+                  onChange={(e) =>
+                    setAccountForm({ ...accountForm, username: e.target.value })
+                  }
+                  className={`${inputClass} w-full`}
+                />
+              </label>
+              <label className="space-y-1 text-xs text-zinc-500">
+                رمز عبور (حداقل ۶ نویسه)
+                <input
+                  dir="ltr"
+                  type="text"
+                  required
+                  minLength={6}
+                  value={accountForm.password}
+                  onChange={(e) =>
+                    setAccountForm({ ...accountForm, password: e.target.value })
+                  }
+                  className={`${inputClass} w-full`}
+                />
+              </label>
+              {accountError && (
+                <p className="text-sm text-red-600 dark:text-red-400 sm:col-span-2">
+                  {accountError}
+                </p>
+              )}
+              <div className="flex gap-2 sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={accountBusy}
+                  className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
+                >
+                  {accountBusy ? "در حال ساخت…" : "ساخت حساب"}
+                </button>
+              </div>
+            </form>
+          )}
+          <div>
+            <button
+              type="button"
+              onClick={() => setAccountFor(null)}
+              className="rounded-xl border border-zinc-300 px-4 py-2 text-xs dark:border-zinc-700"
+            >
+              بستن
+            </button>
+          </div>
+        </div>
+      )}
+
       <p className="text-xs text-zinc-500">
         {faNum(filtered.length)} از {faNum(members.length)} عضو
       </p>
@@ -451,6 +611,18 @@ export default function MembersTab({
                       className="rounded-xl border border-zinc-200 px-3 py-1.5 text-xs text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
                     >
                       پرونده مالی
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openAccountPanel(member)}
+                      className={
+                        accountByMemberId.has(member.id)
+                          ? "rounded-xl border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 transition-colors hover:border-emerald-400 dark:border-emerald-800 dark:text-emerald-400"
+                          : "rounded-xl border border-amber-300 px-3 py-1.5 text-xs text-amber-700 transition-colors hover:border-amber-400 dark:border-amber-800 dark:text-amber-400"
+                      }
+                    >
+                      حساب ورود
+                      {accountByMemberId.has(member.id) ? " (دارد)" : " (ندارد)"}
                     </button>
                     <button
                       type="button"
