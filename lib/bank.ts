@@ -43,6 +43,21 @@ export function normalizeDigits(value: string): string {
     .replace(/[٠-٩]/g, (c) => String(AR_DIGITS.indexOf(c)));
 }
 
+/** نرمال‌سازی متن برای جست‌وجو: حروف فارسی/عربی یکسان، اعداد به لاتین، نیم‌فاصله به فاصله */
+export function normalizeSearchText(value: string): string {
+  return normalizeDigits(value)
+    .replace(/[يى]/g, "ی")
+    .replace(/ك/g, "ک")
+    .replace(/[ۀة]/g, "ه")
+    .replace(/[أإٱ]/g, "ا")
+    .replace(/ؤ/g, "و")
+    .replace(/ئ/g, "ی")
+    .replace(/\u200c/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 export function jalaliParts(value: Date | string | number): JalaliParts {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {

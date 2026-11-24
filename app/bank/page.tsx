@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import JalaliCalendar from "@/app/components/bank/JalaliCalendar";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import MembersTab from "@/app/components/bank/MembersTab";
 import { recalcFund } from "@/lib/bank";
-import type { BankDeposit, BankLoan, BankMember } from "@/lib/db";
+import type { BankDeposit, BankLoan, BankMember, BankSettings } from "@/lib/db";
 
 type TabKey = "members" | "deposits" | "loans" | "reports" | "settings" | "audit";
 
@@ -37,33 +37,32 @@ export default function BankPage() {
   const [loans, setLoans] = useState<BankLoan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // استفاده موقت برای تست استپ ۹ — در استپ ۱۰ با فرم واقعی واریزی جایگزین می‌شود
-  const [depositDate, setDepositDate] = useState("");
+  const [settings, setSettings] = useState<BankSettings | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const m = (await fetch("/api/bank/members").then((r) => r.json())) as BankMember[];
+      const d = (await fetch("/api/bank/deposits").then((r) => r.json())) as BankDeposit[];
+      const l = (await fetch("/api/bank/loans").then((r) => r.json())) as BankLoan[];
+      const s = (await fetch("/api/bank/settings").then((r) => r.json())) as BankSettings;
+      setMembers(Array.isArray(m) ? m : []);
+      setDeposits(Array.isArray(d) ? d : []);
+      setLoans(Array.isArray(l) ? l : []);
+      setSettings(s && typeof s === "object" ? s : null);
+    } catch {
+      setError("دریافت اطلاعات صندوق ناموفق بود.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let alive = true;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const m = (await fetch("/api/bank/members").then((r) => r.json())) as BankMember[];
-        const d = (await fetch("/api/bank/deposits").then((r) => r.json())) as BankDeposit[];
-        const l = (await fetch("/api/bank/loans").then((r) => r.json())) as BankLoan[];
-        if (!alive) return;
-        setMembers(Array.isArray(m) ? m : []);
-        setDeposits(Array.isArray(d) ? d : []);
-        setLoans(Array.isArray(l) ? l : []);
-      } catch {
-        if (alive) setError("دریافت اطلاعات صندوق ناموفق بود.");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      alive = false;
-    };
-  }, []);
+    // فراخوانی غیرهمزمان — سازگار با قانون react-hooks/set-state-in-effect
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const summary = useMemo(
     () => recalcFund({ members, deposits, loans }),
@@ -138,30 +137,19 @@ export default function BankPage() {
         ))}
       </nav>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h2 className="text-base font-medium">
-          {TABS.find((t) => t.key === tab)?.label}
-        </h2>
-        {tab === "deposits" ? (
-          <div className="mt-3 space-y-3">
-            {tabCount.deposits && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {tabCount.deposits}
-              </p>
-            )}
-            <JalaliCalendar value={depositDate} onChange={setDepositDate} />
-            <p className="text-xs text-zinc-500">
-              خروجی تقویم (ISO):{" "}
-              <span dir="ltr" className="font-mono">
-                {depositDate || "—"}
-              </span>
-            </p>
-            <p className="text-xs text-zinc-400">
-              استفاده موقت برای تست استپ ۹؛ در استپ ۱۰ با فرم واقعی واریزی
-              جایگزین می‌شود.
-            </p>
-          </div>
-        ) : (
+      {tab === "members" ? (
+        <MembersTab
+          members={members}
+          deposits={deposits}
+          loans={loans}
+          amountPerShare={settings?.amountPerShare ?? 0}
+          onRefresh={load}
+        />
+      ) : (
+        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h2 className="text-base font-medium">
+            {TABS.find((t) => t.key === tab)?.label}
+          </h2>
           <div className="mt-1">
             {tabCount[tab] && (
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -170,8 +158,8 @@ export default function BankPage() {
             )}
             <p className="mt-2 text-sm text-zinc-500">{TAB_PLACEHOLDER[tab]}</p>
           </div>
-        )}
-      </section>
+        </section>
+      )}
     </main>
   );
 }

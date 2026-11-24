@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { jalaliMonthLength, jalaliParts, jalaliToGregorian } from "@/lib/bank";
+import { useHydrated } from "./useHydrated";
 
 const WEEKDAYS = [
   "شنبه",
@@ -28,11 +29,7 @@ const MONTH_NAMES = [
   "اسفند",
 ];
 
-// تشخیص hydration بدون اثر جانبی: در prerender و رندر اولیه false، بعد از آن true
-const emptySubscribe = () => () => {};
-function useHydrated(): boolean {
-  return useSyncExternalStore(emptySubscribe, () => true, () => false);
-}
+// تشخیص hydration بدون اثر جانبی — هوک مشترک در useHydrated.ts
 
 type JalaliCalendarProps = {
   /** تاریخ انتخاب‌شده به شکل رشته ISO؛ رشته خالی یعنی هنوز انتخابی ثبت نشده */
