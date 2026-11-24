@@ -25,7 +25,7 @@
    سالم‌اند همان لحظه commit/push کن تا کار گم نشود.
 6. در پایان هر استپ به کاربر گزارش بده: کدام استپ انجام شد و چند استپ مانده.
 
-**باقی‌مانده: ۱۴ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
+**باقی‌مانده: ۱۳ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
 
 ## ۱) فهرست استپ‌ها
 
@@ -116,12 +116,21 @@
     `scripts/test_step6_api.sh` خارج از ریپو) — شامل flip شدن status، بازمحاسبه
     مالی، auditLog (ثبت/ویرایش/حذف برای وام و پرداخت) و رگرسیون items/settings.
 
-- [ ] **استپ ۷ — API تسویه، تنظیمات و سوابق**
+- [x] **استپ ۷ — API تسویه، تنظیمات و سوابق** ✅ (2026-11-24)
   - `app/api/bank/members/[id]/settlement/route.ts`: POST ثبت/ویرایش تسویه
     (claim/debt قابل ویرایش، net محاسبه)، DELETE لغو تسویه.
   - `app/api/bank/settings/route.ts`: GET و PUT (`amountPerShare`، `depositTitles`،
     `duplicateWarning`).
   - `app/api/bank/audit/route.ts`: GET آخرین سوابق. تست curl همه مسیرها.
+  - انجام شد: در `lib/db.ts` توابع `settleBankMember` (net = claim − debt؛ ثبت
+    دوباره = ویرایش)، `unsettleBankMember` (لغو؛ اگر تسویه‌ای نباشد 400) و
+    `updateBankSettings` (PUT جزئی، فیلدهای داده‌نشده حفظ می‌شوند). audit:
+    ثبت/ویرایش/لغو تسویه با kind «تسویه»؛ تغییر تنظیمات عمداً audit نمی‌شود
+    (خارج از واژگان spec). audit GET با `?limit=` (پیش‌فرض ۱۰۰، بازه ۱..۱۰۰۰).
+    اعتبارسنجی: claim/debt ≥ 0، amountPerShare > 0، depositTitles آرایه متن
+    (رشته‌های خالی حذف می‌شوند)، duplicateWarning فقط boolean. تست: lint و build
+    پاس؛ **۲۴ شرط curl** روی سرور production همه پاس (اسکریپت
+    `scripts/test_step7_api.sh` خارج از ریپو) — همه مسیرها + رگرسیون members/items.
 
 ### مرحله ۲ — رابط کاربری «بانک حقیقی»
 

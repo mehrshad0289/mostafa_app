@@ -197,3 +197,21 @@ npm run dev
     رفع شد: `manualText` در `BankLoanPatch` و مقایسه نوعی در روت.)
 - قدم بعدی مشخص: **استپ ۷ — API تسویه، تنظیمات و سوابق** (پایان مرحله ۱؛ شرح کامل
   در `docs/STEPS.md`).
+
+### پیشرفت همین جلسه — استپ ۷ انجام شد (پایان مرحله ۱)
+
+- **استپ ۷ (تسویه، تنظیمات، سوابق) کامل و پوش شد. ۱۳ استپ از ۲۰ باقی مانده است — مرحله ۱ (زیرساخت و API) کامل شد.**
+  - `lib/db.ts`: `settleBankMember` (net = claim − debt؛ ثبت دوباره = ویرایش با
+    audit «ویرایش»)، `unsettleBankMember` (لغو تسویه؛ بدون تسویه → 400) و
+    `updateBankSettings` (PUT جزئی).
+  - روت‌ها: `app/api/bank/members/[id]/settlement/route.ts` (POST/DELETE)،
+    `app/api/bank/settings/route.ts` (GET/PUT)، `app/api/bank/audit/route.ts`
+    (GET با `?limit=` پیش‌فرض ۱۰۰).
+  - تصمیم عمدی: تغییر تنظیمات در auditLog ثبت نمی‌شود چون واژگان spec فقط
+    عضو/واریزی/وام/پرداخت/تسویه را دارد. `depositTitles` در PUT نرمال می‌شود
+    (trim + حذف رشته‌های خالی).
+  - تست: lint و build پاس؛ **۲۴ شرط curl** روی سرور production همه پاس؛
+    اسکریپت `scripts/test_step7_api.sh` خارج از ریپو. رگرسیون members/items هم
+    سبز بود.
+- قدم بعدی مشخص: **استپ ۸ — اسکلت صفحه `/bank`** (شروع مرحله ۲ — رابط کاربری؛
+  شرح کامل در `docs/STEPS.md`).

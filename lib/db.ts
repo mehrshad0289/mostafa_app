@@ -681,3 +681,84 @@ export async function deleteBankLoanPayment(
   await writeDb(db);
   return { payment: removed, loan };
 }
+
+// ---------- بانک حقیقی: تسویه اعضا و تنظیمات ----------
+
+/** ثبت یا ویرایش تسویه عضو؛ net = claim − debt */
+export async function settleBankMember(
+  id: string,
+  input: { claim: number; debt: number },
+): Promise<BankMember | null> {
+  const db = await readDb();
+  const member = db.bank.members.find((m) => m.id === id);
+  if (!member) {
+    return null;
+  }
+  const wasSettled = member.settled;
+  member.settled = true;
+  member.settledAt = new Date().toISOString();
+  member.settlementClaim = input.claim;
+  member.settlementDebt = input.debt;
+  member.settlementNet = input.claim - input.debt;
+  addAudit(
+    db.bank,
+    wasSettled ? "ویرایش" : "ثبت",
+    "تسویه",
+    member.id,
+    `${wasSettled ? "ویرایش" : "ثبت"} تسویه عضو «${member.name}» — طلب ${faAmount(input.claim)}، بدهی ${faAmount(input.debt)}، خالص ${faAmount(input.claim - input.debt)} تومان.`,
+  );
+  await writeDb(db);
+  return member;
+}
+
+/** لغو وضعیت تسویه عضو؛ false یعنی تسویه‌ای برای لغو وجود ندارد */
+export async function unsettleBankMember(
+  id: string,
+): Promise<BankMember | false | null> {
+  const db = await readDb();
+  const member = db.bank.members.find((m) => m.id === id);
+  if (!member) {
+    return null;
+  }
+  if (!member.settled) {
+    return false;
+  }
+  member.settled = false;
+  member.settledAt = null;
+  member.settlementClaim = null;
+  member.settlementDebt = null;
+  member.settlementNet = null;
+  addAudit(
+    db.bank,
+    "لغو تسویه",
+    "تسویه",
+    member.id,
+    `وضعیت تسویه عضو «${member.name}» لغو شد.`,
+  );
+  await writeDb(db);
+  return member;
+}
+
+export type BankSettingsPatch = {
+  amountPerShare?: number;
+  depositTitles?: string[];
+  duplicateWarning?: boolean;
+};
+
+export async function updateBankSettings(
+  patch: BankSettingsPatch,
+): Promise<BankSettings> {
+  const db = await readDb();
+  const settings = db.bank.settings;
+  if (patch.amountPerShare !== undefined) {
+    settings.amountPerShare = patch.amountPerShare;
+  }
+  if (patch.depositTitles !== undefined) {
+    settings.depositTitles = patch.depositTitles;
+  }
+  if (patch.duplicateWarning !== undefined) {
+    settings.duplicateWarning = patch.duplicateWarning;
+  }
+  await writeDb(db);
+  return settings;
+}
