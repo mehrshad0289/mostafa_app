@@ -1,3 +1,4 @@
+import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import seed from "@/data/db.json";
@@ -137,6 +138,8 @@ function normalizeBank(bank: Partial<BankDatabase> | undefined): BankDatabase {
 type Database = {
   items: Item[];
   bank: BankDatabase;
+  users: User[];
+  sessions: Session[];
 };
 
 const SOURCE_FILE = path.join(process.cwd(), "data", "db.json");
@@ -144,25 +147,26 @@ const DATA_FILE = process.env.VERCEL
   ? path.join("/tmp", "mostafa-app-db.json")
   : SOURCE_FILE;
 
+function normalizeDb(parsed: Partial<Database>): Database {
+  const db: Database = {
+    items: (parsed.items ?? seed.items).map((item) => ({
+      ...item,
+      kind: normalizeKind(item.kind),
+    })),
+    bank: normalizeBank(parsed.bank),
+    users: Array.isArray(parsed.users) ? parsed.users : [],
+    sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+  };
+  ensureDefaultAdmin(db);
+  return db;
+}
+
 async function readDb(): Promise<Database> {
   try {
     const raw = await readFile(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw) as Partial<Database>;
-    return {
-      items: (parsed.items ?? seed.items).map((item) => ({
-        ...item,
-        kind: normalizeKind(item.kind),
-      })),
-      bank: normalizeBank(parsed.bank),
-    };
+    return normalizeDb(JSON.parse(raw) as Partial<Database>);
   } catch {
-    return {
-      items: seed.items.map((item) => ({
-        ...item,
-        kind: normalizeKind((item as { kind?: unknown }).kind),
-      })),
-      bank: normalizeBank((seed as Partial<Database>).bank),
-    };
+    return normalizeDb(seed as Partial<Database>);
   }
 }
 
@@ -777,4 +781,123 @@ export async function restoreBank(input: BankDatabase): Promise<BankDatabase> {
   );
   await writeDb(db);
   return db.bank;
+}
+
+// ---------- کاربران و نشست‌ها (دو لایه شدن اپ) ----------
+
+export type UserRole = "admin" | "member";
+
+export type User = {
+  id: string;
+  username: string;
+  passwordHash: string;
+  salt: string;
+  role: UserRole;
+  fullName: string;
+  phone: string;
+  /** اتصال کاربر به عضو صندوق در بخش بانک حقیقی (برای فیلتر داده عضو عادی) */
+  memberId: string | null;
+  active: boolean;
+  createdAt: string;
+};
+
+export type PublicUser = Omit<User, "passwordHash" | "salt">;
+
+export type Session = {
+  id: string;
+  userId: string;
+  expiresAt: string;
+};
+
+const DEFAULT_ADMIN_ID = "user-admin-default";
+const DEFAULT_ADMIN_USERNAME = "admin";
+const DEFAULT_ADMIN_PASSWORD = "Admin@12345";
+const DEFAULT_ADMIN_SALT = "mostafa-default-admin-salt-v1";
+
+/**
+ * ادمین پیش‌فرض: اگر هیچ ادمین فعالی نبود (از جمله بار اول با users خالی)،
+ * خودکار ساخته می‌شود تا اولین ورود ممکن باشد. id/salt ثابت‌اند تا نشست‌های
+ * ساخته‌شده در فراخوانی‌های بعدی هم معتبر بمانند. رمز پیش‌فرض باید بعد از
+ * اولین ورود عوض شود.
+ */
+function ensureDefaultAdmin(db: Database) {
+  if (db.users.some((u) => u.role === "admin" && u.active)) return;
+  db.users = db.users.filter((u) => u.id !== DEFAULT_ADMIN_ID);
+  db.users.unshift({
+    id: DEFAULT_ADMIN_ID,
+    username: DEFAULT_ADMIN_USERNAME,
+    passwordHash: scryptSync(DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_SALT, 64).toString("hex"),
+    salt: DEFAULT_ADMIN_SALT,
+    role: "admin",
+    fullName: "مدیر سیستم",
+    phone: "",
+    memberId: null,
+    active: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+}
+
+/** هش رمز با scryptSync خود Node؛ اگر salt داده نشود salt جدید ساخته می‌شود */
+export function hashPassword(password: string, salt?: string): { hash: string; salt: string } {
+  const useSalt = salt ?? randomBytes(16).toString("hex");
+  return {
+    hash: scryptSync(password, useSalt, 64).toString("hex"),
+    salt: useSalt,
+  };
+}
+
+/** بررسی درستی رمز در برابر hash ذخیره‌شده (مقایسه زمان‌ثابت) */
+export function verifyPassword(password: string, salt: string, expectedHash: string): boolean {
+  try {
+    const candidate = scryptSync(password, salt, 64);
+    const stored = Buffer.from(expectedHash, "hex");
+    return candidate.length === stored.length && timingSafeEqual(candidate, stored);
+  } catch {
+    return false;
+  }
+}
+
+/** حذف hash و salt برای خروجی API */
+export function sanitizeUser(user: User): PublicUser {
+  const { passwordHash: _hash, salt: _salt, ...rest } = user;
+  return rest;
+}
+
+export const SESSION_TTL_DAYS = 7;
+const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
+
+/** ساخت نشست جدید؛ نشست‌های منقضی در همان لحظه پاک می‌شوند */
+export async function createSession(userId: string, ttlDays = SESSION_TTL_DAYS): Promise<Session> {
+  const db = await readDb();
+  const now = Date.now();
+  db.sessions = db.sessions.filter((s) => new Date(s.expiresAt).getTime() > now);
+  const session: Session = {
+    id: randomBytes(24).toString("hex"),
+    userId,
+    expiresAt: new Date(now + ttlDays * 24 * 60 * 60 * 1000).toISOString(),
+  };
+  db.sessions.push(session);
+  await writeDb(db);
+  return session;
+}
+
+/** حذف نشست با شناسه کوکی (برای خروج) */
+export async function deleteSession(sessionId: string): Promise<boolean> {
+  const db = await readDb();
+  const before = db.sessions.length;
+  db.sessions = db.sessions.filter((s) => s.id !== sessionId);
+  if (db.sessions.length === before) return false;
+  await writeDb(db);
+  return true;
+}
+
+/** خواندن کاربر معتبر از نشست؛ کاربر غیرفعال یا نشست منقضی = null */
+export async function getSessionUser(sessionId: string | undefined): Promise<User | null> {
+  if (!sessionId) return null;
+  const db = await readDb();
+  const session = db.sessions.find((s) => s.id === sessionId);
+  if (!session || new Date(session.expiresAt).getTime() <= Date.now()) return null;
+  const user = db.users.find((u) => u.id === session.userId);
+  if (!user || !user.active) return null;
+  return user;
 }
