@@ -160,3 +160,21 @@ npm run dev
     و پس از نوشتن، `items` و `settings` و کلید `bank` دست‌نخورده ماندند.
 - قدم بعدی مشخص: **استپ ۵ — API واریزی‌ها** (`app/api/bank/deposits/...`؛ شرح کامل
   در `docs/STEPS.md`).
+
+### پیشرفت همین جلسه — استپ ۵ انجام شد
+
+- **استپ ۵ (API واریزی‌ها) کامل و پوش شد. ۱۵ استپ از ۲۰ باقی مانده است.**
+  - `lib/db.ts`: `createBankDeposit`، `updateBankDeposit`، `deleteBankDeposit` +
+    `BANK_DEPOSIT_TYPES`/`normalizeDepositType` + `recalcMemberTotals`
+    (بازمحاسبه `totalDeposited` عضو با هر ذخیره، مطابق spec) + عنوان پیش‌فرض
+    واریزی از `settings.depositTitles` (به ترتیب نوع‌ها).
+  - روت‌ها: `app/api/bank/deposits/route.ts` (GET با فیلترهای اختیاری
+    `?memberId=`/`?type=`، POST) و `app/api/bank/deposits/[id]/route.ts`
+    (PATCH، DELETE).
+  - قوانین: برای `share` عضو الزامی و `periodKey` با `parseSharePeriod` نرمال
+    می‌شود؛ انواع دیگر `periodKey=""`؛ مبلغ > 0؛ عضو ناشناس = «واریزی متفرقه».
+  - تست: lint و build پاس؛ **۲۲ شرط curl** روی سرور production همه پاس؛
+    اسکریپت `scripts/test_step5_api.sh` خارج از ریپو. recalc پس از PATCH/DELETE،
+    auditLog جدیدترین‌اول و رگرسیون items/settings تأیید شد.
+- قدم بعدی مشخص: **استپ ۶ — API وام‌ها و اقساط** (`app/api/bank/loans/...` با
+  `makeSchedule` و `loanTotals`؛ شرح کامل در `docs/STEPS.md`).

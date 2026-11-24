@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import seed from "@/data/db.json";
-import { bankUid } from "./bank";
+import { bankUid, parseSharePeriod } from "./bank";
 
 export type ItemKind = "general" | "haqiqi";
 
@@ -309,6 +309,165 @@ export async function deleteBankMember(id: string): Promise<BankMember | null> {
   }
   const [removed] = db.bank.members.splice(index, 1);
   addAudit(db.bank, "حذف", "عضو", id, `عضو «${removed.name}» حذف شد.`);
+  await writeDb(db);
+  return removed;
+}
+
+// ---------- بانک حقیقی: عملیات واریزی‌ها ----------
+
+export const BANK_DEPOSIT_TYPES: BankDepositType[] = [
+  "share",
+  "loan_interest",
+  "profit",
+  "misc",
+];
+
+export function normalizeDepositType(value: unknown): BankDepositType | null {
+  return BANK_DEPOSIT_TYPES.includes(value as BankDepositType)
+    ? (value as BankDepositType)
+    : null;
+}
+
+const DEPOSIT_TITLE_INDEX: Record<BankDepositType, number> = {
+  share: 0,
+  loan_interest: 1,
+  profit: 2,
+  misc: 3,
+};
+
+function defaultDepositTitle(bank: BankDatabase, type: BankDepositType): string {
+  const titles = bank.settings.depositTitles ?? [];
+  return titles[DEPOSIT_TITLE_INDEX[type]] ?? "واریزی";
+}
+
+/** totalDeposited هر عضو = جمع همه واریزی‌های همان عضو (بازمحاسبه با هر ذخیره) */
+function recalcMemberTotals(bank: BankDatabase) {
+  bank.members.forEach((m) => {
+    m.totalDeposited = bank.deposits
+      .filter((d) => d.memberId === m.id)
+      .reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  });
+}
+
+function faAmount(amount: number): string {
+  return Number(amount).toLocaleString("fa-IR");
+}
+
+export async function createBankDeposit(input: {
+  type: BankDepositType;
+  memberId: string | null;
+  memberName?: string;
+  title?: string;
+  amount: number;
+  periodKey?: string;
+}): Promise<BankDeposit> {
+  const db = await readDb();
+  const member = input.memberId
+    ? db.bank.members.find((m) => m.id === input.memberId) ?? null
+    : null;
+  const deposit: BankDeposit = {
+    id: bankUid(),
+    memberId: member ? member.id : null,
+    memberName: member
+      ? member.name
+      : input.memberName?.trim() || "واریزی متفرقه",
+    type: input.type,
+    title: input.title?.trim() || defaultDepositTitle(db.bank, input.type),
+    amount: input.amount,
+    periodKey:
+      input.type === "share" ? parseSharePeriod(input.periodKey ?? "", new Date()) : "",
+    createdAt: new Date().toISOString(),
+  };
+  db.bank.deposits.unshift(deposit);
+  recalcMemberTotals(db.bank);
+  addAudit(
+    db.bank,
+    "ثبت",
+    "واریزی",
+    deposit.id,
+    `واریزی «${deposit.title}» به مبلغ ${faAmount(deposit.amount)} تومان ${
+      member ? `برای عضو «${member.name}»` : "بدون عضو (متفرقه)"
+    } ثبت شد.`,
+  );
+  await writeDb(db);
+  return deposit;
+}
+
+export type BankDepositPatch = {
+  type?: BankDepositType;
+  memberId?: string | null;
+  memberName?: string;
+  title?: string;
+  amount?: number;
+  periodKey?: string;
+};
+
+export async function updateBankDeposit(
+  id: string,
+  patch: BankDepositPatch,
+): Promise<BankDeposit | null> {
+  const db = await readDb();
+  const index = db.bank.deposits.findIndex((d) => d.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const prev = db.bank.deposits[index];
+  const next: BankDeposit = { ...prev };
+  if (patch.type !== undefined) next.type = patch.type;
+  if (patch.memberId !== undefined) {
+    const member = patch.memberId
+      ? db.bank.members.find((m) => m.id === patch.memberId) ?? null
+      : null;
+    next.memberId = member ? member.id : null;
+    next.memberName = member
+      ? member.name
+      : patch.memberName?.trim() || "واریزی متفرقه";
+  } else if (patch.memberName !== undefined && next.memberId === null) {
+    next.memberName = patch.memberName.trim() || "واریزی متفرقه";
+  }
+  if (patch.title !== undefined && patch.title.trim()) {
+    next.title = patch.title.trim();
+  }
+  if (patch.amount !== undefined) next.amount = patch.amount;
+  if (next.type === "share") {
+    next.periodKey =
+      patch.periodKey !== undefined
+        ? parseSharePeriod(patch.periodKey, new Date())
+        : next.periodKey || parseSharePeriod("", new Date());
+  } else {
+    next.periodKey = "";
+  }
+  if (JSON.stringify(next) === JSON.stringify(prev)) {
+    return next;
+  }
+  db.bank.deposits[index] = next;
+  recalcMemberTotals(db.bank);
+  addAudit(
+    db.bank,
+    "ویرایش",
+    "واریزی",
+    id,
+    `واریزی «${next.title}» به مبلغ ${faAmount(next.amount)} تومان ویرایش شد.`,
+  );
+  await writeDb(db);
+  return next;
+}
+
+export async function deleteBankDeposit(id: string): Promise<BankDeposit | null> {
+  const db = await readDb();
+  const index = db.bank.deposits.findIndex((d) => d.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const [removed] = db.bank.deposits.splice(index, 1);
+  recalcMemberTotals(db.bank);
+  addAudit(
+    db.bank,
+    "حذف",
+    "واریزی",
+    id,
+    `واریزی «${removed.title}» به مبلغ ${faAmount(removed.amount)} تومان حذف شد.`,
+  );
   await writeDb(db);
   return removed;
 }

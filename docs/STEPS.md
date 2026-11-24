@@ -25,7 +25,7 @@
    سالم‌اند همان لحظه commit/push کن تا کار گم نشود.
 6. در پایان هر استپ به کاربر گزارش بده: کدام استپ انجام شد و چند استپ مانده.
 
-**باقی‌مانده: ۱۶ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
+**باقی‌مانده: ۱۵ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
 
 ## ۱) فهرست استپ‌ها
 
@@ -81,12 +81,21 @@
     از ریپو) همه پاس — افزودن/ویرایش/حذف/لیست + همه خطاهای 400/404 + auditLog
     جدیدترین‌اول + حفظ `items` و `settings` و کلید `bank` پس از نوشتن.
 
-- [ ] **استپ ۵ — API واریزی‌ها**
+- [x] **استپ ۵ — API واریزی‌ها** ✅ (2026-11-24)
   - `app/api/bank/deposits/route.ts` (GET، POST) و `app/api/bank/deposits/[id]/route.ts`
     (PATCH، DELETE).
   - `type` یکی از `share`/`loan_interest`/`profit`/`misc`؛ `memberId` می‌تواند `null`
     باشد (واریزی متفرقه)؛ برای `share` باید `periodKey` شمسی `yyyy/mm` ست شود
     (با `parseSharePeriod`). ثبت در `auditLog`؛ تست curl.
+  - انجام شد: در `lib/db.ts` توابع `createBankDeposit`، `updateBankDeposit`،
+    `deleteBankDeposit` + `recalcMemberTotals` (بازمحاسبه `totalDeposited` با هر
+    ذخیره) + عنوان پیش‌فرض از `depositTitles` به ترتیب نوع‌ها. برای `share`
+    عضو الزامی است و `periodKey` با `parseSharePeriod` نرمال می‌شود (ارقام فارسی
+    و نام ماه‌ها هم قبول است)؛ برای انواع دیگر `periodKey=""`. GET فیلترهای
+    اختیاری `?memberId=` و `?type=` دارد. تست: lint و build پاس؛ **۲۲ شرط curl**
+    روی سرور production همه پاس (اسکریپت `scripts/test_step5_api.sh` خارج از
+    ریپو) — شامل recalc totalDeposited پس از PATCH و DELETE، auditLog
+    جدیدترین‌اول و حفظ items/settings.
 
 - [ ] **استپ ۶ — API وام‌ها و اقساط**
   - `app/api/bank/loans/route.ts` (GET، POST با ساخت `schedule` از `makeSchedule` و
