@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import MembersTab from "@/app/components/bank/MembersTab";
 import DepositsTab from "@/app/components/bank/DepositsTab";
 import LoansTab from "@/app/components/bank/LoansTab";
+import ReportsTab from "@/app/components/bank/ReportsTab";
 import SettingsTab from "@/app/components/bank/SettingsTab";
 import AuditTab from "@/app/components/bank/AuditTab";
 import ManagerLock from "@/app/components/bank/ManagerLock";
@@ -21,15 +22,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "settings", label: "تنظیمات" },
   { key: "audit", label: "سوابق" },
 ];
-
-const TAB_PLACEHOLDER: Record<TabKey, string> = {
-  members: "پنل اعضا در استپ بعدی تکمیل می‌شود.",
-  deposits: "پنل واریزی‌ها در استپ بعدی تکمیل می‌شود.",
-  loans: "پنل وام‌ها و اقساط در استپ بعدی تکمیل می‌شود.",
-  reports: "گزارش‌ها و گردش ماهانه در استپ بعدی تکمیل می‌شود.",
-  settings: "تنظیمات صندوق در استپ بعدی تکمیل می‌شود.",
-  audit: "فهرست سوابق ثبت/ویرایش/حذف در استپ بعدی تکمیل می‌شود.",
-};
 
 function faNum(value: number): string {
   return value.toLocaleString("fa-IR");
@@ -75,15 +67,6 @@ export default function BankPage() {
     () => recalcFund({ members, deposits, loans }),
     [members, deposits, loans],
   );
-
-  const tabCount: Record<TabKey, string | null> = {
-    members: `${faNum(members.length)} عضو ثبت شده است.`,
-    deposits: `${faNum(deposits.length)} واریزی ثبت شده است.`,
-    loans: `${faNum(loans.length)} وام ثبت شده است.`,
-    reports: null,
-    settings: null,
-    audit: null,
-  };
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-12">
@@ -174,25 +157,18 @@ export default function BankPage() {
         />
       ) : tab === "loans" ? (
         <LoansTab members={members} loans={loans} onRefresh={load} />
+      ) : tab === "reports" ? (
+        <ReportsTab
+          members={members}
+          deposits={deposits}
+          loans={loans}
+          amountPerShare={settings?.amountPerShare ?? 0}
+        />
       ) : tab === "settings" ? (
         <SettingsTab settings={settings} onRefresh={load} />
       ) : tab === "audit" ? (
         <AuditTab />
-      ) : (
-        <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <h2 className="text-base font-medium">
-            {TABS.find((t) => t.key === tab)?.label}
-          </h2>
-          <div className="mt-1">
-            {tabCount[tab] && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {tabCount[tab]}
-              </p>
-            )}
-            <p className="mt-2 text-sm text-zinc-500">{TAB_PLACEHOLDER[tab]}</p>
-          </div>
-        </section>
-      )}
+      ) : null}
         </>
       )}
     </main>
