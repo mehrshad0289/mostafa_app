@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MembersTab from "@/app/components/bank/MembersTab";
+import DepositsTab from "@/app/components/bank/DepositsTab";
 import { recalcFund } from "@/lib/bank";
 import type { BankDeposit, BankLoan, BankMember, BankSettings } from "@/lib/db";
 
@@ -143,6 +144,13 @@ export default function BankPage() {
           deposits={deposits}
           loans={loans}
           amountPerShare={settings?.amountPerShare ?? 0}
+          onRefresh={load}
+        />
+      ) : tab === "deposits" ? (
+        <DepositsTab
+          members={members}
+          deposits={deposits}
+          settings={settings}
           onRefresh={load}
         />
       ) : (

@@ -1,7 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { memberDebt, memberShareDue, normalizeDigits, normalizeSearchText } from "@/lib/bank";
+import {
+  memberDebt,
+  memberShareDue,
+  monthKey,
+  normalizeDigits,
+  normalizeSearchText,
+} from "@/lib/bank";
 import type { BankDeposit, BankLoan, BankMember } from "@/lib/db";
 import { useHydrated } from "./useHydrated";
 
@@ -57,6 +63,7 @@ export default function MembersTab({
   const [form, setForm] = useState<MemberFormState>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<BankMember | null>(null);
+  const [quickPayId, setQuickPayId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -152,6 +159,36 @@ export default function MembersTab({
       setError("ارتباط با سرور ناموفق بود.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  /** پرداخت سریع سهم ماهانه: ثبت یک‌جای تعهد ماه جاری از کارت عضو */
+  async function quickPayShare(member: BankMember, monthlyDue: number) {
+    setQuickPayId(member.id);
+    setError("");
+    try {
+      const response = await fetch("/api/bank/deposits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "share",
+          memberId: member.id,
+          memberName: member.name,
+          title: "سهم ماهانه",
+          amount: monthlyDue,
+          periodKey: monthKey(new Date()),
+        }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error || "ثبت سهم ماهانه ناموفق بود.");
+        return;
+      }
+      onRefresh();
+    } catch {
+      setError("ارتباط با سرور ناموفق بود.");
+    } finally {
+      setQuickPayId(null);
     }
   }
 
@@ -345,6 +382,19 @@ export default function MembersTab({
                     </p>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void quickPayShare(member, due!.monthlyDue)}
+                      disabled={
+                        !due ||
+                        due.monthlyDue <= 0 ||
+                        member.settled ||
+                        quickPayId === member.id
+                      }
+                      className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-emerald-500 disabled:opacity-40"
+                    >
+                      {quickPayId === member.id ? "در حال ثبت…" : "پرداخت سهم ماهانه"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => openEdit(member)}

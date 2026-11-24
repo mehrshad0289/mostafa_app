@@ -58,6 +58,13 @@ export function normalizeSearchText(value: string): string {
     .toLowerCase();
 }
 
+/** پارس مبلغ از ورودی آزاد: ارقام فارسی/عربی و جداکننده هزارگان (٬ ، , فاصله) پشتیبانی می‌شود */
+export function parseAmount(value: string | number): number {
+  return Number(
+    normalizeDigits(String(value)).replace(/[\u066c\u060c,\s]/g, ""),
+  );
+}
+
 export function jalaliParts(value: Date | string | number): JalaliParts {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
