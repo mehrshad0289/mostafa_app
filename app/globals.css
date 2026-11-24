@@ -24,3 +24,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* چاپ گزارش (استپ ۱۷): با دکمه «چاپ گزارش» فقط بخش گزارش‌ها چاپ می‌شود —
+   بقیه صفحه (header/تب‌ها/آمار) با data-noprint پنهان می‌شود */
+@media print {
+  body.printing-report [data-noprint] {
+    display: none !important;
+  }
+  body.printing-report [data-print-area] section {
+    border: none !important;
+    box-shadow: none !important;
+  }
+  body.printing-report [data-print-area] {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}

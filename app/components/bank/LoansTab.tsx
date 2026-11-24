@@ -13,6 +13,7 @@ import {
 import type { BankLoan, BankMember } from "@/lib/db";
 import JalaliCalendar from "./JalaliCalendar";
 import { useHydrated } from "./useHydrated";
+import { downloadCsv } from "./csv";
 
 type LoansTabProps = {
   members: BankMember[];
@@ -292,6 +293,39 @@ export default function LoansTab({ members, loans, onRefresh }: LoansTabProps) {
           className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
         >
           ثبت وام
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            downloadCsv(
+              "وام‌ها",
+              [
+                "عضو",
+                "تاریخ ثبت",
+                "اصل",
+                "سود",
+                "جمع وام",
+                "پرداخت‌شده",
+                "مانده",
+                "اقساط",
+                "وضعیت",
+              ],
+              filtered.map((l) => [
+                l.memberName || "—",
+                faDate(l.createdAt),
+                l.principal,
+                l.interestAmount,
+                l.totalAmount,
+                loanPaid(l),
+                loanRemaining(l),
+                `${l.payments.length}/${l.installmentCount}`,
+                LOAN_STATUS_LABELS[l.status],
+              ]),
+            )
+          }
+          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+        >
+          خروجی CSV
         </button>
       </div>
 

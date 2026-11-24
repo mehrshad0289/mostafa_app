@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { loanPaid, loanRemaining, memberShareDue, monthlyTotals } from "@/lib/bank";
 import type { BankDeposit, BankDepositType, BankLoan, BankMember } from "@/lib/db";
 import { useHydrated } from "./useHydrated";
+import { downloadCsv } from "./csv";
 
 type ReportsTabProps = {
   members: BankMember[];
@@ -120,6 +121,51 @@ export default function ReportsTab({
       .map(([year, totals]) => ({ year, ...totals }));
   }, [months]);
 
+  /** ردیف‌های CSV گزارش عضو: خلاصه مالی + واریزی‌ها + وام‌ها (مطابق گزارش چاپی) */
+  const memberReportCsvRows = (): (string | number | null | undefined)[][] => {
+    if (!memberDetail) return [];
+    return [
+      ["خلاصه مالی"],
+      ["اعتبار (جمع واریزی سهام)", memberDetail.due.credit],
+      ["تعهد پرداخت‌شده", memberDetail.due.totalSharePaid],
+      ["تعهد مانده", memberDetail.due.left],
+      ["مانده وام‌ها", memberDetail.loansRemaining],
+      ["بدهی کل", memberDetail.debt],
+      ["مانده خالص", memberDetail.net],
+      [],
+      ["واریزی‌ها"],
+      ["تاریخ", "نوع", "عنوان", "مبلغ"],
+      ...memberDetail.memberDeposits.map((d) => [
+        faDate(d.createdAt),
+        TYPE_LABELS[d.type],
+        d.title || "—",
+        d.amount,
+      ]),
+      [],
+      ["وام‌ها و اقساط"],
+      ["تاریخ", "جمع وام", "پرداخت‌شده", "مانده", "اقساط"],
+      ...memberDetail.memberLoans.map((l) => [
+        faDate(l.createdAt),
+        l.totalAmount,
+        loanPaid(l),
+        loanRemaining(l),
+        `${l.payments.length}/${l.installmentCount}`,
+      ]),
+    ];
+  };
+
+  /** چاپ گزارش از پنجره چاپ مرورگر (Save as PDF) — فقط بخش گزارش‌ها */
+  function printReport() {
+    document.body.classList.add("printing-report");
+    window.addEventListener(
+      "afterprint",
+      () => document.body.classList.remove("printing-report"),
+      { once: true },
+    );
+    window.print();
+    setTimeout(() => document.body.classList.remove("printing-report"), 1000);
+  }
+
   const inputClass =
     "rounded-xl border border-zinc-200 bg-transparent px-3 py-2 text-sm dark:border-zinc-800";
   const flowLabels = [
@@ -134,21 +180,38 @@ export default function ReportsTab({
   ) => [row.share, row.interest, row.profit, row.repayment, row.loanOut];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-print-area="reports">
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">گزارش عضو</h3>
-        <select
-          value={memberId}
-          onChange={(e) => setMemberId(e.target.value)}
-          className={`${inputClass} min-w-56 bg-white dark:bg-zinc-950`}
-        >
-          <option value="">— انتخاب عضو —</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={memberId}
+            onChange={(e) => setMemberId(e.target.value)}
+            className={`${inputClass} min-w-56 bg-white dark:bg-zinc-950`}
+          >
+            <option value="">— انتخاب عضو —</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => downloadCsv("گزارش-عضو", [], memberReportCsvRows())}
+            disabled={!member}
+            className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 disabled:opacity-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+          >
+            CSV گزارش عضو
+          </button>
+          <button
+            type="button"
+            onClick={printReport}
+            className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+          >
+            چاپ گزارش
+          </button>
+        </div>
 
         {!member ? (
           <p className="text-sm text-zinc-500">

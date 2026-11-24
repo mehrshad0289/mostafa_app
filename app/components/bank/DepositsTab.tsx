@@ -10,6 +10,7 @@ import {
 import type { BankDeposit, BankDepositType, BankMember, BankSettings } from "@/lib/db";
 import JalaliCalendar from "./JalaliCalendar";
 import { useHydrated } from "./useHydrated";
+import { downloadCsv } from "./csv";
 
 type DepositsTabProps = {
   members: BankMember[];
@@ -237,6 +238,26 @@ export default function DepositsTab({
           className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
         >
           عنوان‌های آماده
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            downloadCsv(
+              "واریزی‌ها",
+              ["عضو", "نوع", "عنوان", "مبلغ", "دوره", "تاریخ ثبت"],
+              filtered.map((d) => [
+                d.memberName || "—",
+                TYPE_LABELS[d.type],
+                d.title || "—",
+                d.amount,
+                d.periodKey || "—",
+                faDate(d.createdAt),
+              ]),
+            )
+          }
+          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+        >
+          خروجی CSV
         </button>
       </div>
 

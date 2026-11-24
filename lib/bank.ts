@@ -421,3 +421,20 @@ export async function sha256Hex(text: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+// ---------- خروجی CSV (استپ ۱۷ — سازگار Excel) ----------
+
+/** ساخت رشته CSV: جداکننده ویرگول، خط CRLF، escape کوتیشن — خام، بدون BOM */
+export function toCsv(
+  headers: string[],
+  rows: (string | number | null | undefined)[][],
+): string {
+  const escape = (value: string | number | null | undefined) => {
+    const text = value === null || value === undefined ? "" : String(value);
+    return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  };
+  const lines = [headers, ...rows].map((row) =>
+    row.map(escape).join(","),
+  );
+  return lines.join("\r\n");
+}

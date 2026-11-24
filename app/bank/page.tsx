@@ -70,7 +70,10 @@ export default function BankPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-12">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+      <header
+        className="flex flex-wrap items-start justify-between gap-3"
+        data-noprint
+      >
         <div className="space-y-2">
           <p className="text-sm text-zinc-500">صندوق قرض‌الحسنه</p>
           <h1 className="text-3xl font-semibold tracking-tight">بانک حقیقی</h1>
@@ -93,12 +96,13 @@ export default function BankPage() {
         <>
       <Link
         href="/"
+        data-noprint
         className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
       >
         ← بازگشت به Mostafa App
       </Link>
 
-      <section className="grid grid-cols-3 gap-3">
+      <section className="grid grid-cols-3 gap-3" data-noprint>
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <p className="text-xs text-zinc-500">موجودی صندوق</p>
           <p className="mt-1 text-lg font-semibold sm:text-xl">
@@ -117,13 +121,17 @@ export default function BankPage() {
       </section>
 
       {loading && (
-        <p className="text-sm text-zinc-500">در حال دریافت اطلاعات…</p>
+        <p className="text-sm text-zinc-500" data-noprint>
+          در حال دریافت اطلاعات…
+        </p>
       )}
       {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-sm text-red-600 dark:text-red-400" data-noprint>
+          {error}
+        </p>
       )}
 
-      <nav className="flex flex-wrap gap-2">
+      <nav className="flex flex-wrap gap-2" data-noprint>
         {TABS.map((t) => (
           <button
             key={t.key}

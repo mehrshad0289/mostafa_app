@@ -11,6 +11,7 @@ import {
 import type { BankDeposit, BankLoan, BankMember } from "@/lib/db";
 import MemberDetail from "./MemberDetail";
 import { useHydrated } from "./useHydrated";
+import { downloadCsv } from "./csv";
 
 type MembersTabProps = {
   members: BankMember[];
@@ -42,6 +43,16 @@ function faNum(value: number): string {
 
 function toMoney(value: number): string {
   return `${faNum(Math.round(value))} تومان`;
+}
+
+const jalaliDateFmt = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+  dateStyle: "medium",
+});
+
+function faDate(iso: string): string {
+  const date = iso ? new Date(iso) : null;
+  if (!date || Number.isNaN(date.getTime())) return "—";
+  return jalaliDateFmt.format(date);
 }
 
 type MemberRow = {
@@ -234,6 +245,40 @@ export default function MembersTab({
           className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-zinc-100 dark:text-zinc-900"
         >
           افزودن عضو
+        </button>
+        <button
+          type="button"
+          onClick={() =>
+            downloadCsv(
+              "اعضا",
+              [
+                "نام",
+                "تلفن",
+                "جنسیت",
+                "تعداد سهم",
+                "تاریخ عضویت",
+                "اعتبار (جمع واریزی سهام)",
+                "بدهی کل",
+              ],
+              filtered.map(({ member }) => {
+                const now = new Date();
+                const due = memberShareDue(member, deposits, amountPerShare, now);
+                const debt = memberDebt(member, deposits, loans, amountPerShare, now);
+                return [
+                  member.name,
+                  member.phone || "—",
+                  member.gender === "female" ? "زن" : "مرد",
+                  member.shares,
+                  member.createdAt ? faDate(member.createdAt) : "—",
+                  due.credit,
+                  debt,
+                ];
+              }),
+            )
+          }
+          className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 transition-colors hover:border-zinc-400 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600"
+        >
+          خروجی CSV
         </button>
       </div>
 
