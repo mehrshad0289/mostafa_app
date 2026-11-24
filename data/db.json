@@ -16,5 +16,16 @@
       "kind": "haqiqi",
       "createdAt": "2026-11-23T13:10:00.000Z"
     }
-  ]
+  ],
+  "bank": {
+    "settings": {
+      "amountPerShare": 500000,
+      "depositTitles": ["سهم ماهانه", "سود وام", "واریزی سود", "واریزی متفرقه"],
+      "duplicateWarning": true
+    },
+    "members": [],
+    "deposits": [],
+    "loans": [],
+    "auditLog": []
+  }
 }

@@ -23,8 +23,118 @@ export function parseKind(value: string | null): ItemKind | undefined {
   return KINDS.includes(value as ItemKind) ? (value as ItemKind) : undefined;
 }
 
+// ---------- بانک حقیقی: مدل داده مطابق docs/BANK_SPEC.md ----------
+
+export type BankDepositType = "share" | "loan_interest" | "profit" | "misc";
+
+export type BankSettings = {
+  amountPerShare: number;
+  depositTitles: string[];
+  duplicateWarning: boolean;
+};
+
+export type BankMember = {
+  id: string;
+  name: string;
+  shares: number;
+  phone: string;
+  gender: "male" | "female";
+  note: string;
+  totalDeposited: number;
+  settled: boolean;
+  settledAt: string | null;
+  settlementClaim: number | null;
+  settlementDebt: number | null;
+  settlementNet: number | null;
+  createdAt: string;
+};
+
+export type BankDeposit = {
+  id: string;
+  memberId: string | null;
+  memberName: string;
+  type: BankDepositType;
+  title: string;
+  amount: number;
+  periodKey: string;
+  createdAt: string;
+};
+
+export type BankLoanInstallment = {
+  id: string;
+  number: number;
+  amount: number;
+  dueAt: string;
+};
+
+export type BankLoanPayment = {
+  id: string;
+  amount: number;
+  paidAt: string;
+  note: string;
+};
+
+export type BankLoan = {
+  id: string;
+  memberId: string;
+  principal: number;
+  interestMode: "beginning" | "end";
+  interestAmount: number;
+  totalAmount: number;
+  disbursedAmount: number;
+  installmentCount: number;
+  schedule: BankLoanInstallment[];
+  payments: BankLoanPayment[];
+  status: "active" | "paid" | "cancelled";
+  note: string;
+  createdAt: string;
+};
+
+export type BankAudit = {
+  id: string;
+  at: string;
+  action: string;
+  kind: string;
+  recordId: string;
+  detail: string;
+};
+
+export type BankDatabase = {
+  settings: BankSettings;
+  members: BankMember[];
+  deposits: BankDeposit[];
+  loans: BankLoan[];
+  auditLog: BankAudit[];
+};
+
+export const DEFAULT_BANK: BankDatabase = {
+  settings: {
+    amountPerShare: 500000,
+    depositTitles: ["سهم ماهانه", "سود وام", "واریزی سود", "واریزی متفرقه"],
+    duplicateWarning: true,
+  },
+  members: [],
+  deposits: [],
+  loans: [],
+  auditLog: [],
+};
+
+function normalizeBank(bank: Partial<BankDatabase> | undefined): BankDatabase {
+  return {
+    settings:
+      bank && bank.settings && typeof bank.settings === "object"
+        ? { ...DEFAULT_BANK.settings, ...bank.settings }
+        : { ...DEFAULT_BANK.settings },
+    members: bank && Array.isArray(bank.members) ? bank.members : [],
+    deposits: bank && Array.isArray(bank.deposits) ? bank.deposits : [],
+    loans: bank && Array.isArray(bank.loans) ? bank.loans : [],
+    auditLog: bank && Array.isArray(bank.auditLog) ? bank.auditLog : [],
+  };
+}
+
 type Database = {
   items: Item[];
+  bank: BankDatabase;
 };
 
 const SOURCE_FILE = path.join(process.cwd(), "data", "db.json");
@@ -35,12 +145,13 @@ const DATA_FILE = process.env.VERCEL
 async function readDb(): Promise<Database> {
   try {
     const raw = await readFile(DATA_FILE, "utf8");
-    const parsed = JSON.parse(raw) as Database;
+    const parsed = JSON.parse(raw) as Partial<Database>;
     return {
-      items: parsed.items.map((item) => ({
+      items: (parsed.items ?? seed.items).map((item) => ({
         ...item,
         kind: normalizeKind(item.kind),
       })),
+      bank: normalizeBank(parsed.bank),
     };
   } catch {
     return {
@@ -48,6 +159,7 @@ async function readDb(): Promise<Database> {
         ...item,
         kind: normalizeKind((item as { kind?: unknown }).kind),
       })),
+      bank: normalizeBank((seed as Partial<Database>).bank),
     };
   }
 }

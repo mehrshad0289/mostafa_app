@@ -108,3 +108,19 @@ npm run dev
 - تصمیم پیش‌فرض (قابل تغییر با حرف کاربر): بخش جدید با نام «بانک حقیقی» در مسیر
   `/bank` ساخته می‌شود و به `/haqiqi` و صفحه اصلی لینک می‌خورد؛ تقویم شمسی با
   `Intl` بومی و بدون کتابخانه جدید.
+
+### پیشرفت همین جلسه — استپ ۲ انجام شد
+
+- **استپ ۲ (مدل داده بانک در JSON) کامل و پوش شد. ۱۸ استپ از ۲۰ باقی مانده است.**
+  - `lib/db.ts`: تایپ‌های بانک (`BankSettings`، `BankMember`، `BankDeposit`،
+    `BankLoanInstallment`، `BankLoanPayment`، `BankLoan`، `BankAudit`،
+    `BankDatabase`) + `DEFAULT_BANK` + `normalizeBank`؛ کلید `bank` در تایپ
+    `Database`؛ `readDb` در نبود کلید `bank` آن را backfill می‌کند و مسیر نوشتن
+    هم `bank` را حفظ می‌کند (با تست تأیید شد).
+  - `data/db.json`: مقدار اولیه `bank` (amountPerShare=500000، ۴ عنوان پیش‌فرض
+    واریزی، آرایه‌های خالی).
+  - تست: `npm run lint` و `npm run build` بدون خطا؛ سرور production با
+    `next start` — `GET /api/items`، `POST /api/items` و `GET /api/items?kind=haqiqi`
+    سالم؛ پس از نوشتن، کلید `bank` در `data/db.json` حفظ شد.
+- قدم بعدی مشخص: **استپ ۳ — منطق محاسباتی خالص در `lib/bank.ts`** (شرح کامل در
+  `docs/STEPS.md`؛ فرمول‌ها در `docs/BANK_SPEC.md` بخش ۳).

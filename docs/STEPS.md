@@ -25,7 +25,7 @@
    سالم‌اند همان لحظه commit/push کن تا کار گم نشود.
 6. در پایان هر استپ به کاربر گزارش بده: کدام استپ انجام شد و چند استپ مانده.
 
-**باقی‌مانده: ۱۹ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
+**باقی‌مانده: ۱۸ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
 
 ## ۱) فهرست استپ‌ها
 
@@ -38,7 +38,7 @@
 
 ### مرحله ۱ — زیرساخت داده و منطق محاسباتی (بدون UI)
 
-- [ ] **استپ ۲ — مدل داده بانک در JSON**
+- [x] **استپ ۲ — مدل داده بانک در JSON** ✅ (2026-11-24)
   - در `lib/db.ts`: تایپ‌های `BankMember`، `BankDeposit`، `BankLoanPayment`، `BankLoan`
     (شامل `schedule` و `payments`)، `BankAudit`، `BankSettings` و کلید `bank` در تایپ `Database`.
   - فیلدها دقیقاً مطابق جدول‌های «مدل داده» در `docs/BANK_SPEC.md` بخش ۲.
@@ -47,6 +47,10 @@
   - در `readDb` اگر کلید `bank` غایب بود، با همین مقدار اولیه backfill شود؛ کد موجود
     `items` نباید بشکند.
   - معیار تست: lint و build پاس؛ `GET /api/items` و `POST /api/items` قبلی همچنان سالم.
+  - انجام شد: `DEFAULT_BANK` و `normalizeBank` در `lib/db.ts`؛ backfill در `readDb` و
+    حفظ کلید `bank` در مسیر نوشتن. تست: lint و build پاس، سرور production با
+    `next start` — `GET/POST /api/items` و فیلتر `kind=haqiqi` سالم؛ بعد از نوشتن،
+    کلید `bank` در `db.json` باقی ماند.
 
 - [ ] **استپ ۳ — منطق محاسباتی خالص در `lib/bank.ts`**
   - توابع خالص بدون I/O مطابق فرمول‌های `docs/BANK_SPEC.md` بخش ۳:
