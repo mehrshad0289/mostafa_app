@@ -1,8 +1,11 @@
+import { requireAdmin } from "@/lib/auth";
 import { getBank } from "@/lib/db";
 
 const AUDIT_LIMIT = 1000;
 
 export async function GET(request: Request) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { searchParams } = new URL(request.url);
   const raw = searchParams.get("limit");
   let limit = 100;

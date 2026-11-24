@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import { getBank, restoreBank } from "@/lib/db";
 import { jalaliParts } from "@/lib/bank";
 import type { BankDatabase } from "@/lib/db";
@@ -179,8 +180,10 @@ function validateBackup(raw: unknown): { bank?: BankDatabase; error?: string } {
   };
 }
 
-/** GET — دانلود کل داده بانک با نام فایل تاریخ‌دار شمسی */
+/** GET — دانلود کل داده بانک با نام فایل تاریخ‌دار شمسی (فقط ادمین) */
 export async function GET() {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const bank = await getBank();
   const { year, month, day } = jalaliParts(new Date());
   const p = (n: number) => String(n).padStart(2, "0");
@@ -194,8 +197,10 @@ export async function GET() {
   });
 }
 
-/** POST — بازیابی با اعتبارسنجی کامل ساختار پیش از جایگزینی */
+/** POST — بازیابی با اعتبارسنجی کامل ساختار پیش از جایگزینی (فقط ادمین) */
 export async function POST(request: Request) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   let raw: unknown;
   try {
     raw = await request.json();

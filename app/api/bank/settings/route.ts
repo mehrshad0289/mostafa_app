@@ -1,12 +1,17 @@
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { getBank, updateBankSettings } from "@/lib/db";
 import type { BankSettingsPatch } from "@/lib/db";
 
 export async function GET() {
+  const guard = await requireUser();
+  if ("error" in guard) return guard.error;
   const bank = await getBank();
   return Response.json(bank.settings);
 }
 
 export async function PUT(request: Request) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const body = (await request.json()) as {
     amountPerShare?: number;
     depositTitles?: unknown;

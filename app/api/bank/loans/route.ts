@@ -1,15 +1,22 @@
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { createBankLoan, getBank } from "@/lib/db";
 import type { BankLoan } from "@/lib/db";
 
 const LOAN_STATUSES: BankLoan["status"][] = ["active", "paid", "cancelled"];
 
 export async function GET(request: Request) {
+  const guard = await requireUser();
+  if ("error" in guard) return guard.error;
   const { searchParams } = new URL(request.url);
   const memberId = searchParams.get("memberId");
   const status = searchParams.get("status") as BankLoan["status"] | null;
   const bank = await getBank();
   let loans = bank.loans;
-  if (memberId) {
+  // عضو عادی فقط وام‌های خودش را می‌بیند؛ memberId کوئری نادیده گرفته می‌شود
+  if (guard.user.role === "member") {
+    const scopeId = guard.user.memberId ?? "__none__";
+    loans = loans.filter((l) => l.memberId === scopeId);
+  } else if (memberId) {
     loans = loans.filter((l) => l.memberId === memberId);
   }
   if (status && LOAN_STATUSES.includes(status)) {
@@ -19,6 +26,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const body = (await request.json()) as {
     memberId?: string;
     principal?: number;

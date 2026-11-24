@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import { addBankLoanPayment, deleteBankLoanPayment } from "@/lib/db";
 import { jalaliToDate, loanRemaining } from "@/lib/bank";
 
@@ -6,6 +7,8 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const body = (await request.json()) as {
     amount?: number;
@@ -52,6 +55,8 @@ export async function POST(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const { searchParams } = new URL(request.url);
   const paymentId = searchParams.get("paymentId")?.trim() ?? "";

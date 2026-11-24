@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import { deleteBankLoan, updateBankLoan } from "@/lib/db";
 import type { BankLoan, BankLoanPatch } from "@/lib/db";
 
@@ -8,6 +9,8 @@ type RouteContext = {
 const LOAN_STATUSES: BankLoan["status"][] = ["active", "paid", "cancelled"];
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const body = (await request.json()) as {
     note?: string;
@@ -102,6 +105,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const removed = await deleteBankLoan(id);
 

@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import { settleBankMember, unsettleBankMember } from "@/lib/db";
 
 type RouteContext = {
@@ -5,6 +6,8 @@ type RouteContext = {
 };
 
 export async function POST(request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const body = (await request.json()) as {
     claim?: number;
@@ -35,6 +38,8 @@ export async function POST(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const result = await unsettleBankMember(id);
 

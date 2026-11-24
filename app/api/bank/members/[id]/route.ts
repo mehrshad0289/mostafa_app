@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth";
 import { deleteBankMember, updateBankMember } from "@/lib/db";
 import type { BankMember } from "@/lib/db";
 
@@ -6,6 +7,8 @@ type RouteContext = {
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const body = (await request.json()) as {
     name?: string;
@@ -58,6 +61,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const { id } = await context.params;
   const removed = await deleteBankMember(id);
 

@@ -1,12 +1,19 @@
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { createBankDeposit, getBank, normalizeDepositType } from "@/lib/db";
 
 export async function GET(request: Request) {
+  const guard = await requireUser();
+  if ("error" in guard) return guard.error;
   const { searchParams } = new URL(request.url);
   const memberId = searchParams.get("memberId");
   const type = normalizeDepositType(searchParams.get("type"));
   const bank = await getBank();
   let deposits = bank.deposits;
-  if (memberId) {
+  // عضو عادی فقط واریزی‌های خودش را می‌بیند؛ memberId کوئری نادیده گرفته می‌شود
+  if (guard.user.role === "member") {
+    const scopeId = guard.user.memberId ?? "__none__";
+    deposits = deposits.filter((d) => d.memberId === scopeId);
+  } else if (memberId) {
     deposits = deposits.filter((d) => d.memberId === memberId);
   }
   if (type) {
@@ -16,6 +23,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const body = (await request.json()) as {
     type?: string;
     memberId?: string | null;

@@ -1,11 +1,21 @@
+import { requireAdmin, requireUser } from "@/lib/auth";
 import { createBankMember, getBank } from "@/lib/db";
 
 export async function GET() {
+  const guard = await requireUser();
+  if ("error" in guard) return guard.error;
   const bank = await getBank();
+  // عضو عادی فقط رکورد خودش را می‌بیند؛ فیلتر سمت سرور است و با query عوض نمی‌شود
+  if (guard.user.role === "member") {
+    const scopeId = guard.user.memberId ?? "__none__";
+    return Response.json(bank.members.filter((m) => m.id === scopeId));
+  }
   return Response.json(bank.members);
 }
 
 export async function POST(request: Request) {
+  const guard = await requireAdmin();
+  if ("error" in guard) return guard.error;
   const body = (await request.json()) as {
     name?: string;
     shares?: number;
