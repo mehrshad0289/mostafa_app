@@ -21,12 +21,20 @@ export default function HaqiqiPage() {
         </p>
       </header>
 
-      <Link
-        href="/"
-        className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
-      >
-        ← بازگشت به Mostafa App
-      </Link>
+      <div className="flex flex-wrap gap-x-6 gap-y-2">
+        <Link
+          href="/"
+          className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+        >
+          ← بازگشت به Mostafa App
+        </Link>
+        <Link
+          href="/bank"
+          className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
+        >
+          → بانک حقیقی
+        </Link>
+      </div>
 
       <NotesPanel kind="haqiqi" emptyText="در این بخش موردی ثبت نشده است." />
     </main>
