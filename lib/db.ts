@@ -155,6 +155,53 @@ const DATA_FILE = process.env.VERCEL
   ? path.join("/tmp", "mostafa-app-db.json")
   : SOURCE_FILE;
 
+// ---------- ذخیره‌ی دائمی روی Vercel: KV (REST آپ‌استش، بدون کتابخانه جدید) ----------
+// /tmp روی Vercel به‌ازای هر instance جدا است و با سرد شدن سرور پاک می‌شود؛
+// در نتیجه کاربران ساخته‌شده و رمز عوض‌شده از بین می‌رفتند و اپ به /login پرت
+// می‌شد. با Vercel KV (تب Storage داشبورد؛ متغیرهای KV_REST_API_URL و
+// KV_REST_API_TOKEN) کل دیتابیس به‌صورت یک blob JSON در یک کلید ذخیره می‌شود و
+// بین instanceها و بعد از سرد شدن هم می‌ماند. اگر متغیرها نبودند (محلی)، مثل
+// قبل از فایل استفاده می‌شود. پشتیبان: UPSTASH_REDIS_REST_URL/TOKEN هم پذیرفته می‌شود.
+const KV_KEY = "mostafa-app-db";
+const KV_URL =
+  process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL ?? "";
+const KV_TOKEN =
+  process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
+const kvOn = Boolean(KV_URL && KV_TOKEN);
+
+/** خواندن blob دیتابیس از KV؛ خطا یا نبودِ کلید = null (به seed برمی‌گردیم) */
+async function kvGet(): Promise<string | null> {
+  try {
+    const res = await fetch(`${KV_URL}/get/${KV_KEY}`, {
+      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { result?: string | null };
+    return data.result ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** نوشتن blob دیتابیس در KV؛ درست بودن/نبودن موفقیت را برمی‌گرداند */
+async function kvSet(value: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${KV_URL}/set/${KV_KEY}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${KV_TOKEN}`,
+        "Content-Type": "application/octet-stream",
+      },
+      body: value,
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 function normalizeDb(parsed: Partial<Database>): Database {
   const db: Database = {
     items: (parsed.items ?? seed.items).map((item) => ({
@@ -172,6 +219,17 @@ function normalizeDb(parsed: Partial<Database>): Database {
 }
 
 async function readDb(): Promise<Database> {
+  if (kvOn) {
+    const raw = await kvGet();
+    if (raw) {
+      try {
+        return normalizeDb(JSON.parse(raw) as Partial<Database>);
+      } catch {
+        // داده‌ی خراب در KV؛ مثل نبودنش رفتار می‌کنیم و اولین write آن را بازنویسی می‌کند
+      }
+    }
+    return normalizeDb(seed as Partial<Database>);
+  }
   try {
     const raw = await readFile(DATA_FILE, "utf8");
     return normalizeDb(JSON.parse(raw) as Partial<Database>);
@@ -181,8 +239,11 @@ async function readDb(): Promise<Database> {
 }
 
 async function writeDb(db: Database) {
+  const raw = JSON.stringify(db, null, 2);
+  if (kvOn && (await kvSet(raw))) return;
+  // بدون KV (محلی) یا اگر KV موقتاً در دسترس نبود: نوشتن روی فایل محلی/tmp
   await mkdir(path.dirname(DATA_FILE), { recursive: true });
-  await writeFile(DATA_FILE, JSON.stringify(db, null, 2), "utf8");
+  await writeFile(DATA_FILE, raw, "utf8");
 }
 
 export async function getItems(kind?: ItemKind) {

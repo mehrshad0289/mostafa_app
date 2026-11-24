@@ -1,6 +1,6 @@
 # Mostafa App
 
-وب‌اپلیکیشن Next.js با ذخیره داده در فایل JSON (بدون سرویس خارجی).
+وب‌اپلیکیشن Next.js؛ یادداشت‌ها، صندوق خانوادگی و دو لایه ادمین/عضو؛ داده در JSON (محلی: فایل، روی Vercel: Vercel KV).
 
 - سایت: https://mostafaapp.vercel.app
 - گیت‌هاب: https://github.com/mehrshad0289/mostafa_app
@@ -11,6 +11,10 @@
   (`general` / `haqiqi`) و فیلتر سمت API.
 - **بانک حقیقی / صندوق خانوادگی** (مسیر `/bank`): پورت کامل اپ نمونه کاربر به
   Next.js با همان منطق و فرمول‌ها.
+- **دو لایه (ادمین + عضو)**: ورود (`/login`) با نشست کوکی امضاشده (HMAC)؛ ادمین →
+  `/admin` (نمای کلی، مدیریت کاربران، درخواست‌های اعضا) و `/bank`؛ عضو →
+  `/dashboard` (پرداخت سهام/قسط با رسید، درخواست تسهیلات، پروفایل). فیلتر داده
+  سمت سرور؛ ادمین پیش‌فرض: admin / Admin@12345 (بعد از اولین ورود عوض شود).
 
 ## بانک حقیقی
 
@@ -28,15 +32,16 @@
 
 ## معماری
 
-- داده: `data/db.json` + `lib/db.ts` (کلید `items` برای یادداشت‌ها، کلید `bank`
-  برای بخش بانک).
+- داده: `data/db.json` + `lib/db.ts`؛ روی Vercel کل دیتابیس به‌صورت یک blob JSON
+  در Vercel KV (کلید `mostafa-app-db`؛ متغیرهای `KV_REST_API_URL` و
+  `KV_REST_API_TOKEN`) و در نبود آن‌ها فایل `/tmp` با ماندگاری محدود.
 - منطق خالص بدون I/O: `lib/bank.ts` (تقویم شمسی، فرمول‌های عضو/وام/صندوق).
 - API: `app/api/items/...` و `app/api/bank/...` (members، deposits، loans،
   settings، audit، backup).
 - UI: RTL فارسی با Tailwind؛ کامپوننت‌های بانک در `app/components/bank/`.
-- دیپلوی: Vercel، auto-deploy از `main`. روی Vercel نوشتن داده به `/tmp` می‌رود
-  و ماندگاری محدود دارد؛ پشتیبان‌گیری/بازیابی JSON راه استفاده عملی است.
-
+- دیپلوی: Vercel، auto-deploy از `main`. ماندگاری داده روی Vercel با اتصال
+  Vercel KV (تب Storage داشبورد) کامل می‌شود؛ تا اتصال KV نوشتن به `/tmp`
+  می‌رود و با سرد شدن سرور از بین می‌رود.
 ## اجرا
 
 ```bash
