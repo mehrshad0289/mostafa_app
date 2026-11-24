@@ -438,3 +438,21 @@ export function toCsv(
   );
   return lines.join("\r\n");
 }
+
+/** وضعیت تک‌تک اقساط وام بر پایه پرداخت‌های تجمعی — قسط i پرداخت‌شده است اگر
+ *  جمع پرداخت‌ها تا سقف تجمعی اقساط ۰..i رسیده باشد (هماهنگ با منطق ثبت پرداخت) */
+export function installmentStatuses(
+  loan: Pick<BankLoan, "schedule" | "payments">,
+): { number: number; amount: number; dueAt: string; paid: boolean }[] {
+  const totalPaid = loanPaid(loan);
+  let cumulative = 0;
+  return loan.schedule.map((installment) => {
+    cumulative += Number(installment.amount || 0);
+    return {
+      number: Number(installment.number),
+      amount: Number(installment.amount || 0),
+      dueAt: installment.dueAt,
+      paid: totalPaid >= cumulative,
+    };
+  });
+}

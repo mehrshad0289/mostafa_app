@@ -140,6 +140,8 @@ type Database = {
   bank: BankDatabase;
   users: User[];
   sessions: Session[];
+  paymentRequests: PaymentRequest[];
+  loanRequests: LoanRequest[];
 };
 
 const SOURCE_FILE = path.join(process.cwd(), "data", "db.json");
@@ -156,6 +158,8 @@ function normalizeDb(parsed: Partial<Database>): Database {
     bank: normalizeBank(parsed.bank),
     users: Array.isArray(parsed.users) ? parsed.users : [],
     sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
+    paymentRequests: Array.isArray(parsed.paymentRequests) ? parsed.paymentRequests : [],
+    loanRequests: Array.isArray(parsed.loanRequests) ? parsed.loanRequests : [],
   };
   ensureDefaultAdmin(db);
   return db;
@@ -1033,4 +1037,253 @@ export async function deleteUser(id: string): Promise<User | null> {
   db.sessions = db.sessions.filter((s) => s.userId !== id);
   await writeDb(db);
   return removed;
+}
+
+// ---------- درخواست‌های عضو (پرداخت با رسید و درخواست تسهیلات) ----------
+
+export type RequestStatus = "pending" | "approved" | "rejected";
+
+export type PaymentRequest = {
+  id: string;
+  /** share = پرداخت سهام، installment = پرداخت قسط وام */
+  kind: "share" | "installment";
+  memberId: string;
+  userId: string;
+  username: string;
+  amount: number;
+  /** عکس رسید به‌صورت data URL (محدود حجم در API) */
+  receipt: string;
+  note: string;
+  status: RequestStatus;
+  loanId?: string;
+  installmentNumber?: number;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+};
+
+export type LoanRequest = {
+  id: string;
+  memberId: string;
+  userId: string;
+  username: string;
+  amount: number;
+  months: number;
+  reason: string;
+  status: RequestStatus;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+};
+
+export const RECEIPT_MAX_CHARS = 1_600_000; // حدود ۱٫۲ مگابایت داده باینری
+
+function assertReceipt(receipt: string) {
+  if (!receipt.startsWith("data:image/")) {
+    throw new Error("عکس رسید الزامی است.");
+  }
+  if (receipt.length > RECEIPT_MAX_CHARS) {
+    throw new Error("حجم عکس رسید باید کمتر از ۱٫۵ مگابایت باشد.");
+  }
+}
+
+async function assertMemberAccount(user: User): Promise<string> {
+  const db = await readDb();
+  const memberId = user.memberId;
+  if (!memberId || !db.bank.members.some((m) => m.id === memberId)) {
+    throw new Error("حساب شما به عضوی از صندوق متصل نیست؛ با مدیر تماس بگیرید.");
+  }
+  return memberId;
+}
+
+export async function createPaymentRequest(input: {
+  kind: "share" | "installment";
+  user: User;
+  amount: number;
+  receipt: string;
+  note?: string;
+  loanId?: string;
+  installmentNumber?: number;
+}): Promise<PaymentRequest> {
+  const memberId = await assertMemberAccount(input.user);
+  assertReceipt(input.receipt);
+  if (!(Number(input.amount) > 0)) {
+    throw new Error("مبلغ پرداخت باید عددی بزرگ‌تر از صفر باشد.");
+  }
+  const db = await readDb();
+  if (input.kind === "installment") {
+    const loan = input.loanId ? db.bank.loans.find((l) => l.id === input.loanId) : undefined;
+    if (!loan || loan.memberId !== memberId) {
+      throw new Error("وام مورد نظر پیدا نشد.");
+    }
+  }
+  const request: PaymentRequest = {
+    id: bankUid(),
+    kind: input.kind,
+    memberId,
+    userId: input.user.id,
+    username: input.user.username,
+    amount: input.amount,
+    receipt: input.receipt,
+    note: input.note?.trim() ?? "",
+    status: "pending",
+    loanId: input.loanId,
+    installmentNumber: input.installmentNumber,
+    createdAt: new Date().toISOString(),
+  };
+  db.paymentRequests.unshift(request);
+  await writeDb(db);
+  return request;
+}
+
+export async function createLoanRequest(input: {
+  user: User;
+  amount: number;
+  months: number;
+  reason: string;
+}): Promise<LoanRequest> {
+  const memberId = await assertMemberAccount(input.user);
+  if (!(Number(input.amount) > 0)) {
+    throw new Error("مبلغ درخواستی باید عددی بزرگ‌تر از صفر باشد.");
+  }
+  const months = Math.floor(Number(input.months));
+  if (!Number.isFinite(months) || months < 1 || months > 60) {
+    throw new Error("مدت بازپرداخت باید بین ۱ تا ۶۰ ماه باشد.");
+  }
+  const db = await readDb();
+  const request: LoanRequest = {
+    id: bankUid(),
+    memberId,
+    userId: input.user.id,
+    username: input.user.username,
+    amount: input.amount,
+    months,
+    reason: input.reason.trim(),
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
+  db.loanRequests.unshift(request);
+  await writeDb(db);
+  return request;
+}
+
+export async function listUserRequests(userId: string): Promise<{
+  paymentRequests: PaymentRequest[];
+  loanRequests: LoanRequest[];
+}> {
+  const db = await readDb();
+  return {
+    paymentRequests: db.paymentRequests.filter((r) => r.userId === userId),
+    loanRequests: db.loanRequests.filter((r) => r.userId === userId),
+  };
+}
+
+export async function listAllRequests(): Promise<{
+  paymentRequests: PaymentRequest[];
+  loanRequests: LoanRequest[];
+}> {
+  const db = await readDb();
+  return { paymentRequests: db.paymentRequests, loanRequests: db.loanRequests };
+}
+
+/** بررسی درخواست پرداخت توسط ادمین؛ تأیید = ثبت رکورد واقعی در بانک (یک write) */
+export async function reviewPaymentRequest(
+  id: string,
+  action: "approve" | "reject",
+  reviewNote?: string,
+): Promise<PaymentRequest> {
+  const db = await readDb();
+  const request = db.paymentRequests.find((r) => r.id === id);
+  if (!request) {
+    throw new Error("درخواست پیدا نشد.");
+  }
+  if (request.status !== "pending") {
+    throw new Error("این درخواست قبلاً بررسی شده است.");
+  }
+  const now = new Date().toISOString();
+  if (action === "approve") {
+    if (request.kind === "share") {
+      const member = db.bank.members.find((m) => m.id === request.memberId);
+      const deposit: BankDeposit = {
+        id: bankUid(),
+        memberId: member ? member.id : null,
+        memberName: member ? member.name : "واریزی متفرقه",
+        type: "share",
+        title: defaultDepositTitle(db.bank, "share"),
+        amount: request.amount,
+        periodKey: parseSharePeriod("", new Date()),
+        createdAt: now,
+      };
+      db.bank.deposits.unshift(deposit);
+      recalcMemberTotals(db.bank);
+      addAudit(
+        db.bank,
+        "ثبت",
+        "واریزی",
+        deposit.id,
+        `واریزی سهام ${faAmount(request.amount)} تومانی از پرداخت تأییدشده کاربر «${request.username}» ثبت شد.`,
+      );
+    } else {
+      const loan = request.loanId ? db.bank.loans.find((l) => l.id === request.loanId) : undefined;
+      if (!loan) {
+        throw new Error("وام مربوط به این قسط پیدا نشد.");
+      }
+      const payment: BankLoanPayment = {
+        id: bankUid(),
+        amount: request.amount,
+        paidAt: now,
+        note: `پرداخت قسط ${request.installmentNumber ?? ""} توسط کاربر «${request.username}»`.trim(),
+      };
+      loan.payments.push(payment);
+      const remaining = loanRemaining(loan);
+      if (remaining === 0 && loan.status === "active") {
+        loan.status = "paid";
+      }
+      addAudit(
+        db.bank,
+        "ثبت",
+        "پرداخت",
+        payment.id,
+        `پرداخت قسط ${faAmount(request.amount)} تومانی وام عضو «${loan.memberName}» از پرداخت تأییدشده کاربر ثبت شد (مانده ${faAmount(remaining)} تومان).`,
+      );
+    }
+  }
+  request.status = action === "approve" ? "approved" : "rejected";
+  request.reviewedAt = now;
+  request.reviewNote = reviewNote?.trim() ?? "";
+  await writeDb(db);
+  return request;
+}
+
+/** بررسی درخواست تسهیلات توسط ادمین؛ تأیید فقط وضعیت را ثبت می‌کند (وام واقعی از تب وام‌ها ثبت می‌شود) */
+export async function reviewLoanRequest(
+  id: string,
+  action: "approve" | "reject",
+  reviewNote?: string,
+): Promise<LoanRequest> {
+  const db = await readDb();
+  const request = db.loanRequests.find((r) => r.id === id);
+  if (!request) {
+    throw new Error("درخواست پیدا نشد.");
+  }
+  if (request.status !== "pending") {
+    throw new Error("این درخواست قبلاً بررسی شده است.");
+  }
+  request.status = action === "approve" ? "approved" : "rejected";
+  request.reviewedAt = new Date().toISOString();
+  request.reviewNote = reviewNote?.trim() ?? "";
+  await writeDb(db);
+  return request;
+}
+
+/** تغییر رمز توسط خود کاربر (بعد از تأیید رمز فعلی در route) */
+export async function updateUserPassword(id: string, newPassword: string): Promise<User | null> {
+  const db = await readDb();
+  const user = db.users.find((u) => u.id === id);
+  if (!user) return null;
+  const { hash, salt } = hashPassword(newPassword);
+  user.passwordHash = hash;
+  user.salt = salt;
+  await writeDb(db);
+  return user;
 }

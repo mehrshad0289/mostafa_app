@@ -8,6 +8,7 @@ import type { PublicUser } from "@/lib/db";
 const MENU: { href: string; label: string }[] = [
   { href: "/admin", label: "نمای کلی" },
   { href: "/admin/users", label: "مدیریت کاربران" },
+  { href: "/admin/requests", label: "درخواست‌های اعضا" },
   { href: "/bank?tab=members", label: "اعضا" },
   { href: "/bank?tab=deposits", label: "واریزی‌ها" },
   { href: "/bank?tab=loans", label: "وام‌ها و اقساط" },
