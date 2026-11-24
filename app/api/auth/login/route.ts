@@ -5,7 +5,7 @@ import {
 } from "@/lib/auth";
 import {
   SESSION_TTL_DAYS,
-  createSession,
+  createSessionToken,
   findUserByUsername,
   sanitizeUser,
   verifyPassword,
@@ -38,12 +38,8 @@ export async function POST(request: Request) {
       { status: 401 },
     );
   }
-  const session = await createSession(user.id);
+  const { token, maxAgeSeconds } = createSessionToken(user, SESSION_TTL_DAYS);
   const response = NextResponse.json({ user: sanitizeUser(user) });
-  response.cookies.set(
-    SESSION_COOKIE,
-    session.id,
-    sessionCookieOptions(SESSION_TTL_DAYS * 24 * 60 * 60),
-  );
+  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(maxAgeSeconds));
   return response;
 }

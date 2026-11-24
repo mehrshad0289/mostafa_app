@@ -1,4 +1,10 @@
-import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import {
+  createHash,
+  createHmac,
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from "crypto";
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import seed from "@/data/db.json";
@@ -871,43 +877,67 @@ export function sanitizeUser(user: User): PublicUser {
 
 export const SESSION_TTL_DAYS = 7;
 
-/** ساخت نشست جدید؛ نشست‌های منقضی در همان لحظه پاک می‌شوند */
-export async function createSession(userId: string, ttlDays = SESSION_TTL_DAYS): Promise<Session> {
-  const db = await readDb();
-  const now = Date.now();
-  db.sessions = db.sessions.filter((s) => new Date(s.expiresAt).getTime() > now);
-  const session: Session = {
-    id: randomBytes(24).toString("hex"),
-    userId,
-    expiresAt: new Date(now + ttlDays * 24 * 60 * 60 * 1000).toISOString(),
-  };
-  db.sessions.push(session);
-  await writeDb(db);
-  return session;
+const TOKEN_VERSION = "v1";
+const TOKEN_PEPPER = "mostafa-session-v1";
+
+/**
+ * نشست بدون حالت (stateless): اطلاعات نشست در خود کوکی امضاشده زندگی می‌کند و
+ * هیچ چیزی روی دیسک نوشته نمی‌شود. روی Vercel هم وقتی instance عوض می‌شود و
+ * /tmp خالی می‌شود، کوکی معتبر می‌ماند (رفع بیرون‌پریدن به /login).
+ * کلید امضا از هش رمزِ همان کاربر ساخته می‌شود؛ پس تغییر رمز همه توکن‌های
+ * قبلی آن کاربر را باطل می‌کند و ساخت توکن بدون دانستن رمز ممکن نیست.
+ */
+function sessionKey(user: User): Buffer {
+  return createHash("sha256")
+    .update(`${user.salt}:${user.passwordHash}:${TOKEN_PEPPER}`)
+    .digest();
 }
 
-/** حذف نشست با شناسه کوکی (برای خروج) */
-export async function deleteSession(sessionId: string): Promise<boolean> {
-  const db = await readDb();
-  const before = db.sessions.length;
-  db.sessions = db.sessions.filter((s) => s.id !== sessionId);
-  if (db.sessions.length === before) return false;
-  await writeDb(db);
-  return true;
+/** ساخت توکن نشست: uid + تاریخ انقضا + امضای HMAC */
+export function createSessionToken(
+  user: User,
+  ttlDays = SESSION_TTL_DAYS,
+): { token: string; maxAgeSeconds: number } {
+  const maxAgeSeconds = Math.round(ttlDays * 24 * 60 * 60);
+  const exp = Math.floor(Date.now() / 1000) + maxAgeSeconds;
+  const payload = Buffer.from(JSON.stringify({ uid: user.id, exp }), "utf8").toString("base64url");
+  const sig = createHmac("sha256", sessionKey(user))
+    .update(`${TOKEN_VERSION}.${payload}`)
+    .digest("base64url");
+  return { token: `${TOKEN_VERSION}.${payload}.${sig}`, maxAgeSeconds };
 }
 
-/** خواندن کاربر معتبر از نشست؛ کاربر غیرفعال یا نشست منقضی = null */
+/** خواندن کاربر معتبر از توکن کوکی؛ توکن بد/منقضی یا کاربر ناموجود/غیرفعال = null */
 export async function getSessionUser(sessionId: string | undefined): Promise<User | null> {
   if (!sessionId) return null;
+  const parts = sessionId.split(".");
+  if (parts.length !== 3 || parts[0] !== TOKEN_VERSION) return null;
+  const [, payload, sig] = parts;
+  let parsed: { uid?: unknown; exp?: unknown };
+  try {
+    parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
+      uid?: unknown;
+      exp?: unknown;
+    };
+  } catch {
+    return null;
+  }
+  const uid = typeof parsed.uid === "string" ? parsed.uid : "";
+  if (!uid) return null;
   const db = await readDb();
-  const session = db.sessions.find((s) => s.id === sessionId);
-  if (!session || new Date(session.expiresAt).getTime() <= Date.now()) return null;
-  const user = db.users.find((u) => u.id === session.userId);
+  const user = db.users.find((u) => u.id === uid);
   if (!user || !user.active) return null;
+  const expected = createHmac("sha256", sessionKey(user))
+    .update(`${TOKEN_VERSION}.${payload}`)
+    .digest("base64url");
+  const given = Buffer.from(sig);
+  const want = Buffer.from(expected);
+  if (given.length !== want.length || !timingSafeEqual(given, want)) return null;
+  const exp = typeof parsed.exp === "number" ? parsed.exp : 0;
+  if (!Number.isFinite(exp) || exp <= Math.floor(Date.now() / 1000)) return null;
   return user;
 }
 
-/** یافتن کاربر با نام کاربری (برای ورود) */
 export async function findUserByUsername(username: string): Promise<User | null> {
   const db = await readDb();
   const wanted = username.trim();
