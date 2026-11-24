@@ -98,7 +98,7 @@ export default function BankPage() {
       >
         <div className="space-y-2">
           <p className="text-sm text-zinc-500">صندوق قرض‌الحسنه</p>
-          <h1 className="text-3xl font-semibold tracking-tight">بانک حقیقی</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">فم بانک</h1>
           <p className="text-zinc-600 dark:text-zinc-400">
             مدیریت اعضا، واریزی‌ها، وام‌ها و گزارش‌های صندوق.
           </p>

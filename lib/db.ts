@@ -31,7 +31,7 @@ export function parseKind(value: string | null): ItemKind | undefined {
   return KINDS.includes(value as ItemKind) ? (value as ItemKind) : undefined;
 }
 
-// ---------- بانک حقیقی: مدل داده مطابق docs/BANK_SPEC.md ----------
+// ---------- فم بانک: مدل داده مطابق docs/BANK_SPEC.md ----------
 
 export type BankDepositType = "share" | "loan_interest" | "profit" | "misc";
 
@@ -334,7 +334,7 @@ export async function deleteItem(id: string) {
   return true;
 }
 
-// ---------- بانک حقیقی: ذخیره‌سازی و عملیات اعضا ----------
+// ---------- فم بانک: ذخیره‌سازی و عملیات اعضا ----------
 
 const AUDIT_LIMIT = 1000;
 
@@ -428,7 +428,7 @@ export async function deleteBankMember(id: string): Promise<BankMember | null> {
   return removed;
 }
 
-// ---------- بانک حقیقی: عملیات واریزی‌ها ----------
+// ---------- فم بانک: عملیات واریزی‌ها ----------
 
 export const BANK_DEPOSIT_TYPES: BankDepositType[] = [
   "share",
@@ -587,7 +587,7 @@ export async function deleteBankDeposit(id: string): Promise<BankDeposit | null>
   return removed;
 }
 
-// ---------- بانک حقیقی: عملیات وام‌ها و اقساط ----------
+// ---------- فم بانک: عملیات وام‌ها و اقساط ----------
 
 export async function createBankLoan(input: {
   memberId: string;
@@ -796,7 +796,7 @@ export async function deleteBankLoanPayment(
   return { payment: removed, loan };
 }
 
-// ---------- بانک حقیقی: تسویه اعضا و تنظیمات ----------
+// ---------- فم بانک: تسویه اعضا و تنظیمات ----------
 
 /** ثبت یا ویرایش تسویه عضو؛ net = claim − debt */
 export async function settleBankMember(
@@ -905,7 +905,7 @@ export type User = {
   role: UserRole;
   fullName: string;
   phone: string;
-  /** اتصال کاربر به عضو صندوق در بخش بانک حقیقی (برای فیلتر داده عضو عادی) */
+  /** اتصال کاربر به عضو صندوق در بخش فم بانک (برای فیلتر داده عضو عادی) */
   memberId: string | null;
   active: boolean;
   /** اگر false باشد، ورود با رمز عبور برای این کاربر بسته است (فقط ادمین می‌تواند بازش کند) */

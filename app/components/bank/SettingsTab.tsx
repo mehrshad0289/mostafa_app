@@ -41,7 +41,7 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
   function backupFileName(): string {
     const { year, month, day } = jalaliParts(new Date());
     const p = (n: number) => String(n).padStart(2, "0");
-    return `پشتیبان-بانک-${year}-${p(month)}-${p(day)}.json`;
+    return `پشتیبان-فم-بانک-${year}-${p(month)}-${p(day)}.json`;
   }
 
   /** دریافت پشتیبان JSON از سرور و دانلود با نام تاریخ‌دار */

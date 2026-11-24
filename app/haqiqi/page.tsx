@@ -32,7 +32,7 @@ export default function HaqiqiPage() {
           href="/bank"
           className="text-sm text-zinc-600 underline-offset-4 hover:underline dark:text-zinc-400"
         >
-          → بانک حقیقی
+          → فم بانک
         </Link>
       </div>
 
