@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { jalaliParts, parseAmount } from "@/lib/bank";
 import type { BankSettings } from "@/lib/db";
-import { useHydrated } from "./useHydrated";
 
 type SettingsTabProps = {
   settings: BankSettings | null;
@@ -12,7 +11,7 @@ type SettingsTabProps = {
 };
 
 export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
-  const hydrated = useHydrated();
+  const [synced, setSynced] = useState<BankSettings | null>(null);
   const [amount, setAmount] = useState("");
   const [titles, setTitles] = useState<string[]>([]);
   const [newTitle, setNewTitle] = useState("");
@@ -21,13 +20,14 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
 
-  /** همگام‌سازی فرم با تنظیمات سرور پس از هر refresh */
-  useEffect(() => {
-    if (!hydrated || !settings) return;
+  /** همگام‌سازی فرم با تنظیمات سرور پس از هر refresh — الگوی رسمی React:
+      تنظیم state هنگام رندر با مقایسه مقدار قبلی (بدون effect) */
+  if (settings && settings !== synced) {
+    setSynced(settings);
     setAmount(settings.amountPerShare ? String(settings.amountPerShare) : "");
     setTitles([...(settings.depositTitles ?? [])]);
     setWarn(settings.duplicateWarning !== false);
-  }, [hydrated, settings]);
+  }
 
   const fileRef = useRef<HTMLInputElement>(null);
   /** فایل پشتیبان انتخاب‌شده و منتظر تأیید بازیابی */

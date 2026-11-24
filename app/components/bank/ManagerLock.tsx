@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { normalizeDigits, sha256Hex } from "@/lib/bank";
-import { useHydrated } from "./useHydrated";
 
 type ManagerLockProps = {
   onUnlock: () => void;
@@ -11,23 +10,29 @@ type ManagerLockProps = {
 /** کلید هش PIN در localStorage — جدا از داده‌ها (داده سرور در db.json است) */
 const PIN_HASH_KEY = "mostafa_bank_pin_hash";
 
+const emptySubscribe = () => () => {};
+
+/** اسنپ‌شات وضعیت PIN از localStorage — خطای خواندن یعنی بدون PIN */
+function getPinSnapshot(): boolean {
+  try {
+    return !!window.localStorage.getItem(PIN_HASH_KEY);
+  } catch {
+    return false;
+  }
+}
+
 export default function ManagerLock({ onUnlock }: ManagerLockProps) {
-  const hydrated = useHydrated();
-  const [hasHash, setHasHash] = useState<boolean | null>(null);
+  // null فقط در رندر سرور و هیدریشن؛ پس از mount مقدار واقعی localStorage خوانده می‌شود
+  const hasPin = useSyncExternalStore<boolean | null>(
+    emptySubscribe,
+    getPinSnapshot,
+    () => null,
+  );
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [resetConfirm, setResetConfirm] = useState(false);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      setHasHash(!!window.localStorage.getItem(PIN_HASH_KEY));
-    } catch {
-      setHasHash(false);
-    }
-  }, [hydrated]);
 
   const cleanedPin = normalizeDigits(pin).trim();
 
@@ -76,7 +81,7 @@ export default function ManagerLock({ onUnlock }: ManagerLockProps) {
     onUnlock();
   }
 
-  if (!hydrated || hasHash === null) {
+  if (hasPin === null) {
     return (
       <p className="text-sm text-zinc-500">در حال آماده‌سازی قفل…</p>
     );
@@ -93,7 +98,7 @@ export default function ManagerLock({ onUnlock }: ManagerLockProps) {
         در سرور باقی می‌مانند.
       </p>
 
-      {hasHash ? (
+      {hasPin ? (
         <form onSubmit={handleUnlock} className="space-y-3">
           <label className="block space-y-1 text-xs text-zinc-500">
             PIN مدیر
@@ -156,7 +161,7 @@ export default function ManagerLock({ onUnlock }: ManagerLockProps) {
         </form>
       )}
 
-      {hasHash &&
+      {hasPin &&
         (resetConfirm ? (
           <div className="space-y-2 rounded-2xl border border-red-300 bg-red-50 p-3 text-sm dark:border-red-900 dark:bg-red-950/40">
             <p>PIN پاک شود؟ قفل حذف می‌شود و می‌توانید PIN جدید تعیین کنید.</p>

@@ -14,6 +14,8 @@ https://github.com/mehrshad0289/mostafa_app.git
 - docs/HANDOFF.md
 - docs/AGENT_PROMPT.md
 - .cursor/rules/
+- docs/STEPS.md (نقشه استپ‌های پروژه «بانک حقیقی»؛ وضعیت با تیک [x]/[ ])
+- docs/BANK_SPEC.md (مشخصات محصول و فرمول‌های بانک حقیقی)
 
 قوانین:
 1. فقط Next.js. داده در JSON داخل پروژه است (data/db.json و lib/db.ts).
