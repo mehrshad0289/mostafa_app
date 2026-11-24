@@ -17,7 +17,8 @@ export async function PATCH(
     return NextResponse.json({ error: "ورودی نامعتبر است." }, { status: 400 });
   }
   try {
-    const user = await updateUser(id, body);
+    // guard.user.id → ادمین نمی‌تواند حساب خودش را غیرفعال یا ورود با رمزش را ببندد
+    const user = await updateUser(id, body, guard.user.id);
     if (!user) {
       return NextResponse.json({ error: "کاربر پیدا نشد." }, { status: 404 });
     }

@@ -44,6 +44,7 @@ const btnGhost =
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [members, setMembers] = useState<BankMember[]>([]);
+  const [me, setMe] = useState<UserRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -69,12 +70,14 @@ export default function AdminUsersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [u, m] = await Promise.all([
+      const [u, m, meRes] = await Promise.all([
         fetch("/api/admin/users").then((r) => (r.ok ? r.json() : { users: [] })),
         fetch("/api/bank/members").then((r) => (r.ok ? r.json() : [])),
+        fetch("/api/auth/me").then((r) => (r.ok ? r.json() : { user: null })),
       ]);
       setUsers(Array.isArray(u.users) ? u.users : []);
       setMembers(Array.isArray(m) ? m : []);
+      setMe((meRes.user as UserRow | null) ?? null);
     } catch {
       setError("دریافت فهرست کاربران ناموفق بود.");
     } finally {
@@ -178,8 +181,8 @@ export default function AdminUsersPage() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`/api/admin/users/${pwUser.id}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/admin/users/${pwUser.id}/reset-password`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: pwValue }),
       });
@@ -197,22 +200,52 @@ export default function AdminUsersPage() {
     }
   }
 
+  /** فعال/غیرفعال کردن حساب با اندپوینت اختصاصی؛ ادمین خودش را نمی‌تواند غیرفعال کند */
   async function toggleActive(user: UserRow) {
+    if (me && user.id === me.id && user.active) return;
     setBusy(true);
     setError("");
     setNotice("");
     try {
-      const response = await fetch(`/api/admin/users/${user.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: !user.active }),
-      });
+      const response = await fetch(
+        `/api/admin/users/${user.id}/${user.active ? "deactivate" : "activate"}`,
+        { method: "POST" },
+      );
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
         setError(data.error || "تغییر وضعیت ناموفق بود.");
         return;
       }
       setNotice(user.active ? `کاربر «${user.username}» غیرفعال شد.` : `کاربر «${user.username}» فعال شد.`);
+      await load();
+    } catch {
+      setError("ارتباط با سرور ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** روشن/خاموش کردن «ورود با رمز» با اندپوینت اختصاصی؛ ادمین خودش را نمی‌تواند ببندد */
+  async function togglePasswordLogin(user: UserRow) {
+    if (me && user.id === me.id && user.passwordLoginEnabled) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(
+        `/api/admin/users/${user.id}/${user.passwordLoginEnabled ? "disable-password-login" : "enable-password-login"}`,
+        { method: "POST" },
+      );
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error || "تغییر وضعیت ورود با رمز ناموفق بود.");
+        return;
+      }
+      setNotice(
+        user.passwordLoginEnabled
+          ? `ورود با رمز «${user.username}» غیرفعال شد.`
+          : `ورود با رمز «${user.username}» فعال شد.`,
+      );
       await load();
     } catch {
       setError("ارتباط با سرور ناموفق بود.");
@@ -249,13 +282,14 @@ export default function AdminUsersPage() {
         )}
 
         <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <table className="w-full min-w-[640px] text-right text-sm">
+          <table className="w-full min-w-[760px] text-right text-sm">
             <thead className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800">
               <tr>
                 <th className="px-4 py-3 font-medium">نام کاربری</th>
                 <th className="px-4 py-3 font-medium">نام کامل</th>
                 <th className="px-4 py-3 font-medium">نقش</th>
                 <th className="px-4 py-3 font-medium">وضعیت</th>
+                <th className="px-4 py-3 font-medium">ورود با رمز</th>
                 <th className="px-4 py-3 font-medium">عضو صندوق</th>
                 <th className="px-4 py-3 font-medium">عملیات</th>
               </tr>
@@ -263,13 +297,13 @@ export default function AdminUsersPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
                     در حال دریافت…
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
                     هنوز کاربری ساخته نشده است.
                   </td>
                 </tr>
@@ -305,6 +339,17 @@ export default function AdminUsersPage() {
                         {user.active ? "فعال" : "غیرفعال"}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded-lg px-2 py-1 text-xs ${
+                          user.passwordLoginEnabled
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                            : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                        }`}
+                      >
+                        {user.passwordLoginEnabled ? "مجاز" : "غیرمجاز"}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">{memberName(user.memberId)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
@@ -321,15 +366,35 @@ export default function AdminUsersPage() {
                           }}
                           className={btnGhost}
                         >
-                          تغییر رمز
+                          ریست رمز
                         </button>
                         <button
                           type="button"
-                          disabled={busy}
+                          disabled={busy || (me ? user.id === me.id && user.active : false)}
                           onClick={() => toggleActive(user)}
                           className={btnGhost}
+                          title={
+                            me && user.id === me.id
+                              ? "حساب خودتان را نمی‌توانید غیرفعال کنید"
+                              : undefined
+                          }
                         >
                           {user.active ? "غیرفعال‌سازی" : "فعال‌سازی"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            busy || (me ? user.id === me.id && user.passwordLoginEnabled : false)
+                          }
+                          onClick={() => togglePasswordLogin(user)}
+                          className={btnGhost}
+                          title={
+                            me && user.id === me.id
+                              ? "ورود با رمز خودتان را نمی‌توانید غیرفعال کنید"
+                              : undefined
+                          }
+                        >
+                          {user.passwordLoginEnabled ? "بستن ورود با رمز" : "بازکردن ورود با رمز"}
                         </button>
                       </div>
                     </td>
@@ -467,7 +532,7 @@ export default function AdminUsersPage() {
       )}
 
       {pwUser && (
-        <Modal title={`تغییر رمز «${pwUser.username}»`} onClose={() => setPwUser(null)}>
+        <Modal title={`ریست رمز «${pwUser.username}»`} onClose={() => setPwUser(null)}>
           <form onSubmit={submitPassword} className="space-y-3">
             <Field label="رمز عبور جدید">
               <div className="flex gap-2">

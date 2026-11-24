@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 /** صفحه ورود: نام کاربری + رمز → ادمین به /admin و عضو به /dashboard می‌رود */
@@ -86,6 +87,12 @@ export default function LoginPage() {
         >
           {busy ? "در حال ورود…" : "ورود"}
         </button>
+        <p className="text-center text-xs text-zinc-500">
+          حساب ندارید؟{" "}
+          <Link href="/register" className="font-medium text-zinc-700 underline dark:text-zinc-300">
+            ثبت‌نام کنید
+          </Link>
+        </p>
       </form>
     </main>
   );

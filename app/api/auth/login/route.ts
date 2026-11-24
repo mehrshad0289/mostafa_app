@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import {
-  SESSION_COOKIE,
-  sessionCookieOptions,
-} from "@/lib/auth";
-import {
   SESSION_TTL_DAYS,
   createSessionToken,
   findUserByUsername,
   sanitizeUser,
   verifyPassword,
 } from "@/lib/db";
+import { SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth";
 
 /** ورود: نام کاربری + رمز → کوکی sessionId هفت‌روزه (httpOnly, sameSite lax) + نقش کاربر */
 export async function POST(request: Request) {
@@ -28,14 +25,23 @@ export async function POST(request: Request) {
     );
   }
   const user = await findUserByUsername(username);
-  if (
-    !user ||
-    !user.active ||
-    !verifyPassword(password, user.salt, user.passwordHash)
-  ) {
+  // پیام یکسان برای کاربر ناموجود و رمز اشتباه تا وضعیت حساب لو نرود
+  if (!user || !verifyPassword(password, user.salt, user.passwordHash)) {
     return NextResponse.json(
       { error: "نام کاربری یا رمز عبور اشتباه است" },
       { status: 401 },
+    );
+  }
+  if (!user.active) {
+    return NextResponse.json(
+      { error: "حساب شما غیرفعال است. با مدیر تماس بگیرید." },
+      { status: 403 },
+    );
+  }
+  if (!user.passwordLoginEnabled) {
+    return NextResponse.json(
+      { error: "ورود با رمز عبور برای حساب شما غیرفعال است. با مدیر تماس بگیرید." },
+      { status: 403 },
     );
   }
   const { token, maxAgeSeconds } = createSessionToken(user, SESSION_TTL_DAYS);

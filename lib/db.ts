@@ -202,6 +202,45 @@ async function kvSet(value: string): Promise<boolean> {
   }
 }
 
+/**
+ * مایگریشن داده کاربران: رکوردهای قدیمی که فیلدهای passwordLoginEnabled و
+ * updatedAt را ندارند تکمیل می‌شوند (پیش‌فرض: ورود با رمز مجاز). رکوردهای ناقص
+ * (بدون id/username/hash) کنار گذاشته می‌شوند تا هرگز نشست نامعتبر ساخته نشود.
+ */
+function normalizeUsers(users: unknown): User[] {
+  if (!Array.isArray(users)) return [];
+  const out: User[] = [];
+  for (const raw of users) {
+    if (!raw || typeof raw !== "object") continue;
+    const u = raw as Partial<User>;
+    if (
+      typeof u.id !== "string" ||
+      typeof u.username !== "string" ||
+      typeof u.passwordHash !== "string" ||
+      typeof u.salt !== "string"
+    ) {
+      continue;
+    }
+    out.push({
+      id: u.id,
+      username: u.username,
+      passwordHash: u.passwordHash,
+      salt: u.salt,
+      role: u.role === "admin" ? "admin" : "member",
+      fullName: typeof u.fullName === "string" ? u.fullName : "",
+      phone: typeof u.phone === "string" ? u.phone : "",
+      memberId: typeof u.memberId === "string" ? u.memberId : null,
+      active: u.active !== false,
+      passwordLoginEnabled: u.passwordLoginEnabled !== false,
+      createdAt:
+        typeof u.createdAt === "string" ? u.createdAt : "2026-01-01T00:00:00.000Z",
+      updatedAt:
+        typeof u.updatedAt === "string" ? u.updatedAt : "2026-01-01T00:00:00.000Z",
+    });
+  }
+  return out;
+}
+
 function normalizeDb(parsed: Partial<Database>): Database {
   const db: Database = {
     items: (parsed.items ?? seed.items).map((item) => ({
@@ -209,7 +248,7 @@ function normalizeDb(parsed: Partial<Database>): Database {
       kind: normalizeKind(item.kind),
     })),
     bank: normalizeBank(parsed.bank),
-    users: Array.isArray(parsed.users) ? parsed.users : [],
+    users: normalizeUsers(parsed.users),
     sessions: Array.isArray(parsed.sessions) ? parsed.sessions : [],
     paymentRequests: Array.isArray(parsed.paymentRequests) ? parsed.paymentRequests : [],
     loanRequests: Array.isArray(parsed.loanRequests) ? parsed.loanRequests : [],
@@ -869,7 +908,10 @@ export type User = {
   /** اتصال کاربر به عضو صندوق در بخش بانک حقیقی (برای فیلتر داده عضو عادی) */
   memberId: string | null;
   active: boolean;
+  /** اگر false باشد، ورود با رمز عبور برای این کاربر بسته است (فقط ادمین می‌تواند بازش کند) */
+  passwordLoginEnabled: boolean;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type PublicUser = Omit<User, "passwordHash" | "salt">;
@@ -904,7 +946,9 @@ function ensureDefaultAdmin(db: Database) {
     phone: "",
     memberId: null,
     active: true,
+    passwordLoginEnabled: true,
     createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
   });
 }
 
@@ -987,7 +1031,8 @@ export async function getSessionUser(sessionId: string | undefined): Promise<Use
   if (!uid) return null;
   const db = await readDb();
   const user = db.users.find((u) => u.id === uid);
-  if (!user || !user.active) return null;
+  // کاربر غیرفعال یا با «ورود با رمز» بسته → نشست بلافاصله باطل می‌شود
+  if (!user || !user.active || !user.passwordLoginEnabled) return null;
   const expected = createHmac("sha256", sessionKey(user))
     .update(`${TOKEN_VERSION}.${payload}`)
     .digest("base64url");
@@ -1005,6 +1050,65 @@ export async function findUserByUsername(username: string): Promise<User | null>
   return db.users.find((u) => u.username === wanted) ?? null;
 }
 
+/** اعتبارسنجی نام کاربری: حداقل ۳ نویسه انگلیسی/عدد/نقطه/خط تیره/زیرخط */
+function assertUsername(username: string): string {
+  const wanted = username.trim();
+  if (wanted.length < 3) {
+    throw new Error("نام کاربری باید حداقل ۳ نویسه باشد.");
+  }
+  if (!/^[A-Za-z0-9._-]+$/.test(wanted)) {
+    throw new Error(
+      "نام کاربری فقط می‌تواند شامل حروف انگلیسی، عدد، نقطه، خط تیره و زیرخط باشد.",
+    );
+  }
+  return wanted;
+}
+
+/**
+ * ثبت‌نام خودکار کاربر جدید (ثبت‌نام از صفحه عمومی): نقش عضو، حساب پیش‌فرض
+ * غیرفعال تا ادمین فعالش کند و ورود با رمز مجاز. برگشتن با پیام خطای واضح
+ * در صورت تکراری بودن نام کاربری یا نامعتبر بودن ورودی‌ها.
+ */
+export async function registerUser(input: {
+  username: string;
+  password: string;
+  fullName?: string;
+  phone?: string;
+}): Promise<User> {
+  const username = assertUsername(input.username);
+  assertNewPassword(input.password);
+  const db = await readDb();
+  if (db.users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
+    throw new Error("این نام کاربری قبلاً ثبت شده است.");
+  }
+  const { hash, salt } = hashPassword(input.password);
+  const now = new Date().toISOString();
+  const user: User = {
+    id: bankUid(),
+    username,
+    passwordHash: hash,
+    salt,
+    role: "member",
+    fullName: input.fullName?.trim() ?? "",
+    phone: input.phone?.trim() ?? "",
+    memberId: null,
+    active: false,
+    passwordLoginEnabled: true,
+    createdAt: now,
+    updatedAt: now,
+  };
+  db.users.push(user);
+  await writeDb(db);
+  return user;
+}
+
+/** رمز موقت امن ۱۲ نویسه‌ای بدون نویسه‌های گیج‌کننده (0/O/1/l) برای ریست توسط ادمین */
+export function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+  const bytes = randomBytes(12);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
+
 // ---------- مدیریت کاربران (فقط ادمین) ----------
 
 export type UserPatch = {
@@ -1012,6 +1116,8 @@ export type UserPatch = {
   phone?: string;
   role?: UserRole;
   active?: boolean;
+  /** روشن/خاموش کردن «ورود با رمز عبور» کاربر توسط ادمین */
+  passwordLoginEnabled?: boolean;
   memberId?: string | null;
   password?: string;
 };
@@ -1050,10 +1156,7 @@ export async function createUser(input: {
   role?: unknown;
   memberId?: string | null;
 }): Promise<User> {
-  const username = input.username.trim();
-  if (username.length < 3) {
-    throw new Error("نام کاربری باید حداقل ۳ نویسه باشد.");
-  }
+  const username = assertUsername(input.username);
   assertNewPassword(input.password);
   const role = assertRole(input.role);
   const db = await readDb();
@@ -1062,6 +1165,7 @@ export async function createUser(input: {
   }
   const memberId = assertMemberExists(db.bank, input.memberId);
   const { hash, salt } = hashPassword(input.password);
+  const now = new Date().toISOString();
   const user: User = {
     id: bankUid(),
     username,
@@ -1072,7 +1176,9 @@ export async function createUser(input: {
     phone: input.phone?.trim() ?? "",
     memberId: role === "member" ? memberId : null,
     active: true,
-    createdAt: new Date().toISOString(),
+    passwordLoginEnabled: true,
+    createdAt: now,
+    updatedAt: now,
   };
   db.users.push(user);
   await writeDb(db);
@@ -1084,10 +1190,26 @@ function countActiveAdmins(db: Database): number {
   return db.users.filter((u) => u.role === "admin" && u.active).length;
 }
 
-export async function updateUser(id: string, patch: UserPatch): Promise<User | null> {
+/**
+ * ویرایش کاربر توسط ادمین. callerId برای جلوگیری از اینکه ادمین حساب خودش را
+ * غیرفعال کند یا «ورود با رمز» خودش را ببندد؛ حداقل یک ادمین فعال همیشه می‌ماند.
+ */
+export async function updateUser(
+  id: string,
+  patch: UserPatch,
+  callerId?: string,
+): Promise<User | null> {
   const db = await readDb();
   const user = db.users.find((u) => u.id === id);
   if (!user) return null;
+  if (callerId && callerId === id) {
+    if (patch.active === false) {
+      throw new Error("نمی‌توانید حساب خودتان را غیرفعال کنید.");
+    }
+    if (patch.passwordLoginEnabled === false) {
+      throw new Error("نمی‌توانید ورود با رمز عبور حساب خودتان را غیرفعال کنید.");
+    }
+  }
   const nextRole = patch.role !== undefined ? assertRole(patch.role) : user.role;
   const nextActive = patch.active !== undefined ? patch.active : user.active;
   if (
@@ -1111,8 +1233,91 @@ export async function updateUser(id: string, patch: UserPatch): Promise<User | n
   user.role = nextRole;
   user.active = nextActive;
   user.memberId = user.role === "member" ? memberId : null;
+  if (patch.passwordLoginEnabled !== undefined) {
+    user.passwordLoginEnabled = patch.passwordLoginEnabled;
+  }
+  user.updatedAt = new Date().toISOString();
   await writeDb(db);
   return user;
+}
+
+/**
+ * فعال/غیرفعال کردن حساب کاربر توسط ادمین. ادمین نمی‌تواند خودش را غیرفعال کند
+ * و آخرین ادمین فعال هم همیشه باقی می‌ماند. با غیرفعال شدن، همه نشست‌های فعال
+ * کاربر بلافاصله باطل می‌شوند (getSessionUser وضعیت لحظه‌ای کاربر را می‌بیند).
+ */
+export async function setUserActive(
+  id: string,
+  active: boolean,
+  callerId?: string,
+): Promise<User> {
+  const db = await readDb();
+  const user = db.users.find((u) => u.id === id);
+  if (!user) throw new Error("کاربر پیدا نشد.");
+  if (!active) {
+    if (callerId && callerId === id) {
+      throw new Error("نمی‌توانید حساب خودتان را غیرفعال کنید.");
+    }
+    if (
+      user.role === "admin" &&
+      user.active &&
+      countActiveAdmins(db) <= 1
+    ) {
+      throw new Error("آخرین ادمین فعال را نمی‌توان غیرفعال کرد؛ ابتدا یک ادمین دیگر بسازید.");
+    }
+  }
+  if (user.active !== active) {
+    user.active = active;
+    user.updatedAt = new Date().toISOString();
+    await writeDb(db);
+  }
+  return user;
+}
+
+/**
+ * فعال/غیرفعال کردن «ورود با رمز عبور» کاربر توسط ادمین. ادمین نمی‌تواند
+ * ورود با رمز خودش را ببندد. با بستن، ورود با رمز فوراً رد می‌شود و نشست‌های
+ * فعال کاربر هم بلافاصله باطل می‌شوند (getSessionUser وضعیت لحظه‌ای را می‌بیند).
+ */
+export async function setPasswordLogin(
+  id: string,
+  enabled: boolean,
+  callerId?: string,
+): Promise<User> {
+  const db = await readDb();
+  const user = db.users.find((u) => u.id === id);
+  if (!user) throw new Error("کاربر پیدا نشد.");
+  if (!enabled && callerId && callerId === id) {
+    throw new Error("نمی‌توانید ورود با رمز عبور حساب خودتان را غیرفعال کنید.");
+  }
+  if (user.passwordLoginEnabled !== enabled) {
+    user.passwordLoginEnabled = enabled;
+    user.updatedAt = new Date().toISOString();
+    await writeDb(db);
+  }
+  return user;
+}
+
+/**
+ * ریست رمز عبور کاربر توسط ادمین: رمز جدید داده‌شده یا در نبود آن رمز موقت
+ * تولیدی. تغییر رمز کلید امضای نشست را عوض می‌کند، پس همه نشست‌های قبلی کاربر
+ * باطل می‌شوند. اگر رمز موقت تولید شود در خروجی برمی‌گردد تا ادمین به کاربر بدهد.
+ */
+export async function adminResetPassword(
+  id: string,
+  newPassword?: string,
+): Promise<{ user: User; generated: boolean; tempPassword: string | null }> {
+  const db = await readDb();
+  const user = db.users.find((u) => u.id === id);
+  if (!user) throw new Error("کاربر پیدا نشد.");
+  const generated = newPassword === undefined || newPassword === "";
+  const password = generated ? generateTempPassword() : assertNewPassword(newPassword);
+  const { hash, salt } = hashPassword(password);
+  user.passwordHash = hash;
+  user.salt = salt;
+  user.updatedAt = new Date().toISOString();
+  await writeDb(db);
+  return { user, generated, tempPassword: generated ? password : null };
 }
 
 export async function deleteUser(id: string): Promise<User | null> {
