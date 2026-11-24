@@ -859,12 +859,13 @@ export function verifyPassword(password: string, salt: string, expectedHash: str
 
 /** حذف hash و salt برای خروجی API */
 export function sanitizeUser(user: User): PublicUser {
-  const { passwordHash: _hash, salt: _salt, ...rest } = user;
-  return rest;
+  const next = { ...user } as Record<string, unknown>;
+  delete next.passwordHash;
+  delete next.salt;
+  return next as PublicUser;
 }
 
 export const SESSION_TTL_DAYS = 7;
-const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
 
 /** ساخت نشست جدید؛ نشست‌های منقضی در همان لحظه پاک می‌شوند */
 export async function createSession(userId: string, ttlDays = SESSION_TTL_DAYS): Promise<Session> {
@@ -900,4 +901,11 @@ export async function getSessionUser(sessionId: string | undefined): Promise<Use
   const user = db.users.find((u) => u.id === session.userId);
   if (!user || !user.active) return null;
   return user;
+}
+
+/** یافتن کاربر با نام کاربری (برای ورود) */
+export async function findUserByUsername(username: string): Promise<User | null> {
+  const db = await readDb();
+  const wanted = username.trim();
+  return db.users.find((u) => u.username === wanted) ?? null;
 }

@@ -514,3 +514,23 @@ API مدیریت کاربران → محافظت از APIهای بانکی → �
   می‌شود (`user-admin-default`) تا اولین ورود ممکن باشد و نشست‌ها معتبر بمانند.
   **یادآوری: ادمین بعد از اولین ورود باید رمز پیش‌فرض را عوض کند** (تغییر رمز در قدم ۷).
 - تست: `npx tsc --noEmit` پاس؛ تست رفتاری با API ورود در قدم ۲ انجام می‌شود.
+
+### قدم ۲ انجام شد — lib/auth.ts + APIهای ورود/خروج/من
+
+- `lib/auth.ts`: `SESSION_COOKIE="sessionId"`، `sessionCookieOptions` (httpOnly +
+  sameSite lax + path=/ + maxAge ۷ روز؛ secure فقط وقتی `VERCEL=1` تا تست محلی
+  با curl روی http ممکن بماند)، `requireUser` (نبودن لاگین → 401
+  «ابتدا وارد شوید.»)، `requireAdmin` (غیرادمین → 403 «فقط مدیر دسترسی دارد.»)
+  و `publicMe`. الگوی استفاده در همه روت‌ها: `const g = await requireAdmin();
+  if ("error" in g) return g.error;`
+- روت‌های جدید: `app/api/auth/login/route.ts` (POST — تأیید کاربر فعال با
+  verifyPassword، ساخت نشست، ست کوکی، برگرداندن user پاک‌سازی‌شده؛ خطا 401 با
+  پیام «نام کاربری یا رمز عبور اشتباه است»)، `app/api/auth/logout/route.ts`
+  (POST — حذف نشست از دیتابیس + کوکی خالی)، `app/api/auth/me/route.ts`
+  (GET — `{user: null}` اگر لاگین نباشد).
+- `lib/db.ts`: helper `findUserByUsername` اضافه شد.
+- تست curl (سرور production پورت 3100، همه پاس): me بدون کوکی = user null؛
+  رمز غلط = 401 با همان پیام؛ ورود admin/Admin@12345 = 200 و user بدون
+  hash/salt؛ کوکی با HttpOnly/SameSite=Lax ست شد؛ me با کوکی = admin؛
+  خروج = ok و نشست از دیتابیس حذف شد (sessions: 0)؛ ادمین پیش‌فرض در
+  data/db.json پایدار شد. lint (۰ خطا/۰ هشدار) و build سبز.
