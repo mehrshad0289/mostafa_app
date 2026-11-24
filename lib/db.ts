@@ -1116,6 +1116,17 @@ export async function createPaymentRequest(input: {
     if (!loan || loan.memberId !== memberId) {
       throw new Error("وام مورد نظر پیدا نشد.");
     }
+    // برای هر قسط فقط یک درخواست معلق؛ جلوگیری از تأیید دوبارهٔ همان قسط
+    const dupPending = db.paymentRequests.some(
+      (r) =>
+        r.kind === "installment" &&
+        r.status === "pending" &&
+        r.loanId === input.loanId &&
+        r.installmentNumber === input.installmentNumber,
+    );
+    if (dupPending) {
+      throw new Error("برای این قسط یک درخواست پرداخت در انتظار تأیید وجود دارد.");
+    }
   }
   const request: PaymentRequest = {
     id: bankUid(),
