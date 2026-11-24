@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import seed from "@/data/db.json";
+import { bankUid } from "./bank";
 
 export type ItemKind = "general" | "haqiqi";
 
@@ -216,4 +217,98 @@ export async function deleteItem(id: string) {
   db.items = next;
   await writeDb(db);
   return true;
+}
+
+// ---------- بانک حقیقی: ذخیره‌سازی و عملیات اعضا ----------
+
+const AUDIT_LIMIT = 1000;
+
+function addAudit(
+  bank: BankDatabase,
+  action: string,
+  kind: string,
+  recordId: string,
+  detail: string,
+) {
+  bank.auditLog.unshift({
+    id: bankUid(),
+    at: new Date().toISOString(),
+    action,
+    kind,
+    recordId,
+    detail,
+  });
+  if (bank.auditLog.length > AUDIT_LIMIT) {
+    bank.auditLog.length = AUDIT_LIMIT;
+  }
+}
+
+export async function getBank(): Promise<BankDatabase> {
+  const db = await readDb();
+  return db.bank;
+}
+
+export async function createBankMember(input: {
+  name: string;
+  shares: number;
+  phone?: string;
+  gender?: BankMember["gender"];
+  note?: string;
+}): Promise<BankMember> {
+  const db = await readDb();
+  const member: BankMember = {
+    id: bankUid(),
+    name: input.name.trim(),
+    shares: input.shares,
+    phone: input.phone?.trim() ?? "",
+    gender: input.gender === "female" ? "female" : "male",
+    note: input.note?.trim() ?? "",
+    totalDeposited: 0,
+    settled: false,
+    settledAt: null,
+    settlementClaim: null,
+    settlementDebt: null,
+    settlementNet: null,
+    createdAt: new Date().toISOString(),
+  };
+  db.bank.members.unshift(member);
+  addAudit(db.bank, "ثبت", "عضو", member.id, `عضو «${member.name}» با ${member.shares} سهم ثبت شد.`);
+  await writeDb(db);
+  return member;
+}
+
+export async function updateBankMember(
+  id: string,
+  patch: Partial<Pick<BankMember, "name" | "shares" | "phone" | "gender" | "note">>,
+): Promise<BankMember | null> {
+  const db = await readDb();
+  const index = db.bank.members.findIndex((m) => m.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const next: BankMember = { ...db.bank.members[index] };
+  if (patch.name !== undefined) next.name = patch.name.trim();
+  if (patch.shares !== undefined) next.shares = patch.shares;
+  if (patch.phone !== undefined) next.phone = patch.phone.trim();
+  if (patch.gender !== undefined) next.gender = patch.gender;
+  if (patch.note !== undefined) next.note = patch.note.trim();
+  if (JSON.stringify(next) === JSON.stringify(db.bank.members[index])) {
+    return next;
+  }
+  db.bank.members[index] = next;
+  addAudit(db.bank, "ویرایش", "عضو", id, `اطلاعات عضو «${next.name}» ویرایش شد.`);
+  await writeDb(db);
+  return next;
+}
+
+export async function deleteBankMember(id: string): Promise<BankMember | null> {
+  const db = await readDb();
+  const index = db.bank.members.findIndex((m) => m.id === id);
+  if (index === -1) {
+    return null;
+  }
+  const [removed] = db.bank.members.splice(index, 1);
+  addAudit(db.bank, "حذف", "عضو", id, `عضو «${removed.name}» حذف شد.`);
+  await writeDb(db);
+  return removed;
 }

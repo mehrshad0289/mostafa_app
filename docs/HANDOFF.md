@@ -144,3 +144,19 @@ npm run dev
   - `npm run lint` و `npm run build` بدون خطا.
 - قدم بعدی مشخص: **استپ ۴ — API اعضا** (`app/api/bank/members/...`؛ شرح کامل در
   `docs/STEPS.md`).
+
+### پیشرفت همین جلسه — استپ ۴ انجام شد
+
+- **استپ ۴ (API اعضا) کامل و پوش شد. ۱۶ استپ از ۲۰ باقی مانده است.**
+  - `lib/db.ts`: `getBank` + عملیات اعضا (`createBankMember`، `updateBankMember`،
+    `deleteBankMember`) + helper `addAudit` (سوابق جدیدترین اول، سقف ۱۰۰۰ رکورد).
+  - روت‌ها: `app/api/bank/members/route.ts` (GET لیست، POST افزودن) و
+    `app/api/bank/members/[id]/route.ts` (PATCH، DELETE) — همان الگوی روت‌های
+    items (پارامتر داینامیک Promise، خطا 400/404).
+  - اعتبارسنجی: نام غیرخالی، shares عدد > 0، gender فقط male/female؛ پیام خطاها
+    فارسی (متفاوت از پیام‌های انگلیسی items — عمدی است).
+  - تست: lint و build پاس؛ **۱۵ شرط curl** روی سرور production (پورت 3100) همه
+    پاس؛ اسکریپت `scripts/test_step4_api.sh` خارج از ریپو. auditLog صحیح ثبت شد
+    و پس از نوشتن، `items` و `settings` و کلید `bank` دست‌نخورده ماندند.
+- قدم بعدی مشخص: **استپ ۵ — API واریزی‌ها** (`app/api/bank/deposits/...`؛ شرح کامل
+  در `docs/STEPS.md`).

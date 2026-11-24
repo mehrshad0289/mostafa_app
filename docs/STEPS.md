@@ -25,7 +25,7 @@
    سالم‌اند همان لحظه commit/push کن تا کار گم نشود.
 6. در پایان هر استپ به کاربر گزارش بده: کدام استپ انجام شد و چند استپ مانده.
 
-**باقی‌مانده: ۱۷ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
+**باقی‌مانده: ۱۶ استپ از ۲۰** — آخرین آپدیت: 2026-11-24
 
 ## ۱) فهرست استپ‌ها
 
@@ -68,11 +68,18 @@
     تأییدشده با نمونه: تاریخ اقساط ماه‌به‌ماه روی تقویم میلادی جلو می‌رود و «روز»
     آن، روزِ میلادیِ تاریخ اولین قسط است). lint و build پاس.
 
-- [ ] **استپ ۴ — API اعضا**
+- [x] **استپ ۴ — API اعضا** ✅ (2026-11-24)
   - `app/api/bank/members/route.ts` (GET لیست، POST افزودن) و
     `app/api/bank/members/[id]/route.ts` (PATCH ویرایش، DELETE حذف).
   - اعتبارسنجی: نام غیرخالی، `shares` عدد > 0. ثبت خودکار عملیات در `auditLog`.
   - تست curl با `next dev`: افزودن، ویرایش، حذف، دریافت لیست.
+  - انجام شد: در `lib/db.ts` توابع `getBank`، `createBankMember`، `updateBankMember`،
+    `deleteBankMember` + helper `addAudit` (جدیدترین اول، سقف ۱۰۰۰). اعتبارسنجی:
+    نام غیرخالی، shares عدد > 0، gender فقط male/female؛ خطاها فارسی. PATCH با
+    patch خالی بدون audit برمی‌گردد. تست: lint و build پاس؛ ۱۵ شرط curl روی سرور
+    production (`next start` پورت 3100؛ اسکریپت `scripts/test_step4_api.sh` خارج
+    از ریپو) همه پاس — افزودن/ویرایش/حذف/لیست + همه خطاهای 400/404 + auditLog
+    جدیدترین‌اول + حفظ `items` و `settings` و کلید `bank` پس از نوشتن.
 
 - [ ] **استپ ۵ — API واریزی‌ها**
   - `app/api/bank/deposits/route.ts` (GET، POST) و `app/api/bank/deposits/[id]/route.ts`
