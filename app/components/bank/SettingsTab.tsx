@@ -3,8 +3,35 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { jalaliParts, parseAmount } from "@/lib/bank";
+import ClayIcon, { type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import type { BankSettings, DepositAccount } from "@/lib/db";
 import AppearanceSettings from "./AppearanceSettings";
+
+/**
+ * سر بخش‌های تنظیمات — جلسه ۲۶: لیست سر بخش‌ها؛ زیرمجموعه هر بخش فقط با
+ * ورود به آن دیده می‌شود (هم‌الگوی SettingsScreen پوسته موبایل).
+ */
+type SettingsSectionKey =
+  | "appearance"
+  | "shareAmount"
+  | "depositAccounts"
+  | "depositTitles"
+  | "duplicateWarning"
+  | "backup";
+
+const SETTINGS_SECTIONS: {
+  key: SettingsSectionKey;
+  title: string;
+  subtitle: string;
+  icon: ClayIconName;
+}[] = [
+  { key: "shareAmount", title: "مبلغ هر سهم", subtitle: "مبنای تعهد ماهانه اعضا و پرداخت سهم ماهانه", icon: "coins" },
+  { key: "depositAccounts", title: "حساب‌های واریز اعضا", subtitle: "کارت و شبا اصلی و جایگزین برای واریز اعضا", icon: "wallet" },
+  { key: "depositTitles", title: "عنوان‌های آماده واریز", subtitle: "پیشنهاد فرم ثبت واریزی — عنوان آزاد هم ممکن است", icon: "receipt" },
+  { key: "duplicateWarning", title: "هشدار تراکنش مشابه", subtitle: "تأیید پیش از ثبت واریزی مشابه", icon: "bell" },
+  { key: "backup", title: "پشتیبان‌گیری و بازیابی", subtitle: "دانلود JSON پشتیبان و بازیابی کامل داده بانک", icon: "download" },
+  { key: "appearance", title: "ظاهر اپلیکیشن", subtitle: "تم رنگی، فونت و حالت نمایش", icon: "palette" },
+];
 
 type SettingsTabProps = {
   settings: BankSettings | null;
@@ -30,6 +57,8 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
+  /** سر بخش باز — null یعنی فهرست اصلی تنظیمات */
+  const [section, setSection] = useState<SettingsSectionKey | null>(null);
 
   /** همگام‌سازی فرم با تنظیمات سرور پس از هر refresh — الگوی رسمی React:
       تنظیم state هنگام رندر با مقایسه مقدار قبلی (بدون effect) */
@@ -218,16 +247,36 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
   const inputClass =
     "rounded-xl border border-zinc-200 bg-transparent px-3 py-2 text-sm dark:border-zinc-800";
 
-  return (
-    <div className="space-y-4">
-      <AppearanceSettings />
-      {error && (
-        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-      )}
-      {saved && (
-        <p className="text-sm text-emerald-700 dark:text-emerald-400">{saved}</p>
-      )}
+  const sectionMeta = section
+    ? SETTINGS_SECTIONS.find((s) => s.key === section) ?? null
+    : null;
 
+  /* ---------- نمای جزئیات: زیرمجموعه فقط با ورود به سر بخش ---------- */
+  if (sectionMeta) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSection(null)}
+            aria-label="بازگشت به فهرست تنظیمات"
+            className="clay-press grid size-10 place-items-center rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+          >
+            <ClayIcon name="chevron-right" size={24} ghost ghostColor="#334155" />
+          </button>
+          <h2 className="text-base font-bold">{sectionMeta.title}</h2>
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        )}
+        {saved && (
+          <p className="text-sm text-emerald-700 dark:text-emerald-400">{saved}</p>
+        )}
+
+        {section === "appearance" && <AppearanceSettings />}
+
+        {section === "shareAmount" && (
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">مبلغ هر سهم</h3>
         <p className="text-xs text-zinc-500">
@@ -251,7 +300,9 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
           </button>
         </form>
       </section>
+        )}
 
+        {section === "depositAccounts" && (
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">حساب‌های واریز اعضا</h3>
         <p className="text-xs text-zinc-500">
@@ -323,7 +374,9 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
           </button>
         </form>
       </section>
+        )}
 
+        {section === "depositTitles" && (
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">عنوان‌های آماده واریزی</h3>
         <p className="text-xs text-zinc-500">
@@ -368,7 +421,9 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
           </button>
         </form>
       </section>
+        )}
 
+        {section === "duplicateWarning" && (
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">هشدار تراکنش مشابه</h3>
         <label className="flex items-start gap-2 text-sm">
@@ -387,7 +442,9 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
           </span>
         </label>
       </section>
+        )}
 
+        {section === "backup" && (
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">پشتیبان‌گیری و بازیابی</h3>
         <p className="text-xs text-zinc-500">
@@ -454,6 +511,42 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
           </p>
         )}
       </section>
+        )}
+      </div>
+    );
+  }
+
+  /* ---------- فهرست اصلی تنظیمات: سر بخش‌ها بدون زیرمجموعه ---------- */
+  return (
+    <div className="space-y-4">
+      {error && (
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+      )}
+      {saved && (
+        <p className="text-sm text-emerald-700 dark:text-emerald-400">{saved}</p>
+      )}
+
+      <div className="divide-y divide-zinc-100 overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+        {SETTINGS_SECTIONS.map((row) => (
+          <button
+            key={row.key}
+            type="button"
+            onClick={() => setSection(row.key)}
+            className="clay-press flex w-full items-center gap-3 p-3.5 text-right transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
+          >
+            <ClayIcon name={row.icon} size={44} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-bold">{row.title}</p>
+              <p className="mt-0.5 truncate text-[10.5px] text-zinc-500 dark:text-zinc-400">{row.subtitle}</p>
+            </div>
+            <ClayIcon name="chevron-left" size={22} ghost ghostColor="#94a3b8" />
+          </button>
+        ))}
+      </div>
+
+      <p className="text-center text-[11px] leading-6 text-zinc-400">
+        برای دیدن و ویرایش هر بخش، از فهرست وارد آن شوید؛ جزئیات فقط داخل همان بخش باز می‌شود.
+      </p>
     </div>
   );
 }
