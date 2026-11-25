@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
 import { jalaliParts, parseAmount } from "@/lib/bank";
 import type { BankMember, LoanRequest, PaymentRequest } from "@/lib/db";
@@ -34,6 +34,7 @@ export default function AdminRequestsPage() {
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [loanRequests, setLoanRequests] = useState<LoanRequest[]>([]);
   const [members, setMembers] = useState<BankMember[]>([]);
+  const [lastReadAt, setLastReadAt] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -48,16 +49,26 @@ export default function AdminRequestsPage() {
   const [approveInterestMode, setApproveInterestMode] = useState<"beginning" | "end">("end");
   const [approveFirstDue, setApproveFirstDue] = useState("");
   const [approveNote, setApproveNote] = useState("");
+  // درخواست‌های pending که از آخرین بازدید ادمین جدیدترند = خوانده‌نشده
+  const isUnread = useCallback(
+    (r: { status: string; createdAt: string }) =>
+      r.status === "pending" && (!lastReadAt || r.createdAt > lastReadAt),
+    [lastReadAt],
+  );
+  const markedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [req, m] = await Promise.all([
-        fetch("/api/admin/requests").then((r) => (r.ok ? r.json() : { paymentRequests: [], loanRequests: [] })),
+        fetch("/api/admin/requests").then((r) =>
+          r.ok ? r.json() : { paymentRequests: [], loanRequests: [] },
+        ),
         fetch("/api/bank/members").then((r) => (r.ok ? r.json() : [])),
       ]);
       setPaymentRequests(Array.isArray(req.paymentRequests) ? req.paymentRequests : []);
       setLoanRequests(Array.isArray(req.loanRequests) ? req.loanRequests : []);
+      setLastReadAt(typeof req.lastReadAt === "string" ? req.lastReadAt : "");
       setMembers(Array.isArray(m) ? m : []);
     } catch {
       setError("دریافت درخواست‌ها ناموفق بود.");
@@ -70,6 +81,14 @@ export default function AdminRequestsPage() {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  // بازدید ادمین از این صفحه = خواندن همه درخواست‌های pending تا همین لحظه؛
+  // نشانگر سمت کلاینت عمداً به‌روز نمی‌شود تا نشان «خوانده‌نشده» تا پایان همین بازدید دیده بماند.
+  useEffect(() => {
+    if (markedRef.current) return;
+    markedRef.current = true;
+    void fetch("/api/admin/requests/read", { method: "POST" }).catch(() => undefined);
+  }, []);
 
   async function review(kind: "payment" | "loan", id: string, action: "approve" | "reject") {
     setBusy(true);
@@ -186,6 +205,8 @@ export default function AdminRequestsPage() {
   const memberName = (id: string) => members.find((m) => m.id === id)?.name ?? "—";
   const pendingPayments = paymentRequests.filter((r) => r.status === "pending");
   const pendingLoans = loanRequests.filter((r) => r.status === "pending");
+  const unreadPayments = paymentRequests.filter(isUnread);
+  const unreadLoans = loanRequests.filter(isUnread);
   const approveInterestValue = approveInterest === "" ? 0 : Math.max(0, parseAmount(approveInterest) || 0);
   const approvePrincipal = approveTarget?.amount ?? 0;
   const approveTotal =
@@ -216,6 +237,11 @@ export default function AdminRequestsPage() {
         <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <h3 className="mb-3 text-sm font-medium">
             پرداخت‌های رسیده (سهام و اقساط) — {pendingPayments.length.toLocaleString("fa-IR")} در انتظار
+            {unreadPayments.length > 0 && (
+              <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                {unreadPayments.length.toLocaleString("fa-IR")} خوانده‌نشده
+              </span>
+            )}
           </h3>
           {loading ? (
             <p className="text-xs text-zinc-500">در حال دریافت…</p>
@@ -230,10 +256,18 @@ export default function AdminRequestsPage() {
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm">
+                      {isUnread(r) && (
+                        <span className="mr-1 ml-1 inline-block size-2 animate-pulse rounded-full bg-red-500 align-middle" aria-hidden="true" />
+                      )}
                       <strong>{r.username}</strong> —{" "}
                       {r.kind === "share"
                         ? `پرداخت سهام ${faMoney(r.amount)} تومان`
                         : `پرداخت قسط ${r.installmentNumber?.toLocaleString("fa-IR") ?? "—"} وام ${faMoney(r.amount)} تومان`}
+                      {isUnread(r) && (
+                        <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                          خوانده‌نشده
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-zinc-500">
                       عضو: {memberName(r.memberId)} — {new Date(r.createdAt).toLocaleDateString("fa-IR")}
@@ -287,6 +321,11 @@ export default function AdminRequestsPage() {
         <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <h3 className="mb-3 text-sm font-medium">
             درخواست‌های تسهیلات — {pendingLoans.length.toLocaleString("fa-IR")} در انتظار
+            {unreadLoans.length > 0 && (
+              <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                {unreadLoans.length.toLocaleString("fa-IR")} خوانده‌نشده
+              </span>
+            )}
           </h3>
           {loading ? (
             <p className="text-xs text-zinc-500">در حال دریافت…</p>
@@ -301,8 +340,16 @@ export default function AdminRequestsPage() {
                 >
                   <div className="min-w-0 space-y-1">
                     <p className="text-sm">
+                      {isUnread(r) && (
+                        <span className="mr-1 ml-1 inline-block size-2 animate-pulse rounded-full bg-red-500 align-middle" aria-hidden="true" />
+                      )}
                       <strong>{r.username}</strong> — تسهیلات {faMoney(r.amount)} تومانی /{" "}
                       {r.months.toLocaleString("fa-IR")} ماهه
+                      {isUnread(r) && (
+                        <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                          خوانده‌نشده
+                        </span>
+                      )}
                     </p>
                     <p className="text-xs text-zinc-500">
                       عضو: {memberName(r.memberId)} — {new Date(r.createdAt).toLocaleDateString("fa-IR")}

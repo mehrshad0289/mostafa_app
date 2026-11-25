@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { PublicUser } from "@/lib/db";
 
-const MENU: { href: string; label: string }[] = [
-  { href: "/admin", label: "نمای کلی" },
+const MENU: { href: string; label: string; badge?: boolean }[] = [
+  { href: "/admin", label: "داشبورد" },
   { href: "/admin/users", label: "مدیریت کاربران" },
-  { href: "/admin/requests", label: "درخواست‌های اعضا" },
+  { href: "/admin/requests", label: "درخواست‌های اعضا", badge: true },
   { href: "/bank?tab=members", label: "اعضا" },
   { href: "/bank?tab=deposits", label: "واریزی‌ها" },
   { href: "/bank?tab=loans", label: "وام‌ها و اقساط" },
@@ -17,14 +17,42 @@ const MENU: { href: string; label: string }[] = [
   { href: "/bank?tab=audit", label: "سوابق" },
 ];
 
+function faCount(value: number): string {
+  return Number(value || 0).toLocaleString("fa-IR");
+}
+
+/** نشان قرمز تعداد درخواست‌های خوانده‌نشده */
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="grid min-w-5 shrink-0 place-items-center rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+      {faCount(count)}
+    </span>
+  );
+}
+
 /**
  * قاب پنل ادمین: گارد دسترسی (غیرادمین → /dashboard و مهمان → /login)،
- * هدر با نام ادمین و دکمه خروج، منوی کناری در دسکتاپ و منوی افقی اسکرول‌شونده در موبایل.
+ * هدر با نام ادمین، زنگ اعلان درخواست‌های خوانده‌نشده و دکمه خروج،
+ * منوی کناری در دسکتاپ و منوی افقی اسکرول‌شونده در موبایل.
+ * شمارش درخواست‌های خوانده‌نشده با هر تغییر صفحه و هر ۳۰ ثانیه به‌روز می‌شود.
  */
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [me, setMe] = useState<PublicUser | null | undefined>(undefined);
+  const [unread, setUnread] = useState(0);
+
+  const refreshUnread = useCallback(async () => {
+    try {
+      const r = await fetch("/api/admin/requests/unread");
+      if (!r.ok) return;
+      const d = (await r.json()) as { count?: number };
+      setUnread(Number.isFinite(d.count) ? Number(d.count) : 0);
+    } catch {
+      // اعلان حیاتی نیست؛ خطای موقت نادیده گرفته می‌شود
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -45,6 +73,17 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     if (me === null) router.replace("/login");
     else if (me && me.role !== "admin") router.replace("/dashboard");
   }, [me, router]);
+
+  // شمارش خوانده‌نشده: با ورود به پنل، با هر تغییر صفحه و هر ۳۰ ثانیه
+  useEffect(() => {
+    if (me?.role !== "admin") return;
+    const timer = setTimeout(() => void refreshUnread(), 0);
+    const interval = setInterval(() => void refreshUnread(), 30_000);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [me, pathname, refreshUnread]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -103,6 +142,34 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            <Link
+              href="/admin/requests"
+              title="درخواست‌های خوانده‌نشده اعضا"
+              aria-label={`درخواست‌های خوانده‌نشده: ${unread}`}
+              className="relative grid size-9 place-items-center rounded-xl border border-zinc-200 text-zinc-600 transition hover:border-red-300 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-red-900 dark:hover:text-red-400"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="size-5"
+              >
+                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
+                <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+              </svg>
+              {unread > 0 && (
+                <>
+                  <span className="absolute -left-1.5 -top-1.5 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                    {faCount(unread)}
+                  </span>
+                  <span className="absolute -left-1.5 -top-1.5 size-2.5 animate-pulse rounded-full bg-red-500" />
+                </>
+              )}
+            </Link>
             <span className="max-w-[10rem] truncate text-xs text-zinc-500">
               {me.fullName || me.username}
             </span>
@@ -120,13 +187,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             <Link
               key={item.href}
               href={item.href}
-              className={`shrink-0 rounded-xl px-3 py-2 text-xs ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs ${
                 pathname === item.href
                   ? "bg-primary-50 font-medium text-primary-700 dark:bg-primary-950/60 dark:text-primary-300"
                   : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
               }`}
             >
               {item.label}
+              {item.badge && <UnreadBadge count={unread} />}
             </Link>
           ))}
         </nav>
@@ -136,8 +204,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <aside className="hidden w-52 shrink-0 md:block" data-noprint>
           <nav className="sticky top-6 space-y-1">
             {MENU.map((item) => (
-              <Link key={item.href} href={item.href} className={linkClass(pathname === item.href)}>
-                {item.label}
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center justify-between gap-2 ${linkClass(pathname === item.href)}`}
+              >
+                <span>{item.label}</span>
+                {item.badge && <UnreadBadge count={unread} />}
               </Link>
             ))}
           </nav>

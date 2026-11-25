@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
+import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
 import type {
   BankDeposit,
   BankLoan,
@@ -93,24 +93,31 @@ function compressToDataUrl(file: File, maxDim: number, quality: number): Promise
 
 /**
  * خواندن عکس رسید — همهٔ فرمت‌های عکس قابل بارگذاری‌اند؛ عکس‌های بزرگ
- * به‌صورت خودکار فشرده می‌شوند تا زیر سقف ۱٫۵ مگابایت بمانند.
+ * به‌صورت خودکار فشرده می‌شوند تا زیر سقف حدود ۲ مگابایت بمانند.
+ * (جلسه هجدهم: آستانه فشرده‌سازی ۱٫۰۵ → ۱٫۴ مگابایت و اول تلاش برای
+ * فشرده‌سازی باکیفیت ۱۹۲۰px/۰٫۹ — اگر جا نشد، ۱۶۰۰px/۰٫۸۵)
  */
 async function readReceipt(file: File): Promise<string> {
   if (file.size > RECEIPT_RAW_MAX_BYTES) {
     throw new Error("حجم عکس رسید خیلی بزرگ است (حداکثر ۲۰ مگابایت).");
   }
-  if (file.size <= 1_050_000) {
+  if (file.size <= RECEIPT_COMPRESS_THRESHOLD_BYTES) {
     const dataUrl = await fileToDataUrl(file);
     if (!dataUrl.startsWith("data:image/")) {
       throw new Error("فرمت عکس رسید معتبر نیست؛ فقط فایل عکس قابل بارگذاری است.");
     }
     if (dataUrl.length <= RECEIPT_MAX_CHARS) return dataUrl;
   }
-  const compressed = await compressToDataUrl(file, 1600, 0.85);
-  if (!compressed.startsWith("data:image/") || compressed.length > RECEIPT_MAX_CHARS) {
-    throw new Error("حجم عکس رسید باید کمتر از ۱٫۵ مگابایت باشد؛ عکس کوچک‌تری انتخاب کنید.");
+  for (const [maxDim, quality] of [
+    [1920, 0.9],
+    [1600, 0.85],
+  ] as const) {
+    const compressed = await compressToDataUrl(file, maxDim, quality);
+    if (compressed.startsWith("data:image/") && compressed.length <= RECEIPT_MAX_CHARS) {
+      return compressed;
+    }
   }
-  return compressed;
+  throw new Error("حجم عکس رسید باید کمتر از حدود ۲ مگابایت باشد؛ عکس کوچک‌تری انتخاب کنید.");
 }
 
 export default function DashboardPage() {

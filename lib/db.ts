@@ -13,7 +13,6 @@ import { getSupabase } from "./supabase";
 import { bankUid, jalaliParts, jalaliToDate, loanRemaining, loanTotals, makeSchedule, parseSharePeriod, RECEIPT_MAX_CHARS } from "./bank";
 
 export { RECEIPT_MAX_CHARS };
-
 export type ItemKind = "general" | "haqiqi";
 
 export type Item = {
@@ -1855,7 +1854,7 @@ function assertReceipt(receipt: string) {
     throw new Error("فرمت عکس رسید معتبر نیست؛ فقط فایل عکس قابل بارگذاری است.");
   }
   if (receipt.length > RECEIPT_MAX_CHARS) {
-    throw new Error("حجم عکس رسید باید کمتر از ۱٫۵ مگابایت باشد.");
+    throw new Error("حجم عکس رسید باید کمتر از حدود ۲ مگابایت باشد.");
   }
 }
 
@@ -1971,6 +1970,83 @@ export async function listAllRequests(): Promise<{
 }> {
   const db = await readDb();
   return { paymentRequests: db.paymentRequests, loanRequests: db.loanRequests };
+}
+
+// ---------- درخواست‌های خوانده‌نشده (اعلان ادمین) ----------
+//
+// «خوانده‌نشده» بدون تغییر schema دیتابیس پیاده‌سازی شده است: یک ردیف نشانگر
+// (cursor) با id ثابت در bank_audit نگه داشته می‌شود که تاریخ آخرین بازدید
+// ادمین از صفحه درخواست‌ها را دارد. هر درخواست pending که createdAt جدیدتری
+// از آن نشانگر داشته باشد «خوانده‌نشده» است. این روش هم با fallback فایل و
+// هم با Supabase (بدون مایگریشن) کار می‌کند. تنها نقطه ضعف: اگر بین دو بازدید
+// ادمین بیش از سقف ۱۰۰۰ رکورد audit جدید ثبت شود، نشانگر پاک می‌شود و همه
+// درخواست‌های pending یک‌بار «خوانده‌نشده» دیده می‌شوند (بی‌ضرر برای داده).
+
+/** id ثابت ردیف نشانگر آخرین بازدید ادمین از درخواست‌ها */
+export const REQUESTS_READ_CURSOR_ID = "admin-requests-read-cursor";
+
+const REQUESTS_READ_DETAIL = "مشاهده درخواست‌های اعضا توسط مدیر";
+
+function readCursorAt(bank: BankDatabase): string {
+  return bank.auditLog.find((a) => a.id === REQUESTS_READ_CURSOR_ID)?.at ?? "";
+}
+
+/** آخرین زمانی که ادمین صفحه درخواست‌ها را دیده است ("" یعنی هرگز) */
+export async function getRequestsReadCursor(): Promise<string> {
+  const db = await readDb();
+  return readCursorAt(db.bank);
+}
+
+/**
+ * ثبت بازدید ادمین از صفحه درخواست‌ها — همه درخواست‌های pending تا همین لحظه
+ * «خوانده‌شده» می‌شوند (نشانگر به زمان حال جلو می‌رود) و زمان جدید برمی‌گردد.
+ */
+export async function markRequestsRead(): Promise<string> {
+  const db = await readDb();
+  const at = new Date().toISOString();
+  const existing = db.bank.auditLog.find((a) => a.id === REQUESTS_READ_CURSOR_ID);
+  if (existing) {
+    existing.at = at;
+    existing.detail = REQUESTS_READ_DETAIL;
+  } else {
+    db.bank.auditLog.unshift({
+      id: REQUESTS_READ_CURSOR_ID,
+      at,
+      action: "read",
+      kind: "درخواست‌ها",
+      recordId: "all",
+      detail: REQUESTS_READ_DETAIL,
+    });
+  }
+  await writeDb(db);
+  return at;
+}
+
+export type UnreadRequests = {
+  count: number;
+  paymentCount: number;
+  loanCount: number;
+  lastReadAt: string;
+  paymentRequests: PaymentRequest[];
+  loanRequests: LoanRequest[];
+};
+
+/** درخواست‌های خوانده‌نشده = pending با createdAt جدیدتر از آخرین بازدید ادمین */
+export async function getUnreadRequests(): Promise<UnreadRequests> {
+  const db = await readDb();
+  const lastReadAt = readCursorAt(db.bank);
+  const isNew = (r: { status: RequestStatus; createdAt: string }) =>
+    r.status === "pending" && (!lastReadAt || r.createdAt > lastReadAt);
+  const paymentRequests = db.paymentRequests.filter(isNew);
+  const loanRequests = db.loanRequests.filter(isNew);
+  return {
+    count: paymentRequests.length + loanRequests.length,
+    paymentCount: paymentRequests.length,
+    loanCount: loanRequests.length,
+    lastReadAt,
+    paymentRequests,
+    loanRequests,
+  };
 }
 
 /** بررسی درخواست پرداخت توسط ادمین؛ تأیید = ثبت رکورد واقعی در بانک (یک write) */
