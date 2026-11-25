@@ -220,6 +220,8 @@ type Row = Record<string, unknown>;
 type TableSpec = {
   name: string;
   order: "asc" | "desc";
+  /** جدول بدون ستون ord (مثل bank_settings) — ردیفش هرگز ord نمی‌گیرد */
+  noOrd?: boolean;
   pick: (db: Database) => unknown[];
   toRow: (entity: unknown) => Row;
 };
@@ -547,7 +549,11 @@ function loanRequestFromRow(r: Row): LoanRequest {
 const TABLES: TableSpec[] = [
   { name: "items", order: "desc", pick: (db) => db.items, toRow: (e) => itemToRow(e as Item) },
   { name: "users", order: "asc", pick: (db) => db.users, toRow: (e) => userToRow(e as User) },
-  { name: "bank_settings", order: "asc", pick: (db) => [db.bank.settings], toRow: (e) => settingsToRow(e as BankSettings) },
+  // جلسه ۳۱ — ردیف bank_settings هرگز ord نمی‌گیرد: این جدول در Supabase ستون ord
+  // ندارد (تنها جدول بین ۹ جدول؛ مایگریشن ۲۰۲۶۱۱۲۵) و فرستادن ord در upsert باعث
+  // خطای PGRST204 و fallback بی‌صدای فایل می‌شد → تنظیمات (از جمله شماره کارت
+  // واریز) ظاهراً «ذخیره» می‌شد ولی در دیتابیس هیچ ثبت نمی‌شد.
+  { name: "bank_settings", order: "asc", noOrd: true, pick: (db) => [db.bank.settings], toRow: (e) => settingsToRow(e as BankSettings) },
   { name: "bank_members", order: "desc", pick: (db) => db.bank.members, toRow: (e) => memberToRow(e as BankMember) },
   { name: "bank_deposits", order: "desc", pick: (db) => db.bank.deposits, toRow: (e) => depositToRow(e as BankDeposit) },
   { name: "bank_loans", order: "desc", pick: (db) => db.bank.loans, toRow: (e) => loanToRow(e as BankLoan) },
@@ -573,7 +579,32 @@ function cloneSnap(source: Record<string, Row[]>): Record<string, Row[]> {
   return out;
 }
 
-/** مقایسه دو ردیف: فیلدهای تخت با === (سریع، حتی برای رسیدهای بزرگ) و آبجکت‌ها با stringify */
+/** حذف ord از ردیف‌های قبلی جدول‌های بدون ستون ord (مقایسه تمیز) */
+function stripOrd(r: Row): Row {
+  if (!("ord" in r)) return r;
+  const copy: Row = {};
+  for (const k of Object.keys(r)) {
+    if (k !== "ord") copy[k] = r[k];
+  }
+  return copy;
+}
+
+/** stringify با کلیدهای مرتب‌شده — مقایسه معنایی دو طرف json/jsonb؛
+ *  ترتیب کلید در jsonb حفظ نمی‌شود و stringify ساده همیشه تغییر کاذب می‌ساخت */
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return "[" + value.map(stableStringify).join(",") + "]";
+  }
+  if (value && typeof value === "object") {
+    const src = value as Row;
+    const keys = Object.keys(src).sort();
+    return "{" + keys.map((k) => JSON.stringify(k) + ":" + stableStringify(src[k])).join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
+
+/** مقایسه دو ردیف: فیلدهای تخت با === (سریع، حتی برای رسیدهای بزرگ) و آبجکت‌ها/آرایه‌ها
+ *  با stringify پایدار (کلیدهای مرتب — مستقل از تفاوت ترتیب کلید json/jsonb) */
 function rowsEqual(a: Row, b: Row): boolean {
   const keys = Object.keys(a);
   if (keys.length !== Object.keys(b).length) return false;
@@ -581,7 +612,7 @@ function rowsEqual(a: Row, b: Row): boolean {
     const va = a[key];
     const vb = b[key];
     if (va !== null && typeof va === "object") {
-      if (JSON.stringify(va) !== JSON.stringify(vb)) return false;
+      if (stableStringify(va) !== stableStringify(vb)) return false;
     } else if (va !== vb) return false;
   }
   return true;
@@ -626,6 +657,10 @@ function buildRows(spec: TableSpec, entities: unknown[], snapRows: Row[] | undef
     const at: number = (prev + next) / 2;
     prev = at;
     rows.push({ ...row, ord: desc ? -at : at });
+  }
+  // جدول‌های بدون ستون ord (فعلاً فقط bank_settings): ord ساخته‌شده حذف می‌شود
+  if (spec.noOrd) {
+    for (const r of rows) delete r.ord;
   }
   return rows;
 }
@@ -714,7 +749,9 @@ async function sbSyncAll(client: SupabaseClient, db: Database) {
         }
         return;
       }
-      const prevById = new Map(prevRows.map((r) => [str(r.id), r]));
+      const prevById = new Map(
+        prevRows.map((r) => [str(r.id), spec.noOrd ? stripOrd(r) : r]),
+      );
       const dirty = rows.filter((r) => {
         const before = prevById.get(str(r.id));
         return !before || !rowsEqual(before, r);
