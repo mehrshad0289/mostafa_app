@@ -460,7 +460,7 @@ export default function MembersTab({
       {deleting && (
         <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm dark:border-red-900 dark:bg-red-950/40">
           <p>
-            عضو «{deleting.name}» حذف شود؟ واریزی‌ها و وام‌های ثبت‌شده او در
+            عضو «{deleting.name}» حذف شود؟ تراکنش‌ها و وام‌های ثبت‌شده او در
             فهرست‌ها با نام همان لحظه باقی می‌مانند.
           </p>
           <div className="mt-3 flex gap-2">

@@ -7,7 +7,7 @@ import {
   parseAmount,
   parseSharePeriod,
 } from "@/lib/bank";
-import type { BankDeposit, BankDepositType, BankMember, BankSettings } from "@/lib/db";
+import type { BankDeposit, BankDepositType, BankLoan, BankMember, BankSettings } from "@/lib/db";
 import JalaliCalendar from "./JalaliCalendar";
 import { useHydrated } from "./useHydrated";
 import { downloadCsv } from "./csv";
@@ -15,9 +15,19 @@ import { downloadCsv } from "./csv";
 type DepositsTabProps = {
   members: BankMember[];
   deposits: BankDeposit[];
+  /** وام‌ها — برای نمایش پرداخت اقساط و برداشت از بانک در فهرست تراکنش‌ها */
+  loans: BankLoan[];
   settings: BankSettings | null;
   onRefresh: () => void;
 };
+
+/**
+ * تب «تراکنش‌ها» (جلسه ۲۶ — نام قبلی: واریزی‌ها): همه تراکنش‌های بانک در یک
+ * فهرست با زیرمجموعه واریز/برداشت — واریز سهام بانک، سود بانک، واریز متفرقه،
+ * پرداخت اقساط تسهیلات و برداشت از بانک. فرم ثبت واریزی و مدیریت عنوان‌ها
+ * مثل قبل کار می‌کنند؛ فقط واریزی‌ها قابل حذف‌اند (اقساط/برداشت از تب وام‌ها
+ * مدیریت می‌شوند).
+ */
 
 const BANK_DEPOSIT_TYPES: BankDepositType[] = [
   "share",
@@ -27,10 +37,33 @@ const BANK_DEPOSIT_TYPES: BankDepositType[] = [
 ];
 
 const TYPE_LABELS: Record<BankDepositType, string> = {
-  share: "سهم ماهانه",
-  loan_interest: "سود وام",
-  profit: "واریزی سود",
-  misc: "متفرقه",
+  share: "واریز سهام بانک",
+  loan_interest: "سود بانک",
+  profit: "واریز سود",
+  misc: "واریز متفرقه",
+};
+
+const GROUP_FILTERS: { key: TxGroupFilter; label: string }[] = [
+  { key: "all", label: "همه" },
+  { key: "deposit", label: "واریز" },
+  { key: "withdraw", label: "برداشت" },
+];
+
+type TxGroupFilter = "all" | "deposit" | "withdraw";
+
+/** یک ردیف تراکنش یک‌‌‌‌‌پارچه (واریزی یا قسط یا برداشت) */
+type TxRow = {
+  id: string;
+  group: "deposit" | "withdraw";
+  kindLabel: string;
+  /** عنوان ثبت‌شده واریزی — برای قسط/برداشت خالی */
+  title: string;
+  member: string;
+  amount: number;
+  at: string;
+  periodKey: string;
+  /** فقط واریزی‌ها قابل حذف‌اند */
+  deposit: BankDeposit | null;
 };
 
 function faNum(value: number): string {
@@ -54,11 +87,13 @@ function faDate(iso: string): string {
 export default function DepositsTab({
   members,
   deposits,
+  loans,
   settings,
   onRefresh,
 }: DepositsTabProps) {
   const hydrated = useHydrated();
   const [query, setQuery] = useState("");
+  const [group, setGroup] = useState<TxGroupFilter>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState({
     memberId: "",
@@ -83,15 +118,65 @@ export default function DepositsTab({
     return parseSharePeriod(form.period, dateIso ? new Date(dateIso) : undefined);
   }, [hydrated, form.type, form.period, dateIso]);
 
+  /** همه تراکنش‌ها: واریزی‌ها + پرداخت اقساط تسهیلات + برداشت از بانک */
+  const txRows = useMemo<TxRow[]>(() => {
+    const rows: TxRow[] = [];
+    deposits.forEach((d) => {
+      rows.push({
+        id: `d-${d.id}`,
+        group: "deposit",
+        kindLabel: TYPE_LABELS[d.type || "share"],
+        title: d.title || "",
+        member: d.memberId ? d.memberName || "" : `${d.memberName || ""} (بدون عضو)`,
+        amount: Number(d.amount) || 0,
+        at: d.createdAt,
+        periodKey: d.type === "share" ? d.periodKey || "" : "",
+        deposit: d,
+      });
+    });
+    loans.forEach((loan) => {
+      const disbursed = Number(loan.disbursedAmount) || 0;
+      if (disbursed > 0) {
+        rows.push({
+          id: `w-${loan.id}`,
+          group: "withdraw",
+          kindLabel: "برداشت از بانک",
+          title: "",
+          member: loan.memberName || "",
+          amount: disbursed,
+          at: loan.createdAt,
+          periodKey: "",
+          deposit: null,
+        });
+      }
+      (loan.payments || []).forEach((p, i) => {
+        rows.push({
+          id: `p-${p.id}-${i}`,
+          group: "deposit",
+          kindLabel: "پرداخت اقساط تسهیلات",
+          title: "",
+          member: loan.memberName || "",
+          amount: Number(p.amount) || 0,
+          at: p.paidAt,
+          periodKey: "",
+          deposit: null,
+        });
+      });
+    });
+    rows.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
+    return rows;
+  }, [deposits, loans]);
+
   const filtered = useMemo(() => {
     const q = normalizeSearchText(query);
-    if (!q) return deposits;
-    return deposits.filter((d) =>
-      normalizeSearchText(
-        `${d.memberName} ${d.title} ${d.amount} ${d.periodKey || ""}`,
-      ).includes(q),
-    );
-  }, [deposits, query]);
+    return txRows.filter((r) => {
+      if (group !== "all" && r.group !== group) return false;
+      if (!q) return true;
+      return normalizeSearchText(
+        `${r.member} ${r.title} ${r.kindLabel} ${r.amount} ${r.periodKey}`,
+      ).includes(q);
+    });
+  }, [txRows, group, query]);
 
   function openAdd() {
     setFormOpen(true);
@@ -243,15 +328,16 @@ export default function DepositsTab({
           type="button"
           onClick={() =>
             downloadCsv(
-              "واریزی‌ها",
-              ["عضو", "نوع", "عنوان", "مبلغ", "دوره", "تاریخ ثبت"],
-              filtered.map((d) => [
-                d.memberName || "—",
-                TYPE_LABELS[d.type],
-                d.title || "—",
-                d.amount,
-                d.periodKey || "—",
-                faDate(d.createdAt),
+              "تراکنش‌ها",
+              ["گروه", "نوع", "عنوان", "عضو", "مبلغ", "دوره", "تاریخ ثبت"],
+              filtered.map((r) => [
+                r.group === "deposit" ? "واریز" : "برداشت",
+                r.kindLabel,
+                r.title || "—",
+                r.member || "—",
+                r.amount,
+                r.periodKey || "—",
+                faDate(r.at),
               ]),
             )
           }
@@ -262,6 +348,24 @@ export default function DepositsTab({
       </div>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+
+      {/* زیرمجموعه واریز/برداشت — جلسه ۲۶ */}
+      <div className="flex gap-2">
+        {GROUP_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => setGroup(f.key)}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all active:scale-95 ${
+              group === f.key
+                ? "bg-gradient-to-l from-primary-700 to-primary-500 text-white shadow-md shadow-primary-600/25"
+                : "border border-zinc-200 bg-white text-zinc-500 hover:border-primary-300 hover:text-primary-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
       {titlesOpen && (
         <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
@@ -488,44 +592,66 @@ export default function DepositsTab({
       )}
 
       <p className="text-xs text-zinc-500">
-        {faNum(filtered.length)} از {faNum(deposits.length)} واریزی
+        {faNum(filtered.length)} از {faNum(txRows.length)} تراکنش
       </p>
 
       {filtered.length === 0 ? (
         <p className="text-sm text-zinc-500">
-          {deposits.length === 0
-            ? "هنوز واریزی ثبت نشده است؛ با «ثبت واریزی» شروع کنید."
-            : "واریزی‌ای مطابق جست‌وجو پیدا نشد."}
+          {txRows.length === 0
+            ? "هنوز تراکنشی ثبت نشده است؛ با «ثبت واریزی» شروع کنید."
+            : "تراکنشی مطابق جست‌وجو پیدا نشد."}
         </p>
       ) : (
         <ul className="space-y-2">
-          {filtered.map((d) => (
+          {filtered.map((r) => (
             <li
-              key={d.id}
+              key={r.id}
               className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
             >
               <div className="space-y-1">
                 <p className="text-sm font-medium">
-                  {d.title}
-                  <span className="mr-2 rounded-lg border border-zinc-200 px-2 py-0.5 text-[11px] font-normal text-zinc-500 dark:border-zinc-800">
-                    {TYPE_LABELS[d.type || "share"]}
+                  {r.kindLabel}
+                  <span
+                    className={`mr-2 rounded-lg px-2 py-0.5 text-[11px] font-normal ${
+                      r.group === "deposit"
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
+                        : "bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-300"
+                    }`}
+                  >
+                    {r.group === "deposit" ? "واریز" : "برداشت"}
                   </span>
                 </p>
                 <p className="text-xs text-zinc-500">
-                  {d.memberId ? d.memberName : `${d.memberName} (بدون عضو)`}
-                  {d.type === "share" && d.periodKey ? ` · دوره ${d.periodKey}` : ""}
-                  {` · ${faDate(d.createdAt)}`}
+                  {[
+                    r.member || "—",
+                    r.title && r.title !== r.kindLabel ? `عنوان: ${r.title}` : "",
+                    r.periodKey ? `دوره ${r.periodKey}` : "",
+                    faDate(r.at),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-sm font-semibold">{toMoney(Number(d.amount))}</p>
-                <button
-                  type="button"
-                  onClick={() => setDeleting(d)}
-                  className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-600 transition-colors hover:border-red-400 dark:border-red-900 dark:text-red-400"
+                <p
+                  className={`text-sm font-semibold ${
+                    r.group === "deposit"
+                      ? "text-emerald-700 dark:text-emerald-400"
+                      : "text-red-700 dark:text-red-400"
+                  }`}
                 >
-                  حذف
-                </button>
+                  {r.group === "deposit" ? "+" : "−"}
+                  {toMoney(r.amount)}
+                </p>
+                {r.deposit && (
+                  <button
+                    type="button"
+                    onClick={() => setDeleting(r.deposit!)}
+                    className="rounded-xl border border-red-200 px-3 py-1.5 text-xs text-red-600 transition-colors hover:border-red-400 dark:border-red-900 dark:text-red-400"
+                  >
+                    حذف
+                  </button>
+                )}
               </div>
             </li>
           ))}

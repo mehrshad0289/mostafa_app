@@ -392,7 +392,7 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
         <h3 className="text-sm font-medium">پشتیبان‌گیری و بازیابی</h3>
         <p className="text-xs text-zinc-500">
           قبل از بازیابی، از وضعیت فعلی پشتیبان بگیر — بازیابی کل داده بانک
-          (اعضا، واریزی‌ها، وام‌ها و سوابق) را با محتوای فایل جایگزین می‌کند.
+          (اعضا، تراکنش‌ها، وام‌ها و سوابق) را با محتوای فایل جایگزین می‌کند.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button

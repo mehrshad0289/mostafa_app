@@ -130,7 +130,7 @@ export type BankDatabase = {
 export const DEFAULT_BANK: BankDatabase = {
   settings: {
     amountPerShare: 500000,
-    depositTitles: ["سهم ماهانه", "سود وام", "واریزی سود", "واریزی متفرقه"],
+    depositTitles: ["واریز سهام بانک", "سود بانک", "واریز متفرقه"],
     duplicateWarning: true,
     depositAccounts: {
       primary: { holder: "", cardNumber: "", sheba: "" },

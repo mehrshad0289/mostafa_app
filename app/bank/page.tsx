@@ -18,7 +18,7 @@ type TabKey = "members" | "deposits" | "loans" | "reports" | "settings" | "audit
 
 const TABS: { key: TabKey; label: string; icon: ClayIconName }[] = [
   { key: "members", label: "اعضا", icon: "user" },
-  { key: "deposits", label: "واریزی‌ها", icon: "wallet" },
+  { key: "deposits", label: "تراکنش‌ها", icon: "swap" },
   { key: "loans", label: "وام‌ها", icon: "banknote" },
   { key: "reports", label: "گزارش‌ها", icon: "chart" },
   { key: "settings", label: "تنظیمات", icon: "settings" },
@@ -196,6 +196,7 @@ export default function BankPage() {
         <DepositsTab
           members={members}
           deposits={deposits}
+          loans={loans}
           settings={settings}
           onRefresh={load}
         />

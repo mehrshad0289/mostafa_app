@@ -13,7 +13,7 @@ const MENU: { href: string; label: string; icon: ClayIconName; badge?: boolean }
   { href: "/admin/users", label: "مدیریت کاربران", icon: "users" },
   { href: "/admin/requests", label: "درخواست‌های اعضا", icon: "bell", badge: true },
   { href: "/bank?tab=members", label: "اعضا", icon: "user" },
-  { href: "/bank?tab=deposits", label: "واریزی‌ها", icon: "wallet" },
+  { href: "/bank?tab=deposits", label: "تراکنش‌ها", icon: "swap" },
   { href: "/bank?tab=loans", label: "وام‌ها و اقساط", icon: "banknote" },
   { href: "/bank?tab=reports", label: "گزارش‌ها", icon: "chart" },
   { href: "/bank?tab=settings", label: "تنظیمات", icon: "settings" },

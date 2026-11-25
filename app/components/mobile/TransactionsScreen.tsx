@@ -32,6 +32,14 @@ const DEPOSIT_META: Record<BankDeposit["type"], { icon: ClayIconName; tone: Clay
   misc: { icon: "wallet", tone: ["#B5EBA5", "#54B854"] },
 };
 
+/** نام کانونی هر نوع واریز — جلسه ۲۶ (واریز سهام بانک، سود بانک، واریز متفرقه) */
+const DEPOSIT_KIND_LABEL: Record<BankDeposit["type"], string> = {
+  share: "واریز سهام بانک",
+  loan_interest: "سود بانک",
+  profit: "سود بانک",
+  misc: "واریز متفرقه",
+};
+
 function fa(value: number): string {
   return Number(value || 0).toLocaleString("fa-IR");
 }
@@ -117,12 +125,16 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
   const rows = useMemo<TxRow[]>(() => {
     const out: TxRow[] = [];
     deposits.forEach((d) => {
+      const kindLabel = DEPOSIT_KIND_LABEL[d.type || "share"];
+      const extra = [isAdmin ? d.memberName : undefined, d.title && d.title !== kindLabel ? d.title : undefined]
+        .filter(Boolean)
+        .join(" · ");
       out.push({
         id: `d-${d.id}`,
         kind: d.type,
         direction: "in",
-        title: d.title || "واریز",
-        subtitleName: isAdmin ? d.memberName : undefined,
+        title: kindLabel,
+        subtitleName: extra || undefined,
         amount: d.amount,
         at: d.createdAt,
       });
@@ -133,7 +145,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           id: `w-${loan.id}`,
           kind: "loan",
           direction: "out",
-          title: "برداشت — تسهیلات پرداختی",
+          title: "برداشت از بانک",
           subtitleName: loan.memberName,
           amount: loan.disbursedAmount,
           at: loan.createdAt,
@@ -144,7 +156,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           id: `l-${loan.id}`,
           kind: "loan",
           direction: "in",
-          title: "دریافت وام",
+          title: "برداشت از بانک",
           amount: loan.disbursedAmount,
           at: loan.createdAt,
         });
@@ -154,7 +166,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           id: `p-${p.id}-${i}`,
           kind: "installment",
           direction: "out",
-          title: "پرداخت قسط وام",
+          title: "پرداخت اقساط تسهیلات",
           subtitleName: isAdmin ? loan.memberName : undefined,
           amount: p.amount,
           at: p.paidAt,
@@ -222,8 +234,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
 
   const FILTERS: { key: FilterKey; label: string }[] = [
     { key: "all", label: "همه" },
-    { key: "in", label: "واریزی‌ها" },
-    { key: "out", label: "پرداخت‌ها" },
+    { key: "in", label: "واریز" },
+    { key: "out", label: "برداشت" },
     { key: "pending", label: "در انتظار" },
   ];
 
@@ -278,7 +290,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
               واریز ماه: {fa(monthSummary.monthIn)}
             </span>
             <span className="rounded-full bg-rose-100 px-2.5 py-1 font-semibold text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-              پرداخت ماه: {fa(monthSummary.monthOut)}
+              برداشت ماه: {fa(monthSummary.monthOut)}
             </span>
           </div>
         </div>

@@ -21,10 +21,9 @@
     "settings": {
       "amountPerShare": 500000,
       "depositTitles": [
-        "سهم ماهانه",
-        "سود وام",
-        "واریزی سود",
-        "واریزی متفرقه"
+        "واریز سهام بانک",
+        "سود بانک",
+        "واریز متفرقه"
       ],
       "duplicateWarning": true,
       "depositAccounts": {
@@ -42,13 +41,28 @@
     },
     "members": [
       {
+        "id": "mwwc9iyq-vuexcw",
+        "name": "عضو دوم",
+        "shares": 1,
+        "phone": "",
+        "gender": "female",
+        "note": "",
+        "totalDeposited": 2100000,
+        "settled": false,
+        "settledAt": null,
+        "settlementClaim": null,
+        "settlementDebt": null,
+        "settlementNet": null,
+        "createdAt": "2026-11-25T16:29:22.370Z"
+      },
+      {
         "id": "mwwbv27t-57nefy",
         "name": "عضو آزمایشی",
         "shares": 2,
         "phone": "09120000000",
         "gender": "male",
         "note": "",
-        "totalDeposited": 0,
+        "totalDeposited": 500000,
         "settled": false,
         "settledAt": null,
         "settlementClaim": null,
@@ -57,9 +71,185 @@
         "createdAt": "2026-11-25T16:18:07.481Z"
       }
     ],
-    "deposits": [],
-    "loans": [],
+    "deposits": [
+      {
+        "id": "mwwcdtah-zuw583",
+        "memberId": "mwwbv27t-57nefy",
+        "memberName": "عضو آزمایشی",
+        "type": "share",
+        "title": "واریز سهام بانک",
+        "amount": 500000,
+        "periodKey": "1405/09",
+        "createdAt": "2026-11-25T16:32:42.377Z"
+      },
+      {
+        "id": "mwwcahn3-s3v2kf",
+        "memberId": "mwwc9iyq-vuexcw",
+        "memberName": "عضو دوم",
+        "type": "loan_interest",
+        "title": "سود بانک",
+        "amount": 300000,
+        "periodKey": "",
+        "createdAt": "2026-11-25T16:30:07.311Z"
+      },
+      {
+        "id": "mwwcacw2-rbrhkn",
+        "memberId": "mwwc9iyq-vuexcw",
+        "memberName": "عضو دوم",
+        "type": "share",
+        "title": "واریز سهام بانک",
+        "amount": 500000,
+        "periodKey": "1405/09",
+        "createdAt": "2026-11-25T16:30:01.154Z"
+      },
+      {
+        "id": "mwwc9u8r-wgfh5c",
+        "memberId": "mwwc9iyq-vuexcw",
+        "memberName": "عضو دوم",
+        "type": "loan_interest",
+        "title": "سود بانک",
+        "amount": 300000,
+        "periodKey": "",
+        "createdAt": "2026-11-25T16:29:36.987Z"
+      },
+      {
+        "id": "mwwc9u8g-jipeck",
+        "memberId": "mwwc9iyq-vuexcw",
+        "memberName": "عضو دوم",
+        "type": "share",
+        "title": "واریز سهام بانک",
+        "amount": 500000,
+        "periodKey": "1405/09",
+        "createdAt": "2026-11-25T16:29:36.976Z"
+      },
+      {
+        "id": "mwwc9izm-abcw1n",
+        "memberId": "mwwc9iyq-vuexcw",
+        "memberName": "عضو دوم",
+        "type": "share",
+        "title": "واریز سهام بانک",
+        "amount": 500000,
+        "periodKey": "1405/09",
+        "createdAt": "2026-11-25T16:29:22.403Z"
+      }
+    ],
+    "loans": [
+      {
+        "id": "mwwcbds4-exgoaj",
+        "memberId": "mwwc9iyq-vuexcw",
+        "memberName": "عضو دوم",
+        "principal": 3000000,
+        "interestMode": "end",
+        "interestAmount": 300000,
+        "totalAmount": 3300000,
+        "disbursedAmount": 3000000,
+        "installmentCount": 3,
+        "schedule": [
+          {
+            "id": "mwwcbds4-944sw6",
+            "number": 1,
+            "amount": 1100000,
+            "dueAt": "2026-12-01T12:00:00.000Z"
+          },
+          {
+            "id": "mwwcbds4-4g2vba",
+            "number": 2,
+            "amount": 1100000,
+            "dueAt": "2027-01-01T12:00:00.000Z"
+          },
+          {
+            "id": "mwwcbds4-50myqo",
+            "number": 3,
+            "amount": 1100000,
+            "dueAt": "2027-02-01T12:00:00.000Z"
+          }
+        ],
+        "payments": [
+          {
+            "id": "mwwcbdtn-hyn32r",
+            "amount": 1100000,
+            "paidAt": "2026-12-05T00:00:00.000Z",
+            "note": "قسط اول"
+          }
+        ],
+        "status": "active",
+        "note": "",
+        "createdAt": "2026-11-25T16:30:48.965Z"
+      }
+    ],
     "auditLog": [
+      {
+        "id": "mwwcdtah-xrk2eu",
+        "at": "2026-11-25T16:32:42.377Z",
+        "action": "ثبت",
+        "kind": "واریزی",
+        "recordId": "mwwcdtah-zuw583",
+        "detail": "واریزی «واریز سهام بانک» به مبلغ ۵۰۰٬۰۰۰ تومان برای عضو «عضو آزمایشی» ثبت شد."
+      },
+      {
+        "id": "mwwcbdtn-y2dk6p",
+        "at": "2026-11-25T16:30:49.019Z",
+        "action": "ثبت",
+        "kind": "پرداخت",
+        "recordId": "mwwcbdtn-hyn32r",
+        "detail": "پرداخت ۱٬۱۰۰٬۰۰۰ تومانی برای وام عضو «عضو دوم» ثبت شد (مانده ۲٬۲۰۰٬۰۰۰ تومان)."
+      },
+      {
+        "id": "mwwcbds5-9rb5xh",
+        "at": "2026-11-25T16:30:48.965Z",
+        "action": "ثبت",
+        "kind": "وام",
+        "recordId": "mwwcbds4-exgoaj",
+        "detail": "وام ۳٬۰۰۰٬۰۰۰ تومانی برای عضو «عضو دوم» با 3 قسط و کل بازپرداخت ۳٬۳۰۰٬۰۰۰ تومان ثبت شد."
+      },
+      {
+        "id": "mwwcahn3-rsep7x",
+        "at": "2026-11-25T16:30:07.311Z",
+        "action": "ثبت",
+        "kind": "واریزی",
+        "recordId": "mwwcahn3-s3v2kf",
+        "detail": "واریزی «سود بانک» به مبلغ ۳۰۰٬۰۰۰ تومان برای عضو «عضو دوم» ثبت شد."
+      },
+      {
+        "id": "mwwcacw2-hf6mv8",
+        "at": "2026-11-25T16:30:01.154Z",
+        "action": "ثبت",
+        "kind": "واریزی",
+        "recordId": "mwwcacw2-rbrhkn",
+        "detail": "واریزی «واریز سهام بانک» به مبلغ ۵۰۰٬۰۰۰ تومان برای عضو «عضو دوم» ثبت شد."
+      },
+      {
+        "id": "mwwc9u8r-r4vds8",
+        "at": "2026-11-25T16:29:36.987Z",
+        "action": "ثبت",
+        "kind": "واریزی",
+        "recordId": "mwwc9u8r-wgfh5c",
+        "detail": "واریزی «سود بانک» به مبلغ ۳۰۰٬۰۰۰ تومان برای عضو «عضو دوم» ثبت شد."
+      },
+      {
+        "id": "mwwc9u8g-grj962",
+        "at": "2026-11-25T16:29:36.976Z",
+        "action": "ثبت",
+        "kind": "واریزی",
+        "recordId": "mwwc9u8g-jipeck",
+        "detail": "واریزی «واریز سهام بانک» به مبلغ ۵۰۰٬۰۰۰ تومان برای عضو «عضو دوم» ثبت شد."
+      },
+      {
+        "id": "mwwc9izp-6mo2fp",
+        "at": "2026-11-25T16:29:22.405Z",
+        "action": "ثبت",
+        "kind": "واریزی",
+        "recordId": "mwwc9izm-abcw1n",
+        "detail": "واریزی «واریز سهام بانک» به مبلغ ۵۰۰٬۰۰۰ تومان برای عضو «عضو دوم» ثبت شد."
+      },
+      {
+        "id": "mwwc9iyq-osa2e6",
+        "at": "2026-11-25T16:29:22.370Z",
+        "action": "ثبت",
+        "kind": "عضو",
+        "recordId": "mwwc9iyq-vuexcw",
+        "detail": "عضو «عضو دوم» با 1 سهم ثبت شد."
+      },
       {
         "id": "mwwbv27t-hn2ron",
         "at": "2026-11-25T16:18:07.481Z",
