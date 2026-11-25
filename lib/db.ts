@@ -2083,11 +2083,16 @@ export async function updateLoanRequest(
 /**
  * بررسی درخواست تسهیلات توسط ادمین؛ تأیید نهایی = ثبت خودکار وام واقعی در بانک
  * (یک write) تا وام بلافاصله در پنل ادمین (تب وام‌ها) و پنل عضو دیده شود.
- * سود (تومان — حالت «اضافه به انتها») و تاریخ شمسی اولین قسط در گزینه‌های تأیید
- * قابل تنظیم است؛ اگر داده نشود سود صفر و اولین قسط حدود یک ماه بعد ثبت می‌شود.
- * جدول اقساط خودکار است و ادمین می‌تواند بعداً از تب وام‌ها ویرایشش کند.
+ * سود (تومان)، حالت سود (اضافه به انتها / کسر از ابتدا) و تاریخ شمسی اولین قسط
+ * در گزینه‌های تأیید قابل تنظیم است؛ اگر داده نشود سود صفر با حالت «اضافه به
+ * انتها» و اولین قسط حدود یک ماه بعد ثبت می‌شود. جدول اقساط خودکار است و ادمین
+ * می‌تواند بعداً از تب وام‌ها ویرایشش کند.
  */
-export type LoanApproveOptions = { interestAmount?: number; firstDue?: string };
+export type LoanApproveOptions = {
+  interestAmount?: number;
+  interestMode?: BankLoan["interestMode"];
+  firstDue?: string;
+};
 
 export async function reviewLoanRequest(
   id: string,
@@ -2118,6 +2123,13 @@ export async function reviewLoanRequest(
         throw new Error("سود باید عددی بزرگ‌تر یا مساوی صفر باشد.");
       }
     }
+    let interestMode: BankLoan["interestMode"] = "end";
+    if (options?.interestMode !== undefined && options.interestMode !== null) {
+      if (options.interestMode !== "beginning" && options.interestMode !== "end") {
+        throw new Error("حالت سود باید «کسر از ابتدا» یا «اضافه به انتها» باشد.");
+      }
+      interestMode = options.interestMode;
+    }
     const firstDueRaw = typeof options?.firstDue === "string" ? options.firstDue.trim() : "";
     let firstDue = nextMonthJalaliDay();
     if (firstDueRaw) {
@@ -2130,19 +2142,23 @@ export async function reviewLoanRequest(
     }
     const principal = request.amount;
     const installmentCount = request.months;
-    const { totalAmount, disbursedAmount } = loanTotals(principal, interestAmount, "end");
+    const { totalAmount, disbursedAmount } = loanTotals(principal, interestAmount, interestMode);
     const schedule = makeSchedule({
       total: totalAmount,
       months: installmentCount,
       firstDue,
       mode: "auto",
     });
+    const interestLabel =
+      interestAmount > 0
+        ? ` با سود ${faAmount(interestAmount)} تومان${interestMode === "beginning" ? " (کسر از ابتدا)" : ""}`
+        : "";
     const loan: BankLoan = {
       id: bankUid(),
       memberId: member.id,
       memberName: member.name,
       principal,
-      interestMode: "end",
+      interestMode,
       interestAmount,
       totalAmount,
       disbursedAmount,
@@ -2150,9 +2166,9 @@ export async function reviewLoanRequest(
       schedule,
       payments: [],
       status: "active",
-      note: `ثبت خودکار از تأیید نهایی درخواست تسهیلات کاربر «${request.username}»${
-        interestAmount > 0 ? ` با سود ${faAmount(interestAmount)} تومان` : ""
-      }${reviewNote?.trim() ? ` — ${reviewNote.trim()}` : ""}`,
+      note: `ثبت خودکار از تأیید نهایی درخواست تسهیلات کاربر «${request.username}»${interestLabel}${
+        reviewNote?.trim() ? ` — ${reviewNote.trim()}` : ""
+      }`,
       createdAt: now,
     };
     db.bank.loans.unshift(loan);
@@ -2162,7 +2178,9 @@ export async function reviewLoanRequest(
       "وام",
       loan.id,
       `وام ${faAmount(principal)} تومانی برای عضو «${member.name}» با ${installmentCount.toLocaleString("fa-IR")} قسط${
-        interestAmount > 0 ? ` و سود ${faAmount(interestAmount)} تومان` : ""
+        interestAmount > 0
+          ? ` و سود ${faAmount(interestAmount)} تومان${interestMode === "beginning" ? " (کسر از ابتدا)" : ""}`
+          : ""
       } و کل بازپرداخت ${faAmount(totalAmount)} تومان، از تأیید نهایی درخواست تسهیلات به‌صورت خودکار ثبت شد.`,
     );
     addAudit(

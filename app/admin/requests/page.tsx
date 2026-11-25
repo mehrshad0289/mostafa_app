@@ -45,6 +45,7 @@ export default function AdminRequestsPage() {
   const [editReason, setEditReason] = useState("");
   const [approveTarget, setApproveTarget] = useState<LoanRequest | null>(null);
   const [approveInterest, setApproveInterest] = useState("0");
+  const [approveInterestMode, setApproveInterestMode] = useState<"beginning" | "end">("end");
   const [approveFirstDue, setApproveFirstDue] = useState("");
   const [approveNote, setApproveNote] = useState("");
 
@@ -110,6 +111,7 @@ export default function AdminRequestsPage() {
   function openApprove(r: LoanRequest) {
     setApproveTarget(r);
     setApproveInterest("0");
+    setApproveInterestMode("end");
     setApproveFirstDue(defaultFirstDue());
     setApproveNote("");
   }
@@ -129,6 +131,7 @@ export default function AdminRequestsPage() {
           action: "approve",
           note: approveNote,
           interestAmount: approveInterest === "" ? 0 : parseAmount(approveInterest),
+          interestMode: approveInterestMode,
           firstDue: approveFirstDue,
         }),
       });
@@ -184,7 +187,11 @@ export default function AdminRequestsPage() {
   const pendingPayments = paymentRequests.filter((r) => r.status === "pending");
   const pendingLoans = loanRequests.filter((r) => r.status === "pending");
   const approveInterestValue = approveInterest === "" ? 0 : Math.max(0, parseAmount(approveInterest) || 0);
-  const approveTotal = (approveTarget?.amount ?? 0) + approveInterestValue;
+  const approvePrincipal = approveTarget?.amount ?? 0;
+  const approveTotal =
+    approveInterestMode === "beginning" ? approvePrincipal : approvePrincipal + approveInterestValue;
+  const approveDisbursed =
+    approveInterestMode === "beginning" ? Math.max(0, approvePrincipal - approveInterestValue) : approvePrincipal;
   const approveInstallment =
     approveTarget && approveTarget.months > 0 ? Math.floor(approveTotal / approveTarget.months) : 0;
   return (
@@ -390,9 +397,9 @@ export default function AdminRequestsPage() {
                 />
               </label>
               <p className="text-xs text-zinc-500">
-                پس از «تأیید نهایی»، وام با همین مبلغ و تعداد قسط ثبت می‌شود؛ سود و تاریخ
-                اولین قسط را در پنجره تأیید نهایی می‌توانید تنظیم کنید و جدول اقساط بعداً
-                از تب «وام‌ها و اقساط» قابل ویرایش است.
+                پس از «تأیید نهایی»، وام با همین مبلغ و تعداد قسط ثبت می‌شود؛ سود، حالت سود
+                و تاریخ اولین قسط را در پنجره تأیید نهایی می‌توانید تنظیم کنید و جدول اقساط
+                بعداً از تب «وام‌ها و اقساط» قابل ویرایش است.
               </p>
               {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
               <div className="flex gap-2 pt-1">
@@ -450,6 +457,17 @@ export default function AdminRequestsPage() {
                 />
               </label>
               <label className="block space-y-1 text-xs text-zinc-500">
+                حالت سود
+                <select
+                  value={approveInterestMode}
+                  onChange={(e) => setApproveInterestMode(e.target.value as "beginning" | "end")}
+                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  <option value="end">اضافه به انتها (به کل بدهی اضافه می‌شود)</option>
+                  <option value="beginning">کسر از ابتدا (از اصل وام کسر می‌شود)</option>
+                </select>
+              </label>
+              <label className="block space-y-1 text-xs text-zinc-500">
                 تاریخ اولین قسط (شمسی)
                 <input
                   value={approveFirstDue}
@@ -471,6 +489,9 @@ export default function AdminRequestsPage() {
               <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
                 کل بازپرداخت: {faMoney(approveTotal)} تومان — قسط هر ماه حدوداً{" "}
                 {faMoney(approveInstallment)} تومان ({faMoney(approveTarget.months)} قسط خودکار)
+                {approveInterestMode === "beginning" && approveInterestValue > 0 && (
+                  <> — مبلغ قابل پرداخت به عضو: {faMoney(approveDisbursed)} تومان</>
+                )}
               </p>
               {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
               <div className="flex gap-2 pt-1">

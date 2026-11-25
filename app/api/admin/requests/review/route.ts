@@ -12,6 +12,7 @@ export async function POST(request: Request) {
     action?: unknown;
     note?: unknown;
     interestAmount?: unknown;
+    interestMode?: unknown;
     firstDue?: unknown;
   };
   try {
@@ -34,8 +35,8 @@ export async function POST(request: Request) {
       const updated = await reviewPaymentRequest(id, action, note);
       return NextResponse.json({ request: updated });
     }
-    // گزینه‌های اختیاری تأیید نهایی تسهیلات: سود (تومان) و تاریخ شمسی اولین قسط
-    let approveOptions: { interestAmount?: number; firstDue?: string } | undefined;
+    // گزینه‌های اختیاری تأیید نهایی تسهیلات: سود (تومان)، حالت سود و تاریخ شمسی اولین قسط
+    let approveOptions: { interestAmount?: number; interestMode?: "beginning" | "end"; firstDue?: string } | undefined;
     if (kind === "loan" && action === "approve") {
       approveOptions = {};
       if (body.interestAmount !== undefined && body.interestAmount !== null && body.interestAmount !== "") {
@@ -47,6 +48,15 @@ export async function POST(request: Request) {
           );
         }
         approveOptions.interestAmount = interestAmount;
+      }
+      if (body.interestMode !== undefined && body.interestMode !== null && body.interestMode !== "") {
+        if (body.interestMode !== "beginning" && body.interestMode !== "end") {
+          return NextResponse.json(
+            { error: "حالت سود باید «کسر از ابتدا» یا «اضافه به انتها» باشد." },
+            { status: 400 },
+          );
+        }
+        approveOptions.interestMode = body.interestMode;
       }
       if (typeof body.firstDue === "string" && body.firstDue.trim()) {
         approveOptions.firstDue = body.firstDue.trim();
