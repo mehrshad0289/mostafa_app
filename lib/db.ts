@@ -10,7 +10,7 @@ import path from "path";
 import seed from "@/data/db.json";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase";
-import { bankUid, jalaliParts, loanRemaining, loanTotals, makeSchedule, parseSharePeriod } from "./bank";
+import { bankUid, jalaliParts, jalaliToDate, loanRemaining, loanTotals, makeSchedule, parseSharePeriod } from "./bank";
 
 export type ItemKind = "general" | "haqiqi";
 
@@ -2083,13 +2083,17 @@ export async function updateLoanRequest(
 /**
  * بررسی درخواست تسهیلات توسط ادمین؛ تأیید نهایی = ثبت خودکار وام واقعی در بانک
  * (یک write) تا وام بلافاصله در پنل ادمین (تب وام‌ها) و پنل عضو دیده شود.
- * وام با سود صفر و اقساط خودکار ثبت می‌شود؛ ادمین می‌تواند بعداً از تب وام‌ها
- * سود/جدول اقساط را ویرایش کند.
+ * سود (تومان — حالت «اضافه به انتها») و تاریخ شمسی اولین قسط در گزینه‌های تأیید
+ * قابل تنظیم است؛ اگر داده نشود سود صفر و اولین قسط حدود یک ماه بعد ثبت می‌شود.
+ * جدول اقساط خودکار است و ادمین می‌تواند بعداً از تب وام‌ها ویرایشش کند.
  */
+export type LoanApproveOptions = { interestAmount?: number; firstDue?: string };
+
 export async function reviewLoanRequest(
   id: string,
   action: "approve" | "reject",
   reviewNote?: string,
+  options?: LoanApproveOptions,
 ): Promise<LoanRequest> {
   const db = await readDb();
   const request = db.loanRequests.find((r) => r.id === id);
@@ -2107,10 +2111,26 @@ export async function reviewLoanRequest(
         "عضو این درخواست در بانک پیدا نشد؛ ابتدا عضو را بازسازی کنید یا درخواست را رد کنید.",
       );
     }
+    let interestAmount = 0;
+    if (options?.interestAmount !== undefined && options.interestAmount !== null) {
+      interestAmount = Math.floor(Number(options.interestAmount));
+      if (!Number.isFinite(interestAmount) || interestAmount < 0) {
+        throw new Error("سود باید عددی بزرگ‌تر یا مساوی صفر باشد.");
+      }
+    }
+    const firstDueRaw = typeof options?.firstDue === "string" ? options.firstDue.trim() : "";
+    let firstDue = nextMonthJalaliDay();
+    if (firstDueRaw) {
+      const parsed = jalaliToDate(firstDueRaw);
+      if (!parsed) {
+        throw new Error("تاریخ اولین قسط را شمسی و به شکل ۱۴۰۵/۰۸/۲۷ وارد کنید.");
+      }
+      const p = jalaliParts(parsed);
+      firstDue = `${p.year}/${String(p.month).padStart(2, "0")}/${String(p.day).padStart(2, "0")}`;
+    }
     const principal = request.amount;
     const installmentCount = request.months;
-    const firstDue = nextMonthJalaliDay();
-    const { totalAmount, disbursedAmount } = loanTotals(principal, 0, "end");
+    const { totalAmount, disbursedAmount } = loanTotals(principal, interestAmount, "end");
     const schedule = makeSchedule({
       total: totalAmount,
       months: installmentCount,
@@ -2123,7 +2143,7 @@ export async function reviewLoanRequest(
       memberName: member.name,
       principal,
       interestMode: "end",
-      interestAmount: 0,
+      interestAmount,
       totalAmount,
       disbursedAmount,
       installmentCount,
@@ -2131,8 +2151,8 @@ export async function reviewLoanRequest(
       payments: [],
       status: "active",
       note: `ثبت خودکار از تأیید نهایی درخواست تسهیلات کاربر «${request.username}»${
-        reviewNote?.trim() ? ` — ${reviewNote.trim()}` : ""
-      }`,
+        interestAmount > 0 ? ` با سود ${faAmount(interestAmount)} تومان` : ""
+      }${reviewNote?.trim() ? ` — ${reviewNote.trim()}` : ""}`,
       createdAt: now,
     };
     db.bank.loans.unshift(loan);
@@ -2141,7 +2161,9 @@ export async function reviewLoanRequest(
       "ثبت",
       "وام",
       loan.id,
-      `وام ${faAmount(principal)} تومانی برای عضو «${member.name}» با ${installmentCount.toLocaleString("fa-IR")} قسط و کل بازپرداخت ${faAmount(totalAmount)} تومان، از تأیید نهایی درخواست تسهیلات به‌صورت خودکار ثبت شد.`,
+      `وام ${faAmount(principal)} تومانی برای عضو «${member.name}» با ${installmentCount.toLocaleString("fa-IR")} قسط${
+        interestAmount > 0 ? ` و سود ${faAmount(interestAmount)} تومان` : ""
+      } و کل بازپرداخت ${faAmount(totalAmount)} تومان، از تأیید نهایی درخواست تسهیلات به‌صورت خودکار ثبت شد.`,
     );
     addAudit(
       db.bank,

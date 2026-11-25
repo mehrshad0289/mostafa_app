@@ -6,7 +6,14 @@ import { reviewLoanRequest, reviewPaymentRequest, updateLoanRequest } from "@/li
 export async function POST(request: Request) {
   const guard = await requireAdmin();
   if ("error" in guard) return guard.error;
-  let body: { kind?: unknown; id?: unknown; action?: unknown; note?: unknown };
+  let body: {
+    kind?: unknown;
+    id?: unknown;
+    action?: unknown;
+    note?: unknown;
+    interestAmount?: unknown;
+    firstDue?: unknown;
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -27,7 +34,25 @@ export async function POST(request: Request) {
       const updated = await reviewPaymentRequest(id, action, note);
       return NextResponse.json({ request: updated });
     }
-    const updated = await reviewLoanRequest(id, action, note);
+    // گزینه‌های اختیاری تأیید نهایی تسهیلات: سود (تومان) و تاریخ شمسی اولین قسط
+    let approveOptions: { interestAmount?: number; firstDue?: string } | undefined;
+    if (kind === "loan" && action === "approve") {
+      approveOptions = {};
+      if (body.interestAmount !== undefined && body.interestAmount !== null && body.interestAmount !== "") {
+        const interestAmount = Number(body.interestAmount);
+        if (!Number.isFinite(interestAmount) || interestAmount < 0) {
+          return NextResponse.json(
+            { error: "سود باید عددی بزرگ‌تر یا مساوی صفر باشد." },
+            { status: 400 },
+          );
+        }
+        approveOptions.interestAmount = interestAmount;
+      }
+      if (typeof body.firstDue === "string" && body.firstDue.trim()) {
+        approveOptions.firstDue = body.firstDue.trim();
+      }
+    }
+    const updated = await reviewLoanRequest(id, action, note, approveOptions);
     return NextResponse.json({ request: updated });
   } catch (error) {
     return NextResponse.json(
