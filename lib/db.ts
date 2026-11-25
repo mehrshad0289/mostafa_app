@@ -8,6 +8,8 @@ import {
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import seed from "@/data/db.json";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabase } from "./supabase";
 import { bankUid, jalaliParts, loanRemaining, loanTotals, makeSchedule, parseSharePeriod } from "./bank";
 
 export type ItemKind = "general" | "haqiqi";
@@ -155,56 +157,506 @@ const DATA_FILE = process.env.VERCEL
   ? path.join("/tmp", "mostafa-app-db.json")
   : SOURCE_FILE;
 
-// ---------- ذخیره‌ی دائمی روی Vercel: KV (REST آپ‌استش، بدون کتابخانه جدید) ----------
-// /tmp روی Vercel به‌ازای هر instance جدا است و با سرد شدن سرور پاک می‌شود؛
-// در نتیجه کاربران ساخته‌شده و رمز عوض‌شده از بین می‌رفتند و اپ به /login پرت
-// می‌شد. با Vercel KV (تب Storage داشبورد؛ متغیرهای KV_REST_API_URL و
-// KV_REST_API_TOKEN) کل دیتابیس به‌صورت یک blob JSON در یک کلید ذخیره می‌شود و
-// بین instanceها و بعد از سرد شدن هم می‌ماند. اگر متغیرها نبودند (محلی)، مثل
-// قبل از فایل استفاده می‌شود. پشتیبان: UPSTASH_REDIS_REST_URL/TOKEN هم پذیرفته می‌شود.
-const KV_KEY = "mostafa-app-db";
-const KV_URL =
-  process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL ?? "";
-const KV_TOKEN =
-  process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN ?? "";
-const kvOn = Boolean(KV_URL && KV_TOKEN);
+// ---------- ذخیره‌سازی دائمی در Supabase (PostgreSQL) — جایگزین KV و فایل JSON ----------
+// قبل از این تغییر، داده روی Vercel در /tmp (به‌ازای هر instance جدا) نگه‌داری
+// می‌شد و با سرد شدن سرور/Redeploy پاک می‌شد. حالا کل داده در ۹ جدول Supabase
+// ذخیره می‌شود (schema در supabase/migrations/) و بعد از Redeploy یا سرد شدن
+// سرور هم می‌ماند. طبق مأموریت فقط از دو متغیر NEXT_PUBLIC_SUPABASE_URL و
+// NEXT_PUBLIC_SUPABASE_ANON_KEY استفاده می‌شود (بدون Secret Key، بدون RLS).
+// الگوی کد دست‌نخورده مانده است: هر عملیات readDb → تغییر شیء → writeDb؛ فقط
+// backend همین دو تابع عوض شده است. متغیرها نباشند (اجرای محلی بدون دیتابیس)
+// مثل قبل از فایل data/db.json استفاده می‌شود.
+//
+// حفظ ترتیب آرایه‌ها: ترتیب رکوردهای مدل (مثلاً جدیدترین آیتم اول) باید بعد از
+// خواندن دقیقاً همان باشد؛ برای این کار هر ردیف ستون ord دارد. جدول‌های
+// «جدیدترین اول» (همه به‌جز users) با ORDER BY ord DESC خوانده می‌شوند و ord =
+// -رتبه در آرایه ذخیره می‌شود؛ users (که append می‌شود) با ORDER BY ord ASC.
+// ردیف‌های جدید مقدار میانی بین همسایه‌هایشان می‌گیرند تا افزودن به اول/وسط هم
+// بدون بازنویسی بقیه ردیف‌ها درست کار کند. ردیف تغییرنکرده دوباره ارسال نمی‌شود
+// (مهم برای رسیدهای بزرگ درخواست‌های پرداخت).
 
-/** حالت ذخیره‌سازی فعلی: «kv» یعنی ماندگار روی Vercel؛ «file» یعنی فایل محلی/tmp (موقتی — با سرد شدن سرور پاک می‌شود) */
-export function storageMode(): "kv" | "file" {
-  return kvOn ? "kv" : "file";
+type Row = Record<string, unknown>;
+
+/** شکل ردیف هر جدول + نگاشت دوطرفه به مدل داده */
+type TableSpec = {
+  name: string;
+  order: "asc" | "desc";
+  pick: (db: Database) => unknown[];
+  toRow: (entity: unknown) => Row;
+};
+
+function str(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (value == null) return fallback;
+  return String(value);
 }
 
-/** خواندن blob دیتابیس از KV؛ خطا یا نبودِ کلید = null (به seed برمی‌گردیم) */
-async function kvGet(): Promise<string | null> {
-  try {
-    const res = await fetch(`${KV_URL}/get/${KV_KEY}`, {
-      headers: { Authorization: `Bearer ${KV_TOKEN}` },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { result?: string | null };
-    return data.result ?? null;
-  } catch {
-    return null;
-  }
+function num(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** نوشتن blob دیتابیس در KV؛ درست بودن/نبودن موفقیت را برمی‌گرداند */
-async function kvSet(value: string): Promise<boolean> {
-  try {
-    const res = await fetch(`${KV_URL}/set/${KV_KEY}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${KV_TOKEN}`,
-        "Content-Type": "application/octet-stream",
-      },
-      body: value,
-      cache: "no-store",
-    });
-    return res.ok;
-  } catch {
-    return false;
+function bool(value: unknown): boolean {
+  return value === true;
+}
+
+function itemToRow(i: Item): Row {
+  return {
+    id: i.id,
+    kind: i.kind,
+    title: i.title,
+    note: i.note,
+    done: i.done === true,
+    created_at: i.createdAt,
+  };
+}
+
+function itemFromRow(r: Row): Item {
+  return {
+    id: str(r.id),
+    kind: normalizeKind(r.kind),
+    title: str(r.title),
+    note: str(r.note),
+    done: bool(r.done),
+    createdAt: str(r.created_at),
+  };
+}
+
+function userToRow(u: User): Row {
+  return {
+    id: u.id,
+    username: u.username,
+    password_hash: u.passwordHash,
+    salt: u.salt,
+    role: u.role,
+    full_name: u.fullName,
+    phone: u.phone,
+    member_id: u.memberId ?? null,
+    active: u.active !== false,
+    password_login_enabled: u.passwordLoginEnabled !== false,
+    created_at: u.createdAt,
+    updated_at: u.updatedAt,
+  };
+}
+
+function userFromRow(r: Row): User {
+  return {
+    id: str(r.id),
+    username: str(r.username),
+    passwordHash: str(r.password_hash),
+    salt: str(r.salt),
+    role: r.role === "admin" ? "admin" : "member",
+    fullName: str(r.full_name),
+    phone: str(r.phone),
+    memberId: r.member_id == null ? null : str(r.member_id),
+    active: r.active !== false,
+    passwordLoginEnabled: r.password_login_enabled !== false,
+    createdAt: str(r.created_at),
+    updatedAt: str(r.updated_at),
+  };
+}
+
+function settingsToRow(s: BankSettings): Row {
+  return {
+    id: 1,
+    amount_per_share: num(s.amountPerShare),
+    deposit_titles: Array.isArray(s.depositTitles) ? s.depositTitles : [],
+    duplicate_warning: s.duplicateWarning === true,
+  };
+}
+
+function settingsFromRow(r: Row): BankSettings {
+  return {
+    amountPerShare: num(r.amount_per_share),
+    depositTitles: Array.isArray(r.deposit_titles)
+      ? (r.deposit_titles as string[])
+      : [...DEFAULT_BANK.settings.depositTitles],
+    duplicateWarning: bool(r.duplicate_warning),
+  };
+}
+
+function memberToRow(m: BankMember): Row {
+  return {
+    id: m.id,
+    name: m.name,
+    shares: num(m.shares),
+    phone: m.phone,
+    gender: m.gender === "female" ? "female" : "male",
+    note: m.note,
+    total_deposited: num(m.totalDeposited),
+    settled: m.settled === true,
+    settled_at: m.settledAt ?? null,
+    settlement_claim: m.settlementClaim ?? null,
+    settlement_debt: m.settlementDebt ?? null,
+    settlement_net: m.settlementNet ?? null,
+    created_at: m.createdAt,
+  };
+}
+
+function memberFromRow(r: Row): BankMember {
+  return {
+    id: str(r.id),
+    name: str(r.name),
+    shares: num(r.shares),
+    phone: str(r.phone),
+    gender: r.gender === "female" ? "female" : "male",
+    note: str(r.note),
+    totalDeposited: num(r.total_deposited),
+    settled: bool(r.settled),
+    settledAt: r.settled_at == null ? null : str(r.settled_at),
+    settlementClaim: r.settlement_claim == null ? null : num(r.settlement_claim),
+    settlementDebt: r.settlement_debt == null ? null : num(r.settlement_debt),
+    settlementNet: r.settlement_net == null ? null : num(r.settlement_net),
+    createdAt: str(r.created_at),
+  };
+}
+
+function depositToRow(d: BankDeposit): Row {
+  return {
+    id: d.id,
+    member_id: d.memberId ?? null,
+    member_name: d.memberName,
+    type: d.type,
+    title: d.title,
+    amount: num(d.amount),
+    period_key: d.periodKey,
+    created_at: d.createdAt,
+  };
+}
+
+function depositFromRow(r: Row): BankDeposit {
+  return {
+    id: str(r.id),
+    memberId: r.member_id == null ? null : str(r.member_id),
+    memberName: str(r.member_name),
+    type: normalizeDepositType(r.type) ?? "share",
+    title: str(r.title),
+    amount: num(r.amount),
+    periodKey: str(r.period_key),
+    createdAt: str(r.created_at),
+  };
+}
+
+function loanToRow(l: BankLoan): Row {
+  return {
+    id: l.id,
+    member_id: l.memberId,
+    member_name: l.memberName,
+    principal: num(l.principal),
+    interest_mode: l.interestMode === "end" ? "end" : "beginning",
+    interest_amount: num(l.interestAmount),
+    total_amount: num(l.totalAmount),
+    disbursed_amount: num(l.disbursedAmount),
+    installment_count: Math.round(num(l.installmentCount)),
+    schedule: Array.isArray(l.schedule) ? l.schedule : [],
+    payments: Array.isArray(l.payments) ? l.payments : [],
+    status: l.status === "paid" || l.status === "cancelled" ? l.status : "active",
+    note: l.note,
+    created_at: l.createdAt,
+  };
+}
+
+function loanFromRow(r: Row): BankLoan {
+  return {
+    id: str(r.id),
+    memberId: str(r.member_id),
+    memberName: str(r.member_name),
+    principal: num(r.principal),
+    interestMode: r.interest_mode === "end" ? "end" : "beginning",
+    interestAmount: num(r.interest_amount),
+    totalAmount: num(r.total_amount),
+    disbursedAmount: num(r.disbursed_amount),
+    installmentCount: Math.round(num(r.installment_count)),
+    schedule: Array.isArray(r.schedule) ? (r.schedule as BankLoanInstallment[]) : [],
+    payments: Array.isArray(r.payments) ? (r.payments as BankLoanPayment[]) : [],
+    status: r.status === "paid" || r.status === "cancelled" ? r.status : "active",
+    note: str(r.note),
+    createdAt: str(r.created_at),
+  };
+}
+
+function auditToRow(a: BankAudit): Row {
+  return {
+    id: a.id,
+    at: a.at,
+    action: a.action,
+    kind: a.kind,
+    record_id: a.recordId,
+    detail: a.detail,
+  };
+}
+
+function auditFromRow(r: Row): BankAudit {
+  return {
+    id: str(r.id),
+    at: str(r.at),
+    action: str(r.action),
+    kind: str(r.kind),
+    recordId: str(r.record_id),
+    detail: str(r.detail),
+  };
+}
+
+function paymentRequestToRow(p: PaymentRequest): Row {
+  return {
+    id: p.id,
+    kind: p.kind === "installment" ? "installment" : "share",
+    member_id: p.memberId,
+    user_id: p.userId,
+    username: p.username,
+    amount: num(p.amount),
+    receipt: p.receipt,
+    note: p.note,
+    status: p.status,
+    loan_id: p.loanId ?? null,
+    installment_number: p.installmentNumber == null ? null : Math.round(num(p.installmentNumber)),
+    created_at: p.createdAt,
+    reviewed_at: p.reviewedAt ?? null,
+    review_note: p.reviewNote ?? null,
+  };
+}
+
+function paymentRequestFromRow(r: Row): PaymentRequest {
+  return {
+    id: str(r.id),
+    kind: r.kind === "installment" ? "installment" : "share",
+    memberId: str(r.member_id),
+    userId: str(r.user_id),
+    username: str(r.username),
+    amount: num(r.amount),
+    receipt: str(r.receipt),
+    note: str(r.note),
+    status: r.status === "approved" ? "approved" : r.status === "rejected" ? "rejected" : "pending",
+    loanId: r.loan_id == null ? undefined : str(r.loan_id),
+    installmentNumber: r.installment_number == null ? undefined : Math.round(num(r.installment_number)),
+    createdAt: str(r.created_at),
+    reviewedAt: r.reviewed_at == null ? undefined : str(r.reviewed_at),
+    reviewNote: r.review_note == null ? undefined : str(r.review_note),
+  };
+}
+
+function loanRequestToRow(q: LoanRequest): Row {
+  return {
+    id: q.id,
+    member_id: q.memberId,
+    user_id: q.userId,
+    username: q.username,
+    amount: num(q.amount),
+    months: Math.round(num(q.months)),
+    reason: q.reason,
+    status: q.status,
+    created_at: q.createdAt,
+    reviewed_at: q.reviewedAt ?? null,
+    review_note: q.reviewNote ?? null,
+  };
+}
+
+function loanRequestFromRow(r: Row): LoanRequest {
+  return {
+    id: str(r.id),
+    memberId: str(r.member_id),
+    userId: str(r.user_id),
+    username: str(r.username),
+    amount: num(r.amount),
+    months: Math.round(num(r.months)),
+    reason: str(r.reason),
+    status: r.status === "approved" ? "approved" : r.status === "rejected" ? "rejected" : "pending",
+    createdAt: str(r.created_at),
+    reviewedAt: r.reviewed_at == null ? undefined : str(r.reviewed_at),
+    reviewNote: r.review_note == null ? undefined : str(r.review_note),
+  };
+}
+
+const TABLES: TableSpec[] = [
+  { name: "items", order: "desc", pick: (db) => db.items, toRow: (e) => itemToRow(e as Item) },
+  { name: "users", order: "asc", pick: (db) => db.users, toRow: (e) => userToRow(e as User) },
+  { name: "bank_settings", order: "asc", pick: (db) => [db.bank.settings], toRow: (e) => settingsToRow(e as BankSettings) },
+  { name: "bank_members", order: "desc", pick: (db) => db.bank.members, toRow: (e) => memberToRow(e as BankMember) },
+  { name: "bank_deposits", order: "desc", pick: (db) => db.bank.deposits, toRow: (e) => depositToRow(e as BankDeposit) },
+  { name: "bank_loans", order: "desc", pick: (db) => db.bank.loans, toRow: (e) => loanToRow(e as BankLoan) },
+  { name: "bank_audit", order: "desc", pick: (db) => db.bank.auditLog, toRow: (e) => auditToRow(e as BankAudit) },
+  { name: "payment_requests", order: "desc", pick: (db) => db.paymentRequests, toRow: (e) => paymentRequestToRow(e as PaymentRequest) },
+  { name: "loan_requests", order: "desc", pick: (db) => db.loanRequests, toRow: (e) => loanRequestToRow(e as LoanRequest) },
+];
+
+/** آخرین وضعیت ردیف‌ها که از دیتابیس خوانده/نوشته شده — مبنا تشخیص تغییرات */
+type Snap = Partial<Record<string, Row[]>>;
+let snap: Snap | null = null;
+
+/**
+ * کپی عمیق snapshot: ردیف‌ها حاوی ارجاع به آرایه‌های زنده مدل داده‌اند
+ * (schedule/payments/deposit_titles)؛ اگر clone نشوند، تغییر درجای همان آرایه‌ها
+ * در snapshot هم دیده می‌شود و rowsEqual تغییر را نمی‌بیند و write خام می‌ماند.
+ */
+function cloneSnap(source: Record<string, Row[]>): Record<string, Row[]> {
+  const out: Record<string, Row[]> = {};
+  for (const key of Object.keys(source)) {
+    out[key] = JSON.parse(JSON.stringify(source[key])) as Row[];
   }
+  return out;
+}
+
+/** مقایسه دو ردیف: فیلدهای تخت با === (سریع، حتی برای رسیدهای بزرگ) و آبجکت‌ها با stringify */
+function rowsEqual(a: Row, b: Row): boolean {
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  for (const key of keys) {
+    const va = a[key];
+    const vb = b[key];
+    if (va !== null && typeof va === "object") {
+      if (JSON.stringify(va) !== JSON.stringify(vb)) return false;
+    } else if (va !== vb) return false;
+  }
+  return true;
+}
+
+/**
+ * ساخت ردیف‌های یک جدول از روی آرایه مدل داده. ردیف‌های موجود ord خودشان را
+ * نگه می‌دارند و ردیف‌های جدید مقدار میانی بین همسایه‌ها می‌گیرند؛ برای
+ * جدول‌های «جدیدترین اول» علامت منفی می‌خورند تا ORDER BY ord DESC همان ترتیب
+ * آرایه را برگرداند.
+ */
+function buildRows(spec: TableSpec, entities: unknown[], snapRows: Row[] | undefined): Row[] {
+  const desc = spec.order === "desc";
+  const snapOrd = new Map<string, number>();
+  if (snapRows) {
+    for (const r of snapRows) {
+      const ord = Number(r.ord ?? 0);
+      snapOrd.set(str(r.id), desc ? -ord : ord);
+    }
+  }
+  const ids = entities.map((e) => str(spec.toRow(e).id));
+  const rows: Row[] = [];
+  let prev: number | null = null;
+  for (let i = 0; i < entities.length; i++) {
+    const row = spec.toRow(entities[i]);
+    const known = snapOrd.get(str(row.id));
+    if (known !== undefined) {
+      prev = known;
+      rows.push({ ...row, ord: desc ? -known : known });
+      continue;
+    }
+    let next: number | null = null;
+    for (let j = i + 1; j < entities.length; j++) {
+      const found = snapOrd.get(ids[j]);
+      if (found !== undefined) {
+        next = found;
+        break;
+      }
+    }
+    if (next === null) next = (prev ?? -1) + 2;
+    if (prev === null) prev = next - 2;
+    const at: number = (prev + next) / 2;
+    prev = at;
+    rows.push({ ...row, ord: desc ? -at : at });
+  }
+  return rows;
+}
+
+/** حالت ذخیره‌سازی فعلی: «supabase» یعنی ماندگار در دیتابیس؛ «file» فقط اجرای محلی بدون متغیرها */
+export function storageMode(): "supabase" | "file" {
+  return getSupabase() ? "supabase" : "file";
+}
+
+/** خواندن همه جدول‌ها به‌صورت موازی و بازسازی مدل داده */
+async function sbReadAll(
+  client: SupabaseClient,
+): Promise<{ parsed: Partial<Database>; rows: Record<string, Row[]> }> {
+  const [itemsQ, usersQ, settingsQ, membersQ, depositsQ, loansQ, auditQ, payQ, loanQ] =
+    await Promise.all([
+      client.from("items").select("*").order("ord", { ascending: false }),
+      client.from("users").select("*").order("ord", { ascending: true }),
+      client.from("bank_settings").select("*").eq("id", 1).maybeSingle(),
+      client.from("bank_members").select("*").order("ord", { ascending: false }),
+      client.from("bank_deposits").select("*").order("ord", { ascending: false }),
+      client.from("bank_loans").select("*").order("ord", { ascending: false }),
+      client.from("bank_audit").select("*").order("ord", { ascending: false }),
+      client.from("payment_requests").select("*").order("ord", { ascending: false }),
+      client.from("loan_requests").select("*").order("ord", { ascending: false }),
+    ]);
+  const error =
+    itemsQ.error ??
+    usersQ.error ??
+    settingsQ.error ??
+    membersQ.error ??
+    depositsQ.error ??
+    loansQ.error ??
+    auditQ.error ??
+    payQ.error ??
+    loanQ.error;
+  if (error) throw error;
+
+  const rows: Record<string, Row[]> = {
+    items: (itemsQ.data ?? []) as Row[],
+    users: (usersQ.data ?? []) as Row[],
+    bank_settings: settingsQ.data ? [settingsQ.data as Row] : [],
+    bank_members: (membersQ.data ?? []) as Row[],
+    bank_deposits: (depositsQ.data ?? []) as Row[],
+    bank_loans: (loansQ.data ?? []) as Row[],
+    bank_audit: (auditQ.data ?? []) as Row[],
+    payment_requests: (payQ.data ?? []) as Row[],
+    loan_requests: (loanQ.data ?? []) as Row[],
+  };
+
+  const parsed: Partial<Database> = {
+    items: rows.items.map(itemFromRow),
+    users: rows.users.map(userFromRow),
+    bank: {
+      settings: rows.bank_settings.length
+        ? settingsFromRow(rows.bank_settings[0])
+        : { ...DEFAULT_BANK.settings },
+      members: rows.bank_members.map(memberFromRow),
+      deposits: rows.bank_deposits.map(depositFromRow),
+      loans: rows.bank_loans.map(loanFromRow),
+      auditLog: rows.bank_audit.map(auditFromRow),
+    },
+    sessions: [],
+    paymentRequests: rows.payment_requests.map(paymentRequestFromRow),
+    loanRequests: rows.loan_requests.map(loanRequestFromRow),
+  };
+  return { parsed, rows };
+}
+
+/**
+ * همگام‌سازی مدل داده با جدول‌ها: فقط ردیف‌های تغییرکرده upsert و ردیف‌های حذف‌شده
+ * delete می‌شوند. اگر snapshot خواندن موجود نبود (خطای موقت خواندن)، فقط upsert
+ * انجام می‌شود و هیچ چیزی حذف نمی‌شود تا داده‌ای از دست نرود.
+ */
+async function sbSyncAll(client: SupabaseClient, db: Database) {
+  const nextRows: Record<string, Row[]> = {};
+  await Promise.all(
+    TABLES.map(async (spec) => {
+      const entities = spec.pick(db);
+      const prevRows = snap?.[spec.name];
+      const rows = buildRows(spec, entities, prevRows);
+      nextRows[spec.name] = rows;
+      if (!prevRows) {
+        if (rows.length) {
+          const { error } = await client.from(spec.name).upsert(rows);
+          if (error) throw error;
+        }
+        return;
+      }
+      const prevById = new Map(prevRows.map((r) => [str(r.id), r]));
+      const dirty = rows.filter((r) => {
+        const before = prevById.get(str(r.id));
+        return !before || !rowsEqual(before, r);
+      });
+      const currentIds = new Set(rows.map((r) => str(r.id)));
+      const removed = prevRows
+        .filter((r) => !currentIds.has(str(r.id)))
+        .map((r) => str(r.id));
+      if (dirty.length) {
+        const { error } = await client.from(spec.name).upsert(dirty);
+        if (error) throw error;
+      }
+      if (removed.length) {
+        const { error } = await client.from(spec.name).delete().in("id", removed);
+        if (error) throw error;
+      }
+    }),
+  );
+  snap = cloneSnap(nextRows);
 }
 
 /**
@@ -263,16 +715,19 @@ function normalizeDb(parsed: Partial<Database>): Database {
 }
 
 async function readDb(): Promise<Database> {
-  if (kvOn) {
-    const raw = await kvGet();
-    if (raw) {
-      try {
-        return normalizeDb(JSON.parse(raw) as Partial<Database>);
-      } catch {
-        // داده‌ی خراب در KV؛ مثل نبودنش رفتار می‌کنیم و اولین write آن را بازنویسی می‌کند
-      }
+  const client = getSupabase();
+  if (client) {
+    try {
+      const { parsed, rows } = await sbReadAll(client);
+      snap = cloneSnap(rows);
+      return normalizeDb(parsed);
+    } catch (err) {
+      // خطای موقت خواندن: مثل نبودِ داده رفتار می‌کنیم (داده seed)؛ در این حالت
+      // writeDb فقط upsert می‌کند و هیچ چیز حذف نمی‌کند تا داده از دست نرود.
+      console.error("supabase: خواندن دیتابیس ناموفق بود؛ داده seed استفاده می‌شود:", err);
+      snap = null;
+      return normalizeDb({} as Partial<Database>);
     }
-    return normalizeDb(seed as Partial<Database>);
   }
   try {
     const raw = await readFile(DATA_FILE, "utf8");
@@ -283,9 +738,18 @@ async function readDb(): Promise<Database> {
 }
 
 async function writeDb(db: Database) {
+  const client = getSupabase();
+  if (client) {
+    try {
+      await sbSyncAll(client, db);
+      return;
+    } catch (err) {
+      // آخرین لایه محافظت: اگر نوشتن در Supabase موقتاً شکست بخورد، همان فراخوانی
+      // در فایل محلی/tmp ذخیره می‌شود تا عملیات کاربر از دست نرود.
+      console.error("supabase: نوشتن ناموفق بود؛ ذخیره در فایل:", err);
+    }
+  }
   const raw = JSON.stringify(db, null, 2);
-  if (kvOn && (await kvSet(raw))) return;
-  // بدون KV (محلی) یا اگر KV موقتاً در دسترس نبود: نوشتن روی فایل محلی/tmp
   await mkdir(path.dirname(DATA_FILE), { recursive: true });
   await writeFile(DATA_FILE, raw, "utf8");
 }

@@ -11,7 +11,7 @@ export default function AdminOverviewPage() {
   const [users, setUsers] = useState<PublicUser[]>([]);
   const [members, setMembers] = useState<BankMember[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [storage, setStorage] = useState<"kv" | "file" | "unknown">("unknown");
+  const [storage, setStorage] = useState<"supabase" | "file" | "unknown">("unknown");
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -26,7 +26,7 @@ export default function AdminOverviewPage() {
           setUsers(Array.isArray(u.users) ? u.users : []);
           setMembers(Array.isArray(m) ? m : []);
           const mode = (s as { mode?: string }).mode;
-          setStorage(mode === "kv" || mode === "file" ? mode : "unknown");
+          setStorage(mode === "supabase" || mode === "file" ? mode : "unknown");
         })
         .catch(() => undefined)
         .finally(() => setLoaded(true));
@@ -52,14 +52,15 @@ export default function AdminOverviewPage() {
             <strong>هشدار مهم: ذخیره‌سازی دائمی فعال نیست.</strong> داده‌ها الان در
             فایل موقت سرور نگه‌داری می‌شود؛ هر بار که سرور ورکل سرد شود همه اعضا،
             کاربران و اطلاعات ثبت‌شده پاک می‌شوند و اعضا نمی‌توانند وارد شوند. برای
-            رفع: در داشبورد Vercel تب <strong>Storage</strong> یک دیتابیس
-            <strong> KV </strong>بسازید و به همین پروژه وصل کنید و یک بار
+            رفع: دو متغیر محیطی <strong>NEXT_PUBLIC_SUPABASE_URL</strong> و
+            <strong> NEXT_PUBLIC_SUPABASE_ANON_KEY</strong> را در تنظیمات پروژه
+            Vercel (تب Environment Variables) بگذارید و یک بار
             <strong> Redeploy </strong>بزنید.
           </div>
         )}
-        {storage === "kv" && (
+        {storage === "supabase" && (
           <div className="rounded-2xl border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-            ذخیره‌سازی دائمی (KV) فعال است؛ داده‌ها با سرد شدن سرور پاک نمی‌شوند.
+            ذخیره‌سازی دائمی (Supabase) فعال است؛ داده‌ها با سرد شدن سرور و Redeploy پاک نمی‌شوند.
           </div>
         )}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

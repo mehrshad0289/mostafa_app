@@ -1,6 +1,6 @@
 # Mostafa App
 
-وب‌اپلیکیشن Next.js؛ یادداشت‌ها، فم بانک و دو لایه ادمین/عضو؛ داده در JSON (محلی: فایل، روی Vercel: Vercel KV).
+وب‌اپلیکیشن Next.js؛ یادداشت‌ها، فم بانک و دو لایه ادمین/عضو؛ داده در Supabase PostgreSQL (محلی بدون متغیرها: فایل).
 
 - سایت: https://mostafaapp.vercel.app
 - گیت‌هاب: https://github.com/mehrshad0289/mostafa_app
@@ -32,16 +32,19 @@
 
 ## معماری
 
-- داده: `data/db.json` + `lib/db.ts`؛ روی Vercel کل دیتابیس به‌صورت یک blob JSON
-  در Vercel KV (کلید `mostafa-app-db`؛ متغیرهای `KV_REST_API_URL` و
-  `KV_REST_API_TOKEN`) و در نبود آن‌ها فایل `/tmp` با ماندگاری محدود.
+- داده: Supabase PostgreSQL — ۹ جدول (items، users، bank_settings، bank_members،
+  bank_deposits، bank_loans، bank_audit، payment_requests، loan_requests)؛
+  schema در `supabase/migrations/20261125000000_init.sql`. اتصال فقط با دو
+  متغیر `NEXT_PUBLIC_SUPABASE_URL` و `NEXT_PUBLIC_SUPABASE_ANON_KEY` از طریق
+  `lib/supabase.ts`؛ همه خواندن/نوشتن از `lib/db.ts` (`readDb`/`writeDb`).
+  در نبود متغیرها (اجرای محلی بدون دیتابیس) fallback فایل `data/db.json` است.
 - منطق خالص بدون I/O: `lib/bank.ts` (تقویم شمسی، فرمول‌های عضو/وام/بانک).
 - API: `app/api/items/...` و `app/api/bank/...` (members، deposits، loans،
   settings، audit، backup).
 - UI: RTL فارسی با Tailwind؛ کامپوننت‌های بانک در `app/components/bank/`.
-- دیپلوی: Vercel، auto-deploy از `main`. ماندگاری داده روی Vercel با اتصال
-  Vercel KV (تب Storage داشبورد) کامل می‌شود؛ تا اتصال KV نوشتن به `/tmp`
-  می‌رود و با سرد شدن سرور از بین می‌رود.
+- دیپلوی: Vercel، auto-deploy از `main`. ماندگاری داده با تنظیم دو متغیر
+  Supabase در Environment Variables پروژه Vercel کامل می‌شود؛ تا تنظیم آن‌ها
+  داده در فایل موقت سرور می‌رود و با سرد شدن سرور از بین می‌رود.
 ## اجرا
 
 ```bash

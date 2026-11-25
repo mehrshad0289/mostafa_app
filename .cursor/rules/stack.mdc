@@ -1,13 +1,16 @@
 ---
-description: Next.js app with JSON file storage
+description: Next.js app with Supabase PostgreSQL storage
 alwaysApply: true
 ---
 
 # Stack
 
-- Next.js App Router only (no extra backend or database)
-- Data lives in `data/db.json`; read/write through `lib/db.ts`
-- HTTP API: `GET/POST /api/items`, `PATCH/DELETE /api/items/[id]`
+- Next.js App Router only; the only extra dependency is `@supabase/supabase-js`
+- Data lives in Supabase PostgreSQL (9 tables, schema in `supabase/migrations/`);
+  all reads/writes go through `lib/db.ts` (`readDb`/`writeDb`) using
+  `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` via `lib/supabase.ts`
+- Without those env vars (local dev only) `lib/db.ts` falls back to `data/db.json`
+- HTTP API: `GET/POST /api/items`, `PATCH/DELETE /api/items/[id]` + bank/auth/admin routes
 - UI is RTL Persian in `app/page.tsx`
 - Production: Vercel, auto-deploys from `main` (`https://mostafaapp.vercel.app`)
-- Prefer editing existing files over adding new libraries
+- Do not add libraries; do not add RLS/auth systems (per project owner's rules)

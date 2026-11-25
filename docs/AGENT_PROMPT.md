@@ -18,7 +18,7 @@ https://github.com/mehrshad0289/mostafa_app.git
 - docs/BANK_SPEC.md (مشخصات محصول و فرمول‌های فم بانک)
 
 قوانین:
-1. فقط Next.js. داده در JSON داخل پروژه است (data/db.json و lib/db.ts).
+1. فقط Next.js. داده در Supabase PostgreSQL است (۹ جدول؛ schema در supabase/migrations/) و فقط از طریق lib/db.ts و دو متغیر NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY دسترسی می‌شود. در نبود متغیرها (اجرای محلی)، fallback فایل data/db.json است.
 2. توسعه را مرتب و مرحله‌ای انجام بده. هر مرحله باید کامل و قابل پوش باشد.
 3. بعد از هر تغییر تمام‌شده: docs/HANDOFF.md را به‌روز کن، commit بزن، به origin/main پوش کن.
 4. اگر احتمال قطع شدن هست، همان لحظه وضعیت، فایل‌های تغییرکرده، و قدم بعدی را در docs/HANDOFF.md بنویس.
