@@ -1,12 +1,70 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- آیکون فم بانک — جلسه ۲۷: مربع گرد آبی با حرف F انگلیسی (جایگزین آیکون مشکی قبلی) -->
-  <defs>
-    <linearGradient id="famFav" x1="0" y1="0" x2="0.35" y2="1">
-      <stop offset="0" stop-color="#4C86F2"/>
-      <stop offset="1" stop-color="#1A46AF"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="15" fill="url(#famFav)"/>
-  <ellipse cx="30" cy="8" rx="42" ry="20" fill="#ffffff" opacity="0.14"/>
-  <text x="32" y="35" font-family="Arial, Helvetica, sans-serif" font-size="41" font-weight="900" fill="#ffffff" text-anchor="middle" dominant-baseline="central">F</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<!-- فم بانک — جلسه ۲۸: مربع گرد آبی + خانه سفید ساده + حرف F ظریف طلایی؛
+     همان طرح HouseLogo.tsx با scale(0.125) — برای بازتولید اسکریپت logo_design.py -->
+  <g transform="scale(0.125)">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#5E96F6"/>
+          <stop offset="0.45" stop-color="#2E63D6"/>
+          <stop offset="1" stop-color="#142B66"/>
+        </linearGradient>
+        <radialGradient id="glow" cx="0.32" cy="0.2" r="0.8">
+          <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+          <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="vig" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0.55" stop-color="#071636" stop-opacity="0"/>
+          <stop offset="1" stop-color="#071636" stop-opacity="0.38"/>
+        </linearGradient>
+        <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff"/>
+          <stop offset="1" stop-color="#DCE8FF"/>
+        </linearGradient>
+        <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff"/>
+          <stop offset="1" stop-color="#D7E5FF"/>
+        </linearGradient>
+        <linearGradient id="gold" x1="256" y1="142" x2="256" y2="246" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#FFE9A8"/>
+          <stop offset="1" stop-color="#EFAF3F"/>
+        </linearGradient>
+        <linearGradient id="goldf" x1="256" y1="278" x2="256" y2="372" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#FFDF94"/>
+          <stop offset="1" stop-color="#E0981F"/>
+        </linearGradient>
+        <clipPath id="sq"><rect width="512" height="512" rx="118"/></clipPath>
+      </defs>
+    
+      <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+      <g clip-path="url(#sq)">
+        <rect width="512" height="512" fill="url(#glow)"/>
+        <rect width="512" height="512" fill="url(#vig)"/>
+      </g>
+      <rect x="13" y="13" width="486" height="486" rx="107" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"/>
+    
+      <!-- سایه نرم زمین (بیضی‌های تودرتو) -->
+      <ellipse cx="264" cy="428" rx="172" ry="22" fill="#04153A" opacity="0.10"/>
+      <ellipse cx="262" cy="424" rx="150" ry="18" fill="#04153A" opacity="0.12"/>
+      <ellipse cx="260" cy="420" rx="125" ry="14" fill="#04153A" opacity="0.14"/>
+    
+      <!-- لایه عمق سه‌بعدی (جابه‌جایی راست/پایین) -->
+      <g fill="#0A2150" opacity="0.92">
+        <path d="M144 274 L268 148 L392 274 Z" fill="#0A2150" stroke="#0A2150" stroke-width="22" stroke-linejoin="round"/>
+        <rect x="160" y="262" width="216" height="158" rx="22"/>
+      </g>
+    
+      <!-- خانه جلو -->
+      <rect x="148" y="246" width="216" height="158" rx="22" fill="url(#body)"/>
+      <path d="M132 258 L256 126 L380 258 Z" fill="url(#roof)" stroke="url(#roof)" stroke-width="22" stroke-linejoin="round"/>
+    
+      <!-- خط بام -->
+      <path d="M152 246 L256 142 L360 246" fill="none" stroke="url(#gold)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+    
+      <!-- حرف F ظریف داخل خانه -->
+      <g stroke="url(#goldf)" stroke-width="18" stroke-linecap="round" fill="none">
+        <path d="M230 278 L230 372"/>
+        <path d="M230 278 L302 278"/>
+        <path d="M230 320 L288 320"/>
+      </g>
+  </g>
 </svg>
