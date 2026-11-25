@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import ClayIcon, { type ClayIconName } from "./ClayIcon";
+import ClayIcon, { toneForIcon, type ClayIconName } from "./ClayIcon";
 import type { NavTarget, SettingsSection } from "./nav";
 import type { PublicUser } from "@/lib/db";
 
@@ -75,19 +75,23 @@ export default function ServicesScreen({ me, onNavigate }: ServicesScreenProps) 
             {group.title}
           </h2>
           <div className="grid grid-cols-4 gap-2.5">
-            {group.tiles.map((tile) => (
-              <button
-                key={tile.label}
-                type="button"
-                onClick={() => openTile(tile)}
-                className="clay-press flex flex-col items-center gap-2 rounded-3xl border border-zinc-200/80 bg-white px-1.5 py-3.5 shadow-sm hover:border-primary-300 dark:border-zinc-800 dark:bg-zinc-950"
-              >
-                <ClayIcon name={tile.icon} size={46} />
-                <span className="text-center text-[10.5px] font-medium leading-4 text-zinc-700 dark:text-zinc-300">
-                  {tile.label}
-                </span>
-              </button>
-            ))}
+            {group.tiles.map((tile) => {
+              const [toneA, toneB] = toneForIcon(tile.icon);
+              return (
+                <button
+                  key={tile.label}
+                  type="button"
+                  onClick={() => openTile(tile)}
+                  style={{ backgroundImage: `linear-gradient(145deg, ${toneA}30 0%, ${toneB}17 55%, transparent 100%)` }}
+                  className="clay-press flex flex-col items-center gap-2 rounded-3xl border border-zinc-200/70 bg-white px-1.5 py-3.5 shadow-md shadow-primary-900/5 transition hover:border-primary-300 hover:shadow-lg hover:shadow-primary-900/10 dark:border-zinc-800 dark:bg-zinc-950"
+                >
+                  <ClayIcon name={tile.icon} size={46} />
+                  <span className="text-center text-[10.5px] font-medium leading-4 text-zinc-700 dark:text-zinc-300">
+                    {tile.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </section>
       ))}

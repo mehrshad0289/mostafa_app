@@ -20,6 +20,8 @@ const TIME_FMT = new Intl.DateTimeFormat("fa-IR", {
 
 type LiveClockProps = {
   className?: string;
+  /** حالت روشن برای نشستن روی هدر سرمه‌ای برند (جلسه ۳۲) */
+  light?: boolean;
 };
 
 /**
@@ -27,7 +29,7 @@ type LiveClockProps = {
  * هر دو لایه یوزر و ادمین). تا قبل از mount جعبه‌خالی نمایش داده می‌شود تا
  * با رندر سرور هم‌خوان بماند (بدون خطای هیدریشن).
  */
-export default function LiveClock({ className = "" }: LiveClockProps) {
+export default function LiveClock({ className = "", light = false }: LiveClockProps) {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -43,7 +45,9 @@ export default function LiveClock({ className = "" }: LiveClockProps) {
 
   return (
     <span
-      className={`inline-flex items-center justify-center gap-1.5 text-[10.5px] leading-4 text-zinc-500 dark:text-zinc-400 ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 text-[10.5px] leading-4 ${
+        light ? "text-white/70" : "text-zinc-500 dark:text-zinc-400"
+      } ${className}`}
       role="timer"
       aria-label="روز، تاریخ و ساعت به‌صورت زنده"
     >

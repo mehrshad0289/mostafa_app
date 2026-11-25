@@ -369,3 +369,8 @@ export function toneForSeed(seed: string): ClayTone {
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
   return AVATAR_TONES[h % AVATAR_TONES.length];
 }
+
+/** رنگ پایه هر آیکون — برای تینت پاستلی کارت‌ها هماهنگ با آیکون داخلشان (جلسه ۳۲) */
+export function toneForIcon(name: ClayIconName): ClayTone {
+  return TONES[name];
+}

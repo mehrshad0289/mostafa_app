@@ -16,15 +16,17 @@ type BottomNavProps = {
   onChange: (tab: MobileTab) => void;
 };
 
-/** نوار ناوبری پایین ثابت — ۵ آیکون سفالی با حالت فعال گرادیانی */
+/** نوار ناوبری پایین ثابت — فوتر رنگی سرمه‌ای برند با هایلایت آیتم فعال (جلسه ۳۲) */
 export default function BottomNav({ active, onChange }: BottomNavProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-white/95 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95"
+      className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-primary-950 via-primary-900 to-primary-900 shadow-[0_-10px_30px_-12px_rgba(2,8,23,0.55)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="ناوبری اصلی"
     >
-      <div className="mx-auto flex max-w-md items-stretch justify-around px-1 py-1.5">
+      {/* نوار باریک فیروزه‌ای هماهنگ با لوگو و هدر */}
+      <div aria-hidden className="h-[2px] w-full bg-gradient-to-l from-teal-300 via-cyan-400 to-primary-400" />
+      <div className="mx-auto flex max-w-md items-stretch justify-around gap-1 px-2 py-1.5">
         {NAV.map((item) => {
           const isActive = active === item.key;
           return (
@@ -33,16 +35,18 @@ export default function BottomNav({ active, onChange }: BottomNavProps) {
               type="button"
               onClick={() => onChange(item.key)}
               aria-current={isActive ? "page" : undefined}
-              className="clay-press flex flex-1 flex-col items-center gap-1 rounded-2xl px-1 py-1"
+              className={`clay-press flex flex-1 flex-col items-center gap-1 rounded-2xl px-1 py-1 transition-colors ${
+                isActive ? "bg-white/12 ring-1 ring-inset ring-white/20" : ""
+              }`}
             >
               {isActive ? (
                 <ClayIcon name={item.icon} size={40} tone={toneForSeed(item.key)} />
               ) : (
-                <ClayIcon name={item.icon} size={40} ghost ghostColor="#94a3b8" />
+                <ClayIcon name={item.icon} size={40} ghost ghostColor="#a9b8d8" />
               )}
               <span
                 className={`text-[10px] leading-3 transition-colors ${
-                  isActive ? "font-bold text-primary-700 dark:text-primary-300" : "text-zinc-500 dark:text-zinc-400"
+                  isActive ? "font-bold text-white" : "text-white/55"
                 }`}
               >
                 {item.label}

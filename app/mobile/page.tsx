@@ -89,38 +89,39 @@ export default function MobileAppPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      {/* هدر برند — لوگوی خانه سه‌بعدی + فم بانک + Fam Bank + روز/تاریخ/ساعت زنده */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md dark:bg-zinc-950/95">
-        <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-2.5">
+      {/* هدر برند — سرمه‌ای برند با درخشش فیروزه‌ای هماهنگ با لوگو (جلسه ۳۲):
+          لوگوی خانه سه‌بعدی + فم بانک + Fam Bank + روز/تاریخ/ساعت زنده.
+          نشان نقش فقط برای «مدیر» نمایش داده می‌شود؛ کلمه «عضو» حذف شد (درخواست کاربر). */}
+      <header className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-950 via-primary-900 to-primary-800 text-white shadow-lg shadow-primary-950/30">
+        {/* درخشش‌های تزئینی — همان فیروزه‌ای نئون → آبی الکتریک لوگو */}
+        <div aria-hidden className="pointer-events-none absolute -top-12 left-2 size-44 rounded-full bg-cyan-400/20 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-8 size-40 rounded-full bg-primary-400/20 blur-3xl" />
+        <div className="relative mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <HouseLogo size={44} />
             <div className="min-w-0">
               <h1 className="text-[15px] font-bold leading-5">فم بانک</h1>
-              <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-zinc-400 dark:text-zinc-500">
+              <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-white/55">
                 Fam Bank
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span
-              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                isAdmin
-                  ? "bg-primary-100 text-primary-800 dark:bg-primary-950 dark:text-primary-300"
-                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-              }`}
-            >
-              {isAdmin ? "مدیر" : "عضو"}
-            </span>
+            {isAdmin && (
+              <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold text-white ring-1 ring-inset ring-white/25">
+                مدیر
+              </span>
+            )}
             <span className="clay" style={{ width: 38, height: 38, background: `linear-gradient(140deg, ${toneForSeed(me.username)[0]}, ${toneForSeed(me.username)[1]})` }}>
               <span className="relative z-10 text-xs font-bold text-white">{(me.fullName || me.username).trim().charAt(0)}</span>
             </span>
           </div>
         </div>
         {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) */}
-        <div className="mx-auto flex max-w-md justify-center px-4 pb-1.5">
-          <LiveClock />
+        <div className="relative mx-auto flex max-w-md justify-center px-4 pb-2">
+          <LiveClock light />
         </div>
-        <div className="h-0.5 bg-gradient-to-l from-primary-700 via-primary-500 to-primary-300" />
+        <div className="relative h-[3px] bg-gradient-to-l from-teal-300 via-cyan-400 to-primary-400" />
       </header>
 
       {/* محتوای تب فعال */}
@@ -242,13 +243,15 @@ function AdminMobileHome({ name }: { name: string }) {
         </p>
       </div>
 
-      {/* مربع‌های سه‌بعدی خانه مدیر — بدون عدد؛ اطلاعات هر مربع فقط با لمس آن */}
+      {/* مربع‌های سه‌بعدی خانه مدیر — بدون عدد؛ اطلاعات هر مربع فقط با لمس آن؛
+          جلسه ۳۲: تینت پاستلی هماهنگ با رنگ آیکون هر مربع */}
       <div className="grid grid-cols-3 gap-3">
         <button
           type="button"
           onClick={() => setOpenTile((cur) => (cur === "deposits" ? null : "deposits"))}
           aria-pressed={openTile === "deposits"}
-          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${
+          style={{ backgroundImage: "linear-gradient(145deg, #FFD98E33 0%, #F0A32B1a 55%, transparent 100%)" }}
+          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-md shadow-primary-900/5 transition hover:opacity-90 ${
             openTile === "deposits"
               ? "border-primary-400 bg-primary-50/70 ring-2 ring-primary-500/60 dark:border-primary-600 dark:bg-primary-950/50"
               : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
@@ -261,7 +264,8 @@ function AdminMobileHome({ name }: { name: string }) {
           type="button"
           onClick={() => setOpenTile((cur) => (cur === "loans" ? null : "loans"))}
           aria-pressed={openTile === "loans"}
-          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${
+          style={{ backgroundImage: "linear-gradient(145deg, #FFB3C633 0%, #E85E8A1a 55%, transparent 100%)" }}
+          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-md shadow-primary-900/5 transition hover:opacity-90 ${
             openTile === "loans"
               ? "border-primary-400 bg-primary-50/70 ring-2 ring-primary-500/60 dark:border-primary-600 dark:bg-primary-950/50"
               : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
@@ -274,7 +278,8 @@ function AdminMobileHome({ name }: { name: string }) {
           type="button"
           onClick={() => setOpenTile((cur) => (cur === "members" ? null : "members"))}
           aria-pressed={openTile === "members"}
-          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${
+          style={{ backgroundImage: "linear-gradient(145deg, #C3AEF533 0%, #8460D61a 55%, transparent 100%)" }}
+          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-md shadow-primary-900/5 transition hover:opacity-90 ${
             openTile === "members"
               ? "border-primary-400 bg-primary-50/70 ring-2 ring-primary-500/60 dark:border-primary-600 dark:bg-primary-950/50"
               : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
@@ -283,11 +288,19 @@ function AdminMobileHome({ name }: { name: string }) {
           <ClayIcon name="users" size={44} />
           <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">اعضا</span>
         </button>
-        <Link href="/admin" className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-sm transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950">
+        <Link
+          href="/admin"
+          style={{ backgroundImage: "linear-gradient(145deg, #B9C4E833 0%, #6878B81a 55%, transparent 100%)" }}
+          className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-md shadow-primary-900/5 transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950"
+        >
           <ClayIcon name="building" size={44} />
           <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">پنل مدیریت کامل</span>
         </Link>
-        <Link href="/bank/reports" className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-sm transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950">
+        <Link
+          href="/bank/reports"
+          style={{ backgroundImage: "linear-gradient(145deg, #8FE0DC33 0%, #2FA8A21a 55%, transparent 100%)" }}
+          className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-md shadow-primary-900/5 transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950"
+        >
           <ClayIcon name="chart" size={44} />
           <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">گزارش‌ها</span>
         </Link>

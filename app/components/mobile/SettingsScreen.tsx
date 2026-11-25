@@ -190,9 +190,12 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
                   @{me.username}
                 </p>
               </div>
-              <span className="mr-auto rounded-full bg-primary-100 px-2.5 py-1 text-[10px] font-semibold text-primary-800 dark:bg-primary-950 dark:text-primary-300">
-                {isAdmin ? "مدیر" : "عضو"}
-              </span>
+              {/* نشان نقش فقط برای «مدیر» — کلمه «عضو» حذف شد (درخواست کاربر، جلسه ۳۲) */}
+              {isAdmin && (
+                <span className="mr-auto rounded-full bg-primary-100 px-2.5 py-1 text-[10px] font-semibold text-primary-800 dark:bg-primary-950 dark:text-primary-300">
+                  مدیر
+                </span>
+              )}
             </div>
             <dl className="divide-y divide-zinc-100 rounded-3xl border border-zinc-200 bg-white px-4 text-sm shadow-sm dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 [&>div]:flex [&>div]:justify-between [&>div]:gap-3 [&>div]:py-3">
               <div>

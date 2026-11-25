@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
-import ClayIcon, { type ClayIconName } from "@/app/components/mobile/ClayIcon";
+import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type {
   BankDeposit,
@@ -544,18 +544,24 @@ export default function DashboardView({
         )}
         {tab === "tiles" && (
           <section className="space-y-4">
+            {/* جلسه ۳۲: هر مربع تینت پاستلی هماهنگ با رنگ آیکونش می‌گیرد تا خانه
+                زنده‌تر دیده شود؛ ساختار و رفتار لمس مستقیم بدون تغییر مانده است */}
             <div className="grid grid-cols-3 gap-3">
-              {HOME_TILES.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => changeTab(t.key)}
-                  className="clay-press flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-zinc-200/80 bg-white shadow-sm transition hover:border-primary-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-primary-700"
-                >
-                  <ClayIcon name={t.icon} size={54} />
-                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{t.label}</span>
-                </button>
-              ))}
+              {HOME_TILES.map((t) => {
+                const [toneA, toneB] = toneForIcon(t.icon);
+                return (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => changeTab(t.key)}
+                    style={{ backgroundImage: `linear-gradient(145deg, ${toneA}33 0%, ${toneB}1a 55%, transparent 100%)` }}
+                    className="clay-press flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-zinc-200/70 bg-white shadow-md shadow-primary-900/5 transition hover:border-primary-300 hover:shadow-lg hover:shadow-primary-900/10 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-primary-700"
+                  >
+                    <ClayIcon name={t.icon} size={54} />
+                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{t.label}</span>
+                  </button>
+                );
+              })}
             </div>
             <p className="text-center text-[11px] leading-6 text-zinc-400">
               برای هر بخش فقط مربع آن را لمس کنید تا مستقیم وارد همان بخش شوید.
