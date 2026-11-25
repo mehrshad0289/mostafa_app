@@ -164,9 +164,15 @@ export default function MobileAppPage() {
   );
 }
 
-/** خانه مخصوص مدیر در پوسته موبایل — خلاصه بانک از داده واقعی + میان‌برها */
+/**
+ * خانه مخصوص مدیر در پوسته موبایل — هیرو موجودی بانک + مربع‌های سه‌بعدی که
+ * هیچ عددی روی خودشان ندارند و اطلاعات هر مربع فقط بعد از لمس دیده می‌شود
+ * (جلسه ۲۶ مرحله ۵)؛ دو مربع آخر میان‌بر ناوبری‌اند.
+ */
 function AdminMobileHome({ name }: { name: string }) {
   const [summary, setSummary] = useState<{ depositsTotal: number; loansTotal: number; members: number } | null>(null);
+  /** مربع لمس‌شده — جزئیاتش در کارت زیر شبکه مربع‌ها دیده می‌شود */
+  const [openTile, setOpenTile] = useState<"deposits" | "loans" | "members" | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -195,6 +201,35 @@ function AdminMobileHome({ name }: { name: string }) {
   const fa = (v: number) => Number(v || 0).toLocaleString("fa-IR");
   const cash = summary ? summary.depositsTotal - summary.loansTotal : null;
 
+  /** جزئیات مربع آماری لمس‌شده */
+  const detail: { title: string; icon: "deposit" | "banknote" | "users"; value: number; suffix: string; subtitle: string } | null =
+    (() => {
+      if (!openTile || !summary) return null;
+      if (openTile === "deposits")
+        return {
+          title: "جمع واریزی‌ها",
+          icon: "deposit",
+          value: summary.depositsTotal,
+          suffix: "تومان",
+          subtitle: "جمع همه واریزی‌های اعضا تا امروز",
+        };
+      if (openTile === "loans")
+        return {
+          title: "تسهیلات پرداختی",
+          icon: "banknote",
+          value: summary.loansTotal,
+          suffix: "تومان",
+          subtitle: "جمع مبلغ پرداخت‌شده تسهیلات به اعضا",
+        };
+      return {
+        title: "اعضا",
+        icon: "users",
+        value: summary.members,
+        suffix: "نفر",
+        subtitle: "تعداد اعضای ثبت‌شده در بانک",
+      };
+    })();
+
   return (
     <div className="space-y-4 px-4 pt-4">
       <div className="rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-5 text-white shadow-lg shadow-primary-900/30">
@@ -203,23 +238,87 @@ function AdminMobileHome({ name }: { name: string }) {
         <p className="mt-1 text-2xl font-black tracking-tight">
           {cash === null ? "…" : `${fa(cash)} تومان`}
         </p>
-        <div className="mt-3 flex gap-4 text-[11px] text-white/70">
-          <span>واریزی‌ها: {summary ? fa(summary.depositsTotal) : "…"}</span>
-          <span>تسهیلات پرداختی: {summary ? fa(summary.loansTotal) : "…"}</span>
-          <span>اعضا: {summary ? fa(summary.members) : "…"}</span>
-        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/admin" className="clay-press rounded-3xl border border-zinc-200 bg-white p-4 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <ClayIcon name="building" size={44} className="mx-auto" />
-          <p className="mt-2 text-xs font-semibold">پنل مدیریت کامل</p>
+      {/* مربع‌های سه‌بعدی خانه مدیر — بدون عدد؛ اطلاعات هر مربع فقط با لمس آن */}
+      <div className="grid grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={() => setOpenTile((cur) => (cur === "deposits" ? null : "deposits"))}
+          aria-pressed={openTile === "deposits"}
+          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${
+            openTile === "deposits"
+              ? "border-primary-400 bg-primary-50/70 ring-2 ring-primary-500/60 dark:border-primary-600 dark:bg-primary-950/50"
+              : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+          }`}
+        >
+          <ClayIcon name="deposit" size={44} />
+          <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">جمع واریزی‌ها</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpenTile((cur) => (cur === "loans" ? null : "loans"))}
+          aria-pressed={openTile === "loans"}
+          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${
+            openTile === "loans"
+              ? "border-primary-400 bg-primary-50/70 ring-2 ring-primary-500/60 dark:border-primary-600 dark:bg-primary-950/50"
+              : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+          }`}
+        >
+          <ClayIcon name="banknote" size={44} />
+          <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">تسهیلات پرداختی</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpenTile((cur) => (cur === "members" ? null : "members"))}
+          aria-pressed={openTile === "members"}
+          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${
+            openTile === "members"
+              ? "border-primary-400 bg-primary-50/70 ring-2 ring-primary-500/60 dark:border-primary-600 dark:bg-primary-950/50"
+              : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+          }`}
+        >
+          <ClayIcon name="users" size={44} />
+          <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">اعضا</span>
+        </button>
+        <Link href="/admin" className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-sm transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950">
+          <ClayIcon name="building" size={44} />
+          <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">پنل مدیریت کامل</span>
         </Link>
-        <Link href="/admin" className="clay-press rounded-3xl border border-zinc-200 bg-white p-4 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <ClayIcon name="chart" size={44} className="mx-auto" />
-          <p className="mt-2 text-xs font-semibold">گزارش‌ها</p>
+        <Link href="/bank?tab=reports" className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-sm transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950">
+          <ClayIcon name="chart" size={44} />
+          <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">گزارش‌ها</span>
         </Link>
       </div>
+      <p className="text-center text-[11px] leading-6 text-zinc-400">
+        برای دیدن اطلاعات هر مربع، آن را لمس کنید.
+      </p>
+
+      {/* کارت جزئیات — فقط بعد از لمس مربع آماری */}
+      {detail && (
+        <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <ClayIcon name={detail.icon} size={40} />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{detail.title}</p>
+                <p className="mt-1 text-xl font-bold text-primary-700 dark:text-primary-300">
+                  {fa(detail.value)}
+                  <span className="mr-1 text-xs font-normal opacity-70">{detail.suffix}</span>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpenTile(null)}
+              className="rounded-full px-3 py-1.5 text-[11px] font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              بستن
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{detail.subtitle}</p>
+        </div>
+      )}
 
       <p className="text-center text-[11px] leading-6 text-zinc-400">
         مدیریت اعضا، وام‌ها و تنظیمات بانک در پنل مدیریت کامل انجام می‌شود؛

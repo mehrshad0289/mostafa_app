@@ -47,84 +47,120 @@ const KIND_LABEL = {
   loan: "درخواست تسهیلات",
 } as const;
 
-/** آیکون سفالی هر کارت آماری — هم‌سبک با آیکون‌های پوسته یوزر */
-const CARD_ICON: ClayIconName = "wallet";
+type TileVariant = "default" | "danger" | "warning";
 
-type StatVariant = "default" | "danger" | "success";
-
-const CARD_TONE_BY_VARIANT: Record<StatVariant, ClayTone> = {
-  default: ["#9CC6FF", "#4C82E0"],
+/** رنگ لُه سفالی آیکون هر مربع بر اساس حالت */
+const TILE_ICON_TONE: Record<TileVariant, ClayTone | undefined> = {
+  default: undefined,
   danger: ["#FCA9A9", "#D95050"],
-  success: ["#B5EBA5", "#54B854"],
+  warning: ["#FFE08E", "#E8A62B"],
 };
 
-/** کارت آماری داشبورد با آیکون سفالی؛ variant قرمز برای تعهدات پرداخت‌نشده/باقی‌مانده */
-function StatCard({
-  title,
-  value,
-  suffix = "تومان",
-  subtitle,
+type TileKey =
+  | "unread"
+  | "shareMonthlyDue"
+  | "shareUnpaid"
+  | "loanMonthlyDue"
+  | "loanOverdue"
+  | "loanRemaining"
+  | "loanInterest"
+  | "totalShares"
+  | "totalInterest"
+  | "members";
+
+/**
+ * مربع‌های سه‌بعدی داشبورد ادمین — فقط آیکون و عنوان؛ هیچ عددی روی مربع‌ها
+ * دیده نمی‌شود و اطلاعات هر مربع فقط بعد از لمس آن در کارت جزئیات نمایش
+ * داده می‌شود (جلسه ۲۶ مرحله ۵).
+ */
+const TILES: { key: TileKey; label: string; icon: ClayIconName; variant?: TileVariant }[] = [
+  { key: "unread", label: "درخواست‌های خوانده‌نشده", icon: "bell" },
+  { key: "shareMonthlyDue", label: "تعهد ماهانه سهام", icon: "coins" },
+  { key: "shareUnpaid", label: "تعهدات پرداخت‌نشده سهام", icon: "clock", variant: "danger" },
+  { key: "loanMonthlyDue", label: "تعهدات ماهانه وام", icon: "calendar" },
+  { key: "loanOverdue", label: "تعهدات باقی‌مانده وام", icon: "history", variant: "danger" },
+  { key: "loanRemaining", label: "مانده اقساط وام‌ها", icon: "wallet" },
+  { key: "loanInterest", label: "سود وام", icon: "banknote" },
+  { key: "totalShares", label: "جمع سهم اعضا", icon: "deposit" },
+  { key: "totalInterest", label: "سود ثبت‌شده", icon: "chart" },
+  { key: "members", label: "اعضا", icon: "users" },
+];
+
+/** مربع آماری سه‌بعدی — هم‌سبک با مربع‌های خانه پوسته یوزر (aspect-square + clay) */
+function StatTile({
+  label,
+  icon,
   variant = "default",
-  icon = CARD_ICON,
-  href,
+  active,
+  pulse,
+  onClick,
 }: {
-  title: string;
-  value: number | null;
-  suffix?: string;
-  subtitle?: string;
-  variant?: StatVariant;
-  icon?: ClayIconName;
-  href?: string;
+  label: string;
+  icon: ClayIconName;
+  variant?: TileVariant;
+  active: boolean;
+  pulse?: boolean;
+  onClick: () => void;
 }) {
   const tone =
     variant === "danger"
       ? "border-red-200/80 bg-red-50/80 dark:border-red-900 dark:bg-red-950/60"
-      : variant === "success"
-        ? "border-emerald-200/80 bg-emerald-50/80 dark:border-emerald-900 dark:bg-emerald-950/60"
+      : variant === "warning"
+        ? "border-amber-200/80 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/60"
         : "border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-950";
-  const valueTone =
-    variant === "danger"
-      ? "text-red-700 dark:text-red-300"
-      : variant === "success"
-        ? "text-emerald-700 dark:text-emerald-300"
-        : "text-primary-700 dark:text-primary-300";
-  const titleTone =
-    variant === "danger"
-      ? "text-red-800/80 dark:text-red-300/80"
-      : "text-zinc-500 dark:text-zinc-400";
-  const body = (
-    <>
-      <p className={`text-xs font-medium ${titleTone}`}>{title}</p>
-      <p className={`mt-1.5 text-xl font-bold ${valueTone}`}>
-        {value === null ? "…" : faMoney(value)}
-        {value === null ? "" : <span className="mr-1 text-xs font-normal opacity-70">{suffix}</span>}
-      </p>
-      {subtitle && (
-        <p className="mt-1.5 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{subtitle}</p>
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`clay-press relative flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${tone} ${
+        active ? "border-primary-400 ring-2 ring-primary-500/60 dark:border-primary-600" : ""
+      }`}
+    >
+      <ClayIcon name={icon} size={42} tone={TILE_ICON_TONE[variant]} />
+      <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">
+        {label}
+      </span>
+      {pulse && (
+        <span className="absolute left-2.5 top-2.5 size-2.5 animate-pulse rounded-full bg-red-500" />
       )}
-    </>
-  );
-  const cls = `block rounded-3xl border p-4 shadow-sm transition ${tone} ${
-    href ? "clay-press hover:opacity-90" : ""
-  }`;
-  const withIcon = (inner: React.ReactNode) => (
-    <div className="flex items-start gap-3">
-      <ClayIcon name={icon} tone={CARD_TONE_BY_VARIANT[variant]} size={34} className="mt-0.5 shrink-0" />
-      <div className="min-w-0">{inner}</div>
-    </div>
-  );
-  return href ? (
-    <Link href={href} className={cls}>
-      {withIcon(body)}
-    </Link>
-  ) : (
-    <div className={cls}>{withIcon(body)}</div>
+    </button>
   );
 }
 
+/** جزئیات لمس‌شده هر مربع — مقدار، توضیح و (برای درخواست‌ها) لیست آخرین موارد */
+type DetailSpec = {
+  title: string;
+  icon: ClayIconName;
+  variant: TileVariant;
+  value: number | null;
+  suffix: string;
+  subtitle?: string;
+  list?: { id: string; text: string }[];
+  href?: string;
+  hrefLabel?: string;
+};
+
+/** حاشیه/پس‌زمینه کارت جزئیات بر اساس حالت مربع لمس‌شده */
+function detailTone(variant: TileVariant): string {
+  return variant === "danger"
+    ? "border-red-200/80 bg-red-50/80 dark:border-red-900 dark:bg-red-950/60"
+    : variant === "warning"
+      ? "border-amber-200/80 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/60"
+      : "border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-950";
+}
+
+function detailValueTone(variant: TileVariant): string {
+  return variant === "danger"
+    ? "text-red-700 dark:text-red-300"
+    : variant === "warning"
+      ? "text-amber-700 dark:text-amber-300"
+      : "text-primary-700 dark:text-primary-300";
+}
+
 /**
- * داشبورد ادمین — هم‌سبک با پوسته یوزر: هیرو گرادیان سرمه‌ای با موجودی بانک +
- * کارت‌های آماری با آیکون‌های سفالی + اعلان درخواست‌های خوانده‌نشده.
+ * داشبورد ادمین — هیرو گرادیان سرمه‌ای با موجودی بانک + مربع‌های سه‌بعدی
+ * آماری که اعدادشان فقط بعد از لمس دیده می‌شود + اعلان درخواست‌های خوانده‌نشده.
  */
 export default function AdminDashboardPage() {
   const [me, setMe] = useState<PublicUser | null>(null);
@@ -132,6 +168,8 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState<"supabase" | "file" | "unknown">("unknown");
+  /** مربع لمس‌شده — جزئیاتش در کارت زیر شبکه مربع‌ها دیده می‌شود */
+  const [openTile, setOpenTile] = useState<TileKey | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -164,6 +202,140 @@ export default function AdminDashboardPage() {
   const unread = data?.unread;
   const name = me?.fullName || me?.username || "مدیر";
 
+  function toggleTile(key: TileKey) {
+    setOpenTile((cur) => (cur === key ? null : key));
+  }
+
+  /** ساخت جزئیات مربع لمس‌شده از داده واقعی داشبورد — value = null یعنی در حال بارگذاری */
+  const detail: DetailSpec | null = (() => {
+    if (!openTile) return null;
+    switch (openTile) {
+      case "unread": {
+        const has = !!unread && unread.count > 0;
+        return {
+          title: "درخواست‌های خوانده‌نشده",
+          icon: "bell",
+          variant: has ? "warning" : "default",
+          value: loaded ? (unread ? unread.count : 0) : null,
+          suffix: "درخواست",
+          subtitle: has
+            ? undefined
+            : "درخواست جدیدی برای بررسی وجود ندارد؛ درخواست‌های جدید اعضا با اعلان همین مربع مشخص می‌شوند.",
+          list: has
+            ? unread!.latest.map((item) => ({
+                id: item.id,
+                text: `${KIND_LABEL[item.kind]}${
+                  item.kind === "installment" && item.installmentNumber
+                    ? ` ${faMoney(item.installmentNumber)}`
+                    : ""
+                } — ${faMoney(item.amount)} تومان — ${item.username}`,
+              }))
+            : undefined,
+          href: has ? "/admin/requests" : undefined,
+          hrefLabel: "بررسی درخواست‌ها",
+        };
+      }
+      case "shareMonthlyDue":
+        return {
+          title: "تعهد ماهانه سهام",
+          icon: "coins",
+          variant: "default",
+          value: loaded && data ? data.shareMonthlyDue : null,
+          suffix: "تومان",
+          subtitle:
+            fund && fund.members > 0
+              ? `جمع سهم ${faMoney(fund.members)} عضو × مبلغ هر سهم ${faMoney(fund.amountPerShare)} تومان`
+              : "جمع سهم اعضا × مبلغ هر سهم",
+        };
+      case "shareUnpaid":
+        return {
+          title: "تعهدات پرداخت‌نشده سهام",
+          icon: "clock",
+          variant: "danger",
+          value: loaded && data ? data.shareUnpaid.amount : null,
+          suffix: "تومان",
+          subtitle:
+            data && data.shareUnpaid.members > 0
+              ? `${faMoney(data.shareUnpaid.members)} عضو تعهد این ماه را کامل نپرداخته‌اند`
+              : "همه اعضا تعهد سهام این ماه را پرداخته‌اند",
+        };
+      case "loanMonthlyDue":
+        return {
+          title: "تعهدات ماهانه وام",
+          icon: "calendar",
+          variant: "default",
+          value: loaded && data ? data.loanMonthlyDue.amount : null,
+          suffix: "تومان",
+          subtitle:
+            data && data.loanMonthlyDue.count > 0
+              ? `${faMoney(data.loanMonthlyDue.count)} قسط سررسید این ماه دارد — پرداخت‌شده: ${faMoney(data.loanMonthlyDue.paid)} تومان، پرداخت‌نشده: ${faMoney(data.loanMonthlyDue.unpaid)} تومان`
+              : "هیچ قسطی سررسید این ماه ندارد",
+        };
+      case "loanOverdue":
+        return {
+          title: "تعهدات باقی‌مانده وام",
+          icon: "history",
+          variant: "danger",
+          value: loaded && data ? data.loanOverdue.amount : null,
+          suffix: "تومان",
+          subtitle: data
+            ? data.loanOverdue.count > 0
+              ? `${faMoney(data.loanOverdue.count)} قسط از ${faMoney(data.loanOverdue.loans)} وام سررسیدشده و پرداخت‌نشده است`
+              : "هیچ قسط سررسیدشده پرداخت‌نشده‌ای وجود ندارد"
+            : undefined,
+        };
+      case "loanRemaining":
+        return {
+          title: "مانده اقساط وام‌ها",
+          icon: "wallet",
+          variant: "default",
+          value: loaded && data ? data.loanRemaining.amount : null,
+          suffix: "تومان",
+          subtitle: data
+            ? `جمع اقساط پرداخت‌نشده همه وام‌ها — وام در جریان: ${faMoney(data.loanRemaining.loans)}`
+            : undefined,
+        };
+      case "loanInterest":
+        return {
+          title: "سود وام",
+          icon: "banknote",
+          variant: "default",
+          value: loaded && data ? data.loanInterest.total : null,
+          suffix: "تومان",
+          subtitle: data
+            ? `در جریان: ${faMoney(data.loanInterest.active)} تومان — تسویه‌شده: ${faMoney(data.loanInterest.settled)} تومان`
+            : undefined,
+        };
+      case "totalShares":
+        return {
+          title: "جمع سهم اعضا",
+          icon: "deposit",
+          variant: "default",
+          value: loaded && fund ? fund.totalShares : null,
+          suffix: "سهم",
+          subtitle: "جمع تعداد سهم همه اعضای ثبت‌شده در بانک",
+        };
+      case "totalInterest":
+        return {
+          title: "سود ثبت‌شده",
+          icon: "chart",
+          variant: "default",
+          value: loaded && fund ? fund.totalInterest : null,
+          suffix: "تومان",
+          subtitle: "سود وام‌های تسویه‌شده + واریزی‌های سود ثبت‌شده اعضا",
+        };
+      case "members":
+        return {
+          title: "اعضا",
+          icon: "users",
+          variant: "default",
+          value: loaded && fund ? fund.members : null,
+          suffix: "نفر",
+          subtitle: "تعداد اعضای ثبت‌شده در بانک",
+        };
+    }
+  })();
+
   return (
     <AdminShell>
       <div className="space-y-6">
@@ -183,20 +355,6 @@ export default function AdminDashboardPage() {
                 "…"
               )}
             </p>
-            <div className="mt-3 grid max-w-[21rem] grid-cols-3 gap-2 text-[10px] leading-4 sm:text-[11px] sm:leading-5">
-              <div className="rounded-2xl bg-white/10 px-2 py-2.5 text-center ring-1 ring-white/15">
-                <p className="text-white/60">جمع سهم اعضا</p>
-                <p className="mt-0.5 font-bold">{fund ? faMoney(fund.totalShares) : "…"}</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 px-2 py-2.5 text-center ring-1 ring-white/15">
-                <p className="text-white/60">سود ثبت‌شده</p>
-                <p className="mt-0.5 font-bold">{fund ? faMoney(fund.totalInterest) : "…"}</p>
-              </div>
-              <div className="rounded-2xl bg-white/10 px-2 py-2.5 text-center ring-1 ring-white/15">
-                <p className="text-white/60">اعضا</p>
-                <p className="mt-0.5 font-bold">{fund ? faMoney(fund.members) : "…"}</p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -218,126 +376,75 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* ردیف اول: تعهدات سهام */}
-        <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            title="تعهد ماهانه سهام"
-            value={loaded ? (data ? data.shareMonthlyDue : null) : null}
-            icon="coins"
-            subtitle={
-              fund && fund.members > 0
-                ? `جمع سهم ${faMoney(fund.members)} عضو × مبلغ هر سهم ${faMoney(fund.amountPerShare)} تومان`
-                : "جمع سهم اعضا × مبلغ هر سهم"
-            }
-          />
-          <StatCard
-            title="تعهدات پرداخت‌نشده سهام"
-            value={loaded ? (data ? data.shareUnpaid.amount : null) : null}
-            variant="danger"
-            icon="clock"
-            subtitle={
-              data && data.shareUnpaid.members > 0
-                ? `${faMoney(data.shareUnpaid.members)} عضو تعهد این ماه را کامل نپرداخته‌اند`
-                : "همه اعضا تعهد سهام این ماه را پرداخته‌اند"
-            }
-          />
-          <StatCard
-            title="سود وام"
-            value={loaded ? (data ? data.loanInterest.total : null) : null}
-            icon="chart"
-            subtitle={
-              data
-                ? `در جریان: ${faMoney(data.loanInterest.active)} تومان — تسویه‌شده: ${faMoney(data.loanInterest.settled)} تومان`
-                : undefined
-            }
-          />
-        </div>
+        {/* مربع‌های سه‌بعدی آماری — بدون عدد؛ اطلاعات هر مربع فقط با لمس آن */}
+        <section className="max-w-2xl space-y-3">
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+            {TILES.map((t) => (
+              <StatTile
+                key={t.key}
+                label={t.label}
+                icon={t.icon}
+                variant={t.variant}
+                active={openTile === t.key}
+                pulse={t.key === "unread" && !!unread && unread.count > 0}
+                onClick={() => toggleTile(t.key)}
+              />
+            ))}
+          </div>
+          <p className="text-center text-[11px] leading-6 text-zinc-400">
+            برای دیدن اطلاعات هر مربع، آن را لمس کنید.
+          </p>
+        </section>
 
-        {/* ردیف دوم: تعهدات وام */}
-        <div className="grid max-w-[29rem] grid-cols-1 gap-3 sm:grid-cols-2">
-          <StatCard
-            title="تعهدات ماهانه وام"
-            value={loaded ? (data ? data.loanMonthlyDue.amount : null) : null}
-            icon="calendar"
-            subtitle={
-              data && data.loanMonthlyDue.count > 0
-                ? `${faMoney(data.loanMonthlyDue.count)} قسط سررسید این ماه دارد — پرداخت‌شده: ${faMoney(data.loanMonthlyDue.paid)} تومان، پرداخت‌نشده: ${faMoney(data.loanMonthlyDue.unpaid)} تومان`
-                : "هیچ قسطی سررسید این ماه ندارد"
-            }
-          />
-          <StatCard
-            title="تعهدات باقی‌مانده وام"
-            value={loaded ? (data ? data.loanOverdue.amount : null) : null}
-            variant="danger"
-            icon="history"
-            subtitle={
-              data
-                ? data.loanOverdue.count > 0
-                  ? `${faMoney(data.loanOverdue.count)} قسط از ${faMoney(data.loanOverdue.loans)} وام سررسیدشده و پرداخت‌نشده است — مانده کل اقساط همه وام‌ها: ${faMoney(data.loanRemaining.amount)} تومان`
-                  : `هیچ قسط سررسیدشده پرداخت‌نشده‌ای وجود ندارد — مانده کل اقساط همه وام‌ها: ${faMoney(data.loanRemaining.amount)} تومان`
-                : undefined
-            }
-          />
-        </div>
-
-        {/* اعلان درخواست‌های خوانده‌نشده */}
-        <Link
-          href="/admin/requests"
-          className={`clay-press block max-w-2xl rounded-3xl border p-4 shadow-sm transition hover:opacity-95 ${
-            unread && unread.count > 0
-              ? "border-red-200/80 bg-red-50/80 dark:border-red-900 dark:bg-red-950/60"
-              : "border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <ClayIcon name="bell" size={44} tone={unread && unread.count > 0 ? ["#FFE08E", "#E8A62B"] : undefined} />
-              <div>
-                <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                  درخواست‌های خوانده‌نشده
-                </p>
-                <p
-                  className={`mt-1 text-2xl font-bold ${
-                    unread && unread.count > 0
-                      ? "text-red-700 dark:text-red-300"
-                      : "text-primary-700 dark:text-primary-300"
-                  }`}
-                >
-                  {loaded ? (unread ? faMoney(unread.count) : "…") : "…"}
-                  <span className="mr-1 text-xs font-normal opacity-70">درخواست</span>
-                </p>
+        {/* کارت جزئیات — فقط بعد از لمس مربع مربوطه */}
+        {detail && (
+          <div className={`max-w-2xl rounded-3xl border p-4 shadow-sm ${detailTone(detail.variant)}`}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <ClayIcon name={detail.icon} size={40} tone={TILE_ICON_TONE[detail.variant]} />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{detail.title}</p>
+                  <p className={`mt-1 text-xl font-bold ${detailValueTone(detail.variant)}`}>
+                    {detail.value === null ? "…" : faMoney(detail.value)}
+                    {detail.value === null ? "" : (
+                      <span className="mr-1 text-xs font-normal opacity-70">{detail.suffix}</span>
+                    )}
+                  </p>
+                </div>
               </div>
+              <button
+                type="button"
+                onClick={() => setOpenTile(null)}
+                className="rounded-full px-3 py-1.5 text-[11px] font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+              >
+                بستن
+              </button>
             </div>
-            {unread && unread.count > 0 && (
-              <span className="relative inline-flex">
-                <span className="absolute -left-1 -top-1 size-2.5 animate-pulse rounded-full bg-red-500" />
-              </span>
+            {detail.subtitle && (
+              <p className="mt-2 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{detail.subtitle}</p>
+            )}
+            {detail.list && detail.list.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                {detail.list.map((row) => (
+                  <p
+                    key={row.id}
+                    className="truncate rounded-2xl bg-amber-100/70 px-3 py-1.5 text-[11px] text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
+                  >
+                    {row.text}
+                  </p>
+                ))}
+              </div>
+            )}
+            {detail.href && (
+              <Link
+                href={detail.href}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-primary-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-primary-700"
+              >
+                {detail.hrefLabel}
+              </Link>
             )}
           </div>
-          {unread && unread.count > 0 ? (
-            <div className="mt-3 space-y-1.5">
-              {unread.latest.map((item) => (
-                <p
-                  key={item.id}
-                  className="truncate rounded-2xl bg-red-100/70 px-3 py-1.5 text-[11px] text-red-800 dark:bg-red-900/50 dark:text-red-200"
-                >
-                  {KIND_LABEL[item.kind]}
-                  {item.kind === "installment" && item.installmentNumber
-                    ? ` ${faMoney(item.installmentNumber)}`
-                    : ""}{" "}
-                  — {faMoney(item.amount)} تومان — {item.username}
-                </p>
-              ))}
-              <p className="text-[11px] font-medium text-red-700 dark:text-red-300">
-                برای مشاهده و بررسی کلیک کنید
-              </p>
-            </div>
-          ) : (
-            <p className="mt-3 text-[11px] text-zinc-500 dark:text-zinc-400">
-              درخواست جدیدی برای بررسی وجود ندارد؛ درخواست‌های جدید اعضا با اعلان همین‌جا مشخص می‌شوند.
-            </p>
-          )}
-        </Link>
+        )}
 
         <div className="flex max-w-3xl items-start gap-3 rounded-3xl border border-zinc-200/80 bg-white p-4 text-sm leading-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <ClayIcon name="info" size={40} className="mt-0.5 shrink-0" />
