@@ -95,21 +95,21 @@ function StatCard({
   const body = (
     <>
       <p className={`text-xs font-medium ${titleTone}`}>{title}</p>
-      <p className={`mt-2 text-2xl font-bold ${valueTone}`}>
+      <p className={`mt-1.5 text-xl font-bold ${valueTone}`}>
         {value === null ? "…" : faMoney(value)}
         {value === null ? "" : <span className="mr-1 text-xs font-normal opacity-70">{suffix}</span>}
       </p>
       {subtitle && (
-        <p className="mt-2 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{subtitle}</p>
+        <p className="mt-1.5 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{subtitle}</p>
       )}
     </>
   );
-  const cls = `block rounded-3xl border p-5 shadow-sm transition ${tone} ${
+  const cls = `block rounded-3xl border p-4 shadow-sm transition ${tone} ${
     href ? "clay-press hover:opacity-90" : ""
   }`;
   const withIcon = (inner: React.ReactNode) => (
     <div className="flex items-start gap-3">
-      <ClayIcon name={icon} tone={CARD_TONE_BY_VARIANT[variant]} size={44} className="mt-0.5 shrink-0" />
+      <ClayIcon name={icon} tone={CARD_TONE_BY_VARIANT[variant]} size={34} className="mt-0.5 shrink-0" />
       <div className="min-w-0">{inner}</div>
     </div>
   );
@@ -168,13 +168,13 @@ export default function AdminDashboardPage() {
     <AdminShell>
       <div className="space-y-6">
         {/* هیرو گرادیان موجودی صندوق — هم‌سبک با هدر تراکنش‌ها و خانه مدیر در پوسته یوزر */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-5 text-white shadow-lg shadow-primary-900/30">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-4 text-white shadow-lg shadow-primary-900/30 sm:p-5">
           <div className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-white/5" />
           <div className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-white/5" />
           <div className="relative">
             <p className="text-xs text-white/70">سلام، {name}</p>
             <p className="mt-1 text-sm font-medium text-white/90">موجودی کلی صندوق</p>
-            <p className="mt-1 text-[27px] font-black leading-9 tracking-tight">
+            <p className="mt-1 text-2xl font-black leading-8 tracking-tight">
               {loaded && fund ? (
                 <>
                   {faMoney(fund.balance)} <span className="text-base font-bold text-white/80">تومان</span>
@@ -183,16 +183,16 @@ export default function AdminDashboardPage() {
                 "…"
               )}
             </p>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
-              <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+            <div className="mt-3 grid max-w-[21rem] grid-cols-3 gap-2 text-[10px] leading-4 sm:text-[11px] sm:leading-5">
+              <div className="rounded-2xl bg-white/10 px-2 py-2.5 text-center ring-1 ring-white/15">
                 <p className="text-white/60">جمع سهم اعضا</p>
                 <p className="mt-0.5 font-bold">{fund ? faMoney(fund.totalShares) : "…"}</p>
               </div>
-              <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+              <div className="rounded-2xl bg-white/10 px-2 py-2.5 text-center ring-1 ring-white/15">
                 <p className="text-white/60">سود ثبت‌شده</p>
                 <p className="mt-0.5 font-bold">{fund ? faMoney(fund.totalInterest) : "…"}</p>
               </div>
-              <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+              <div className="rounded-2xl bg-white/10 px-2 py-2.5 text-center ring-1 ring-white/15">
                 <p className="text-white/60">اعضا</p>
                 <p className="mt-0.5 font-bold">{fund ? faMoney(fund.members) : "…"}</p>
               </div>
@@ -201,7 +201,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {storage === "file" && (
-          <div className="rounded-3xl border border-red-200/80 bg-red-50/80 p-4 text-sm leading-7 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <div className="max-w-3xl rounded-3xl border border-red-200/80 bg-red-50/80 p-4 text-sm leading-7 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
             <strong>هشدار مهم: ذخیره‌سازی دائمی فعال نیست.</strong> داده‌ها الان در
             فایل موقت سرور نگه‌داری می‌شود؛ هر بار که سرور ورکل سرد شود همه اعضا،
             کاربران و اطلاعات ثبت‌شده پاک می‌شوند و اعضا نمی‌توانند وارد شوند. برای
@@ -212,14 +212,14 @@ export default function AdminDashboardPage() {
           </div>
         )}
         {storage === "supabase" && (
-          <div className="flex items-center gap-2.5 rounded-3xl border border-emerald-200/80 bg-emerald-50/80 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+          <div className="flex max-w-3xl items-center gap-2.5 rounded-3xl border border-emerald-200/80 bg-emerald-50/80 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
             <ClayIcon name="check" size={30} ghost ghostColor="currentColor" />
             ذخیره‌سازی دائمی (Supabase) فعال است؛ داده‌ها با سرد شدن سرور و Redeploy پاک نمی‌شوند.
           </div>
         )}
 
         {/* ردیف اول: تعهدات سهام */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             title="تعهد ماهانه سهام"
             value={loaded ? (data ? data.shareMonthlyDue : null) : null}
@@ -254,7 +254,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* ردیف دوم: تعهدات وام */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid max-w-[29rem] grid-cols-1 gap-3 sm:grid-cols-2">
           <StatCard
             title="تعهدات ماهانه وام"
             value={loaded ? (data ? data.loanMonthlyDue.amount : null) : null}
@@ -283,7 +283,7 @@ export default function AdminDashboardPage() {
         {/* اعلان درخواست‌های خوانده‌نشده */}
         <Link
           href="/admin/requests"
-          className={`clay-press block rounded-3xl border p-5 shadow-sm transition hover:opacity-95 ${
+          className={`clay-press block max-w-2xl rounded-3xl border p-4 shadow-sm transition hover:opacity-95 ${
             unread && unread.count > 0
               ? "border-red-200/80 bg-red-50/80 dark:border-red-900 dark:bg-red-950/60"
               : "border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-950"
@@ -339,7 +339,7 @@ export default function AdminDashboardPage() {
           )}
         </Link>
 
-        <div className="flex items-start gap-3 rounded-3xl border border-zinc-200/80 bg-white p-5 text-sm leading-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex max-w-3xl items-start gap-3 rounded-3xl border border-zinc-200/80 bg-white p-4 text-sm leading-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <ClayIcon name="info" size={40} className="mt-0.5 shrink-0" />
           <div className="min-w-0">
             <p>

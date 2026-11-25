@@ -367,7 +367,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
               <span className="clay mx-auto" style={{ width: 64, height: 64, background: "linear-gradient(140deg, #6198F7, #1A46AF)" }}>
                 <span className="relative z-10 text-base font-black text-white">FB</span>
               </span>
-              <p className="mt-3 text-base font-black">فم بانک فارسی</p>
+              <p className="mt-3 text-base font-black">فم بانک</p>
               <p dir="ltr" className="text-[10px] font-semibold tracking-widest text-zinc-400">
                 FAM BANK · FB
               </p>
@@ -424,7 +424,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
       </button>
 
       <p className="pb-2 text-center text-[10px] text-zinc-400">
-        فم بانک فارسی · نسخه ۱٫۰٫۰
+        فم بانک · نسخه ۱٫۰٫۰
       </p>
 
       {/* مودال تأیید خروج */}

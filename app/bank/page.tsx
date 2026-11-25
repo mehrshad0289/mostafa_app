@@ -105,7 +105,7 @@ export default function BankPage() {
             <span className="relative z-10 -mb-px text-sm font-black tracking-tight text-white">FB</span>
           </span>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">فم بانک فارسی</h1>
+            <h1 className="text-xl font-bold tracking-tight">فم بانک</h1>
             <p dir="ltr" className="text-left text-[10px] font-medium tracking-widest text-zinc-400">
               FAM BANK · FB
             </p>

@@ -130,7 +130,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </span>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-[15px] font-bold leading-5">فم بانک فارسی</h1>
+                <h1 className="truncate text-[15px] font-bold leading-5">فم بانک</h1>
                 <span className="hidden shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-800 sm:inline dark:bg-primary-950 dark:text-primary-300">
                   پنل مدیریت
                 </span>

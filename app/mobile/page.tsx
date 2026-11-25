@@ -14,7 +14,7 @@ import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
 import type { PublicUser } from "@/lib/db";
 
 /**
- * پوسته موبایل فم بانک — هدر برند (FB / فم بانک فارسی) + نوار ناوبری پایین
+ * پوسته موبایل فم بانک — هدر برند (FB / فم بانک) + نوار ناوبری پایین
  * با ۵ آیتم (خانه، خدمات، تراکنش‌ها، مدیریت کاربران، تنظیمات).
  * تب «خانه» همان داشبورد قبلی است که حالا به‌صورت تعبیه‌شده رندر می‌شود.
  */
@@ -97,7 +97,7 @@ export default function MobileAppPage() {
               <span className="relative z-10 -mb-px text-[13px] font-black tracking-tight text-white">FB</span>
             </span>
             <div className="min-w-0">
-              <h1 className="text-[15px] font-bold leading-5">فم بانک فارسی</h1>
+              <h1 className="text-[15px] font-bold leading-5">فم بانک</h1>
               <p dir="ltr" className="text-left text-[10px] font-medium tracking-widest text-zinc-400">
                 FAM BANK · FB
               </p>
