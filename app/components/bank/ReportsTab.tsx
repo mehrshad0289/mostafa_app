@@ -58,6 +58,16 @@ function faMonthKey(key: string): string {
 
 const cellClass = "whitespace-nowrap px-3 py-2 text-xs";
 
+/** خلاصه کل: جمع وام پرداختی تا کنون، کل سهام پرداختی، سود وام و مانده وام‌ها */
+type Overall = {
+  loanPaidTotal: number;
+  loanRemainingTotal: number;
+  loanInterestTotal: number;
+  loanCount: number;
+  sharePaidTotal: number;
+  shareCount: number;
+} | null;
+
 export default function ReportsTab({
   members,
   deposits,
@@ -68,6 +78,38 @@ export default function ReportsTab({
   const [memberId, setMemberId] = useState("");
 
   const member = members.find((m) => m.id === memberId) ?? null;
+
+  /** خلاصه کل بانک: جمع وام پرداختی تا کنون، کل سهام پرداختی، سود وام، مانده وام‌ها */
+  const overall: Overall = useMemo(() => {
+    if (!hydrated) return null;
+    let loanPaidTotal = 0;
+    let loanRemainingTotal = 0;
+    let loanInterestTotal = 0;
+    let loanCount = 0;
+    for (const loan of loans) {
+      if (loan.status === "cancelled") continue;
+      loanPaidTotal += loanPaid(loan);
+      loanRemainingTotal += loanRemaining(loan);
+      loanInterestTotal += Math.max(
+        0,
+        Number(loan.totalAmount || 0) - Number(loan.principal || 0),
+      );
+      loanCount += 1;
+    }
+    const shareDeposits = deposits.filter((d) => d.type === "share");
+    const sharePaidTotal = shareDeposits.reduce(
+      (sum, d) => sum + Number(d.amount || 0),
+      0,
+    );
+    return {
+      loanPaidTotal,
+      loanRemainingTotal,
+      loanInterestTotal,
+      loanCount,
+      sharePaidTotal,
+      shareCount: shareDeposits.length,
+    };
+  }, [hydrated, loans, deposits]);
 
   /** خلاصه مالی عضو — همان فرمول‌های MemberDetail */
   const memberDetail = useMemo(() => {
@@ -181,6 +223,44 @@ export default function ReportsTab({
 
   return (
     <div className="space-y-4" data-print-area="reports">
+      <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h3 className="text-sm font-medium">خلاصه کل بانک</h3>
+        {!overall ? (
+          <p className="text-sm text-zinc-500">در حال محاسبه…</p>
+        ) : (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm sm:grid-cols-4">
+            <div>
+              <dt className="text-[11px] text-zinc-500">کل وام پرداختی تا کنون</dt>
+              <dd className="font-bold text-primary-700 dark:text-primary-300">
+                {toMoney(overall.loanPaidTotal)}
+              </dd>
+              <dd className="text-[11px] text-zinc-500">
+                {overall.loanCount.toLocaleString("fa-IR")} وام فعال — مانده: {toMoney(overall.loanRemainingTotal)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] text-zinc-500">کل مبالغ پرداختی جهت سهام</dt>
+              <dd className="font-bold text-emerald-700 dark:text-emerald-300">
+                {toMoney(overall.sharePaidTotal)}
+              </dd>
+              <dd className="text-[11px] text-zinc-500">
+                {overall.shareCount.toLocaleString("fa-IR")} واریزی سهام
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[11px] text-zinc-500">سود وام ثبت‌شده</dt>
+              <dd className="font-bold">{toMoney(overall.loanInterestTotal)}</dd>
+              <dd className="text-[11px] text-zinc-500">جمع سود همه وام‌ها</dd>
+            </div>
+            <div>
+              <dt className="text-[11px] text-zinc-500">مانده کل وام‌ها</dt>
+              <dd className="font-bold">{toMoney(overall.loanRemainingTotal)}</dd>
+              <dd className="text-[11px] text-zinc-500">بازپرداخت باقی‌مانده</dd>
+            </div>
+          </dl>
+        )}
+      </section>
+
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">گزارش عضو</h3>
         <div className="flex flex-wrap items-center gap-2">

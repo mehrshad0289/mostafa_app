@@ -18,6 +18,7 @@ import { getBank, getUnreadRequests } from "@/lib/db";
  * - تعهدات ماهانه وام (مبلغ کل اقساط با سررسید ماه شمسی جاری — پرداخت‌شده +
  *   پرداخت‌نشده؛ سهم هر کدام جداگانه هم برگردانده می‌شود)
  * - تعهدات باقی‌مانده وام (اقساط سررسیدشدهٔ ماه‌های قبل که پرداخت نشده‌اند)
+ * - سود وام (جمع سود ثبت‌شدهٔ همه وام‌ها با تفکیک در جریان/تسویه‌شده)
  * - مانده کل اقساط همه وام‌ها (برای نمایش کمکی زیر کارت معوق)
  * - درخواست‌های خوانده‌نشده اعضا
  */
@@ -80,6 +81,21 @@ export async function GET() {
     if (loanHasOverdue) loanOverdueLoans += 1;
   }
 
+  // سود وام: جمع سود ثبت‌شدهٔ همه وام‌ها با تفکیک در جریان/تسویه‌شده
+  let loanInterestTotal = 0;
+  let loanInterestActive = 0;
+  let loanInterestSettled = 0;
+  for (const loan of bank.loans) {
+    if (loan.status === "cancelled") continue;
+    const interest = Math.max(
+      0,
+      Math.round(Number(loan.totalAmount || 0) - Number(loan.principal || 0)),
+    );
+    loanInterestTotal += interest;
+    if (loan.status === "paid") loanInterestSettled += interest;
+    else loanInterestActive += interest;
+  }
+
   return NextResponse.json({
     fund: {
       balance: fund.balance,
@@ -102,6 +118,11 @@ export async function GET() {
       loans: loanOverdueLoans,
     },
     loanRemaining: { amount: loanRemainingTotal, loans: activeLoanCount },
+    loanInterest: {
+      total: loanInterestTotal,
+      active: loanInterestActive,
+      settled: loanInterestSettled,
+    },
     unread: {
       count: unread.count,
       paymentCount: unread.paymentCount,

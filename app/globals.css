@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+/* حالت تاریک دستی: با data-mode="dark" روی <html> کنترل می‌شود (تنظیمات ظاهری،
+   جلسه بیست‌ویکم). مقدار data-mode را اسکریپت کوچک داخل layout قبل از رندر
+   می‌گذارد تا صفحه چشمک نزند؛ حالت «سیستم» هم همان‌جا با media query حل می‌شود. */
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+
 /* پالت برند «فم بانک»: آبی بانکی + خنثی با ته‌مایه آبی (سبک اپ‌های بانکی).
    رنگ‌های zinc پروژه به‌صورت سراسری به خاکستریِ آبی‌فام (اسلیت) تغییر می‌کنند
-   تا همه صفحات و کامپوننت‌های موجود بدون تغییر کلاس‌ها یکدست شوند. */
+   تا همه صفحات و کامپوننت‌های موجود بدون تغییر کلاس‌ها یکدست شوند.
+   تم‌های جایگزین (تنظیمات ظاهری) فقط متغیرهای --color-primary-* را عوض می‌کنند
+   و چون کلاس‌های Tailwind به همین متغیرها اشاره می‌کنند، کل اپ رنگ عوض می‌کند. */
 @theme {
   --color-primary-50: #edf4ff;
   --color-primary-100: #dce9ff;
@@ -30,7 +37,82 @@
 }
 
 @theme inline {
-  --font-sans: var(--font-vazir);
+  --font-sans: var(--app-font, var(--font-vazir));
+}
+
+/* ---------- تم‌های ظاهری (بخش تنظیمات) — فقط رنگ برند عوض می‌شود ---------- */
+
+/* زمردی */
+[data-theme="emerald"] {
+  --color-primary-50: #ecfdf5;
+  --color-primary-100: #d1fae5;
+  --color-primary-200: #a7f3d0;
+  --color-primary-300: #6ee7b7;
+  --color-primary-400: #34d399;
+  --color-primary-500: #10b981;
+  --color-primary-600: #059669;
+  --color-primary-700: #047857;
+  --color-primary-800: #065f46;
+  --color-primary-900: #064e3b;
+  --color-primary-950: #022c22;
+}
+
+/* بنفش */
+[data-theme="violet"] {
+  --color-primary-50: #f5f3ff;
+  --color-primary-100: #ede9fe;
+  --color-primary-200: #ddd6fe;
+  --color-primary-300: #c4b5fd;
+  --color-primary-400: #a78bfa;
+  --color-primary-500: #8b5cf6;
+  --color-primary-600: #7c3aed;
+  --color-primary-700: #6d28d9;
+  --color-primary-800: #5b21b6;
+  --color-primary-900: #4c1d95;
+  --color-primary-950: #2e1065;
+}
+
+/* نارنجی گرم */
+[data-theme="sunset"] {
+  --color-primary-50: #fff7ed;
+  --color-primary-100: #ffedd5;
+  --color-primary-200: #fed7aa;
+  --color-primary-300: #fdba74;
+  --color-primary-400: #fb923c;
+  --color-primary-500: #f97316;
+  --color-primary-600: #ea580c;
+  --color-primary-700: #c2410c;
+  --color-primary-800: #9a3412;
+  --color-primary-900: #7c2d12;
+  --color-primary-950: #431407;
+}
+
+/* فیروزه‌ای */
+[data-theme="teal"] {
+  --color-primary-50: #f0fdfa;
+  --color-primary-100: #ccfbf1;
+  --color-primary-200: #99f6e4;
+  --color-primary-300: #5eead4;
+  --color-primary-400: #2dd4bf;
+  --color-primary-500: #14b8a6;
+  --color-primary-600: #0d9488;
+  --color-primary-700: #0f766e;
+  --color-primary-800: #115e59;
+  --color-primary-900: #134e4a;
+  --color-primary-950: #042f2e;
+}
+
+/* ---------- فونت انتخابی (بخش تنظیمات) ----------
+   متغیر --app-font با data-font روی <html> عوض می‌شود و body از آن استفاده
+   می‌کند؛ متغیرهای --font-* خود next/font هستند و در layout لود می‌شوند. */
+[data-font="naskh"] {
+  --app-font: var(--font-naskh);
+}
+[data-font="markazi"] {
+  --app-font: var(--font-markazi);
+}
+[data-font="lalezar"] {
+  --app-font: var(--font-lalezar);
 }
 
 ::selection {
@@ -38,7 +120,7 @@
 }
 
 body {
-  font-family: var(--font-vazir), "Vazirmatn", Tahoma, Arial, sans-serif;
+  font-family: var(--app-font, var(--font-vazir)), "Vazirmatn", Tahoma, Arial, sans-serif;
 }
 
 /* کلاس‌های مشترک ظاهری — سبک ساده و بانکی */

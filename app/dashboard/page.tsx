@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
+import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type {
   BankDeposit,
   BankLoan,
@@ -14,13 +15,14 @@ import type {
   PublicUser,
 } from "@/lib/db";
 
-type TabKey = "shares" | "installments" | "loans" | "profile";
+type TabKey = "shares" | "installments" | "loans" | "profile" | "settings";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "shares", label: "سهام" },
   { key: "installments", label: "اقساط" },
   { key: "loans", label: "تسهیلات" },
   { key: "profile", label: "پروفایل" },
+  { key: "settings", label: "تنظیمات" },
 ];
 
 const STATUS_LABEL: Record<PaymentRequest["status"], string> = {
@@ -628,6 +630,18 @@ export default function DashboardPage() {
                   {busy ? "در حال ذخیره…" : "تغییر رمز عبور"}
                 </button>
               </form>
+            </div>
+          </section>
+        )}
+
+        {tab === "settings" && (
+          <section className="space-y-4">
+            <AppearanceSettings />
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 text-sm leading-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              تنظیمات دیگر حساب (نام، رمز عبور و اطلاعات عضویت) در تب
+              <strong> پروفایل </strong>
+              است. تم و فونت انتخابی شما فقط روی همین دستگاه اعمال می‌شود و به
+              اعضای دیگر منتقل نمی‌شود.
             </div>
           </section>
         )}

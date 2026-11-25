@@ -277,8 +277,55 @@ export default function LoansTab({ members, loans, onRefresh }: LoansTabProps) {
   const inputClass =
     "rounded-xl border border-zinc-200 bg-transparent px-3 py-2 text-sm dark:border-zinc-800";
 
+  /** خلاصه وام‌ها: پرداخت‌شدهٔ وام‌های در جریان، تسویه‌شده‌ها و مانده کل */
+  const totals = useMemo(() => {
+    let inProgressPaid = 0;
+    let inProgressRemaining = 0;
+    let inProgressCount = 0;
+    let settledPaid = 0;
+    let settledCount = 0;
+    for (const loan of sorted) {
+      if (loan.status === "cancelled") continue;
+      if (loan.status === "paid") {
+        settledPaid += loanPaid(loan);
+        settledCount += 1;
+      } else {
+        inProgressPaid += loanPaid(loan);
+        inProgressRemaining += loanRemaining(loan);
+        inProgressCount += 1;
+      }
+    }
+    return { inProgressPaid, inProgressRemaining, inProgressCount, settledPaid, settledCount };
+  }, [sorted]);
+
   return (
     <div className="space-y-4">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-4 shadow-sm dark:border-primary-900 dark:bg-primary-950/40">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            کل مبالغ وام پرداختی در جریان
+          </p>
+          <p className="mt-1 text-lg font-bold text-primary-700 sm:text-xl dark:text-primary-300">
+            {toMoney(totals.inProgressPaid)}
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            {totals.inProgressCount > 0
+              ? `${faNum(totals.inProgressCount)} وام در جریان — مانده بازپرداخت: ${toMoney(totals.inProgressRemaining)}`
+              : "وام در جریانی وجود ندارد"}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/40">
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">کل مبالغ تسویه‌شده</p>
+          <p className="mt-1 text-lg font-bold text-emerald-700 sm:text-xl dark:text-emerald-300">
+            {toMoney(totals.settledPaid)}
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+            {totals.settledCount > 0
+              ? `${faNum(totals.settledCount)} وام تسویه‌شده`
+              : "وام تسویه‌شده‌ای وجود ندارد"}
+          </p>
+        </div>
+      </section>
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="search"

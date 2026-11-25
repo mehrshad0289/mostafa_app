@@ -23,6 +23,7 @@ type DashboardData = {
   loanMonthlyDue: { amount: number; count: number; paid: number; unpaid: number };
   loanOverdue: { amount: number; count: number; loans: number };
   loanRemaining: { amount: number; loans: number };
+  loanInterest: { total: number; active: number; settled: number };
   unread: {
     count: number;
     paymentCount: number;
@@ -104,7 +105,7 @@ function StatCard({
 /**
  * داشبورد ادمین: موجودی کلی صندوق، تعهد ماهانه سهام، تعهدات پرداخت‌نشده سهام (قرمز)،
  * تعهدات ماهانه وام (کل سررسیدهای ماه جاری)، تعهدات باقی‌مانده وام (سررسیدشدهٔ
- * پرداخت‌نشده؛ قرمز) و اعلان درخواست‌های خوانده‌نشده اعضا.
+ * پرداخت‌نشده؛ قرمز)، سود وام و اعلان درخواست‌های خوانده‌نشده اعضا.
  */
 export default function AdminDashboardPage() {
   const [users, setUsers] = useState<PublicUser[]>([]);
@@ -222,6 +223,15 @@ export default function AdminDashboardPage() {
                 ? data.loanOverdue.count > 0
                   ? `${faMoney(data.loanOverdue.count)} قسط از ${faMoney(data.loanOverdue.loans)} وام سررسیدشده و پرداخت‌نشده است — مانده کل اقساط همه وام‌ها: ${faMoney(data.loanRemaining.amount)} تومان`
                   : `هیچ قسط سررسیدشده پرداخت‌نشده‌ای وجود ندارد — مانده کل اقساط همه وام‌ها: ${faMoney(data.loanRemaining.amount)} تومان`
+                : undefined
+            }
+          />
+          <StatCard
+            title="سود وام"
+            value={loaded ? (data ? data.loanInterest.total : null) : null}
+            subtitle={
+              data
+                ? `در جریان: ${faMoney(data.loanInterest.active)} تومان — تسویه‌شده: ${faMoney(data.loanInterest.settled)} تومان`
                 : undefined
             }
           />

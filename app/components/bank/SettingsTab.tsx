@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { jalaliParts, parseAmount } from "@/lib/bank";
 import type { BankSettings } from "@/lib/db";
+import AppearanceSettings from "./AppearanceSettings";
 
 type SettingsTabProps = {
   settings: BankSettings | null;
@@ -198,6 +199,7 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
 
   return (
     <div className="space-y-4">
+      <AppearanceSettings />
       {error && (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
