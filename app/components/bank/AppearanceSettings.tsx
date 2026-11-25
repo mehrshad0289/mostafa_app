@@ -3,17 +3,22 @@
 import { useEffect, useState } from "react";
 import { useHydrated } from "./useHydrated";
 
-/** تم‌های رنگی — فقط متغیرهای رنگ برند (--color-primary-*) عوض می‌شوند */
+/** تم‌های رنگی — فقط متغیرهای رنگ برند (--color-primary-*) عوض می‌شوند.
+ *  جلسه ۳۳: سه تم جدید (آبی آسمانی روشن‌تر، سرخابی، کهربایی) به درخواست
+ *  «رنگ‌های بیشتر» اضافه شد — مجموع ۸ تم */
 const THEMES: {
   key: string;
   label: string;
   swatches: [string, string, string];
 }[] = [
   { key: "default", label: "آبی بانکی", swatches: ["#2258d7", "#3d77ef", "#94bbfc"] },
+  { key: "sky", label: "آبی آسمانی", swatches: ["#0284c7", "#38bdf8", "#7dd3fc"] },
   { key: "emerald", label: "زمردی", swatches: ["#059669", "#10b981", "#6ee7b7"] },
-  { key: "violet", label: "بنفش", swatches: ["#7c3aed", "#8b5cf6", "#c4b5fd"] },
-  { key: "sunset", label: "نارنجی گرم", swatches: ["#ea580c", "#f97316", "#fdba74"] },
   { key: "teal", label: "فیروزه‌ای", swatches: ["#0d9488", "#14b8a6", "#5eead4"] },
+  { key: "violet", label: "بنفش", swatches: ["#7c3aed", "#8b5cf6", "#c4b5fd"] },
+  { key: "rose", label: "سرخابی", swatches: ["#e11d48", "#fb7185", "#fda4af"] },
+  { key: "sunset", label: "نارنجی گرم", swatches: ["#ea580c", "#f97316", "#fdba74"] },
+  { key: "amber", label: "کهربایی", swatches: ["#d97706", "#fbbf24", "#fcd34d"] },
 ];
 
 /** فونت‌های فارسی — متغیرهای next/font در layout لود شده‌اند */

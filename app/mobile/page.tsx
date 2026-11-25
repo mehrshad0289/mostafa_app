@@ -89,13 +89,15 @@ export default function MobileAppPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      {/* هدر برند — سرمه‌ای برند با درخشش فیروزه‌ای هماهنگ با لوگو (جلسه ۳۲):
+      {/* هدر برند — سرمه‌ای برند با درخشش فیروزه‌ای هماهنگ با لوگو (جلسه ۳۲؛
+          جلسه ۳۳: آبی یک درجه روشن‌تر به درخواست کاربر):
           لوگوی خانه سه‌بعدی + فم بانک + Fam Bank + روز/تاریخ/ساعت زنده.
           نشان نقش فقط برای «مدیر» نمایش داده می‌شود؛ کلمه «عضو» حذف شد (درخواست کاربر). */}
-      <header className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-950 via-primary-900 to-primary-800 text-white shadow-lg shadow-primary-950/30">
+      <header className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg shadow-primary-900/30">
         {/* درخشش‌های تزئینی — همان فیروزه‌ای نئون → آبی الکتریک لوگو */}
-        <div aria-hidden className="pointer-events-none absolute -top-12 left-2 size-44 rounded-full bg-cyan-400/20 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-8 size-40 rounded-full bg-primary-400/20 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -top-12 left-2 size-44 rounded-full bg-cyan-400/25 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-8 size-40 rounded-full bg-primary-400/25 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -top-8 right-1/3 size-28 rounded-full bg-teal-300/15 blur-2xl" />
         <div className="relative mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <HouseLogo size={44} />
@@ -235,10 +237,12 @@ function AdminMobileHome({ name }: { name: string }) {
 
   return (
     <div className="space-y-4 px-4 pt-4">
-      <div className="rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-5 text-white shadow-lg shadow-primary-900/30">
-        <p className="text-xs text-white/70">سلام، {name}</p>
-        <p className="mt-1 text-sm font-medium text-white/90">موجودی بانک</p>
-        <p className="mt-1 text-2xl font-black tracking-tight">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-600 via-primary-700 to-primary-900 p-5 text-white shadow-lg shadow-primary-800/30">
+        <div aria-hidden className="pointer-events-none absolute -left-8 -top-10 size-32 rounded-full bg-cyan-400/20 blur-2xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-12 right-4 size-28 rounded-full bg-teal-300/15 blur-2xl" />
+        <p className="relative text-xs text-white/70">سلام، {name}</p>
+        <p className="relative mt-1 text-sm font-medium text-white/90">موجودی بانک</p>
+        <p className="relative mt-1 text-2xl font-black tracking-tight">
           {cash === null ? "…" : `${fa(cash)} تومان`}
         </p>
       </div>

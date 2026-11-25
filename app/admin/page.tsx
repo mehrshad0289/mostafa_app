@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
-import ClayIcon, { type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
+import ClayIcon, { toneForIcon, type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
 import type { PublicUser } from "@/lib/db";
 
 /** نمایش اعداد به فارسی با جداکننده هزارگان */
@@ -86,7 +86,9 @@ const TILES: { key: TileKey; label: string; icon: ClayIconName; variant?: TileVa
   { key: "members", label: "اعضا", icon: "users" },
 ];
 
-/** مربع آماری سه‌بعدی — هم‌سبک با مربع‌های خانه پوسته یوزر (aspect-square + clay) */
+/** مربع آماری سه‌بعدی — هم‌سبک با مربع‌های خانه پوسته یوزر (aspect-square + clay).
+ *  جلسه ۳۳: تینت پاستلی هماهنگ با رنگ آیکون (مثل مربع‌های یوزر)؛ حالت‌های
+ *  خطر/هشدار رنگ معنایی قرمز/کهربایی خودشان را نگه می‌دارند */
 function StatTile({
   label,
   icon,
@@ -108,11 +110,13 @@ function StatTile({
       : variant === "warning"
         ? "border-amber-200/80 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/60"
         : "border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-950";
+  const tint = variant === "default" ? toneForIcon(icon) : undefined;
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      style={tint ? { backgroundImage: `linear-gradient(145deg, ${tint[0]}33 0%, ${tint[1]}1a 55%, transparent 100%)` } : undefined}
       className={`clay-press relative flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-sm transition hover:opacity-90 ${tone} ${
         active ? "border-primary-400 ring-2 ring-primary-500/60 dark:border-primary-600" : ""
       }`}
@@ -339,10 +343,12 @@ export default function AdminDashboardPage() {
   return (
     <AdminShell>
       <div className="space-y-6">
-        {/* هیرو گرادیان موجودی بانک — هم‌سبک با هدر تراکنش‌ها و خانه مدیر در پوسته یوزر */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-4 text-white shadow-lg shadow-primary-900/30 sm:p-5">
-          <div className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-white/5" />
-          <div className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-white/5" />
+        {/* هیرو گرادیان موجودی بانک — هم‌سبک با هدر تراکنش‌ها و خانه مدیر در پوسته یوزر
+            (جلسه ۳۳: یک درجه روشن‌تر + درخشش‌های رنگی پالت لوگو) */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-600 via-primary-700 to-primary-900 p-4 text-white shadow-lg shadow-primary-800/30 sm:p-5">
+          <div aria-hidden className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-cyan-400/20 blur-2xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-primary-400/20 blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -top-10 right-1/4 size-28 rounded-full bg-teal-300/15 blur-2xl" />
           <div className="relative">
             <p className="text-xs text-white/70">سلام، {name}</p>
             <p className="mt-1 text-sm font-medium text-white/90">موجودی کلی بانک</p>

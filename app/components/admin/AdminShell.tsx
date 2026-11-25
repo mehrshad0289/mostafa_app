@@ -113,22 +113,28 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      {/* هدر برند — هم‌سبک با هدر پوسته موبایل فم بانک */}
+      {/* هدر برند — هم‌سبک با هدر پوسته موبایل فم بانک؛ جلسه ۳۳: هدر هر دو لایه
+          رنگی شد (گرادیان سرمه‌ای برند یک درجه روشن‌تر + درخشش فیروزه‌ای/آبی
+          + نوار باریک فیروزه‌ای→آبی) به درخواست «رنگ‌های بیشتر در هر دو لایه» */}
       <header
-        className="sticky top-0 z-30 border-b border-zinc-200/70 bg-white/95 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/95"
+        className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg shadow-primary-900/30"
         data-noprint
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
+        {/* درخشش‌های تزئینی — همان پالت لوگوی جلسه ۳۰، هماهنگ با هدر پوسته موبایل */}
+        <div aria-hidden className="pointer-events-none absolute -top-12 left-16 size-44 rounded-full bg-cyan-400/25 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-24 size-40 rounded-full bg-primary-400/25 blur-3xl" />
+        <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 size-28 rounded-full bg-teal-300/15 blur-2xl" />
+        <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <HouseLogo size={44} />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-[15px] font-bold leading-5">فم بانک</h1>
-                <span className="hidden shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-800 sm:inline dark:bg-primary-950 dark:text-primary-300">
+                <span className="hidden shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-inset ring-white/25 sm:inline">
                   پنل مدیریت
                 </span>
               </div>
-              <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-zinc-400 dark:text-zinc-500">
+              <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-white/55">
                 Fam Bank
               </p>
             </div>
@@ -138,7 +144,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               href="/admin/requests"
               title="درخواست‌های خوانده‌نشده اعضا"
               aria-label={`درخواست‌های خوانده‌نشده: ${unread}`}
-              className="clay-press relative grid size-9 place-items-center rounded-full bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200/70 transition hover:text-primary-700 dark:bg-zinc-900 dark:text-zinc-400 dark:ring-zinc-800 dark:hover:text-primary-300"
+              className="clay-press relative grid size-9 place-items-center rounded-full bg-white/12 text-white/85 ring-1 ring-inset ring-white/20 transition hover:bg-white/20 hover:text-white"
             >
               <ClayIcon name="bell" size={26} ghost />
               {unread > 0 && (
@@ -150,7 +156,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 </>
               )}
             </Link>
-            <span className="max-w-[9rem] truncate text-xs text-zinc-500">{displayName}</span>
+            <span className="max-w-[9rem] truncate text-xs text-white/80">{displayName}</span>
             <span
               className="clay"
               style={{ width: 38, height: 38, background: `linear-gradient(140deg, ${avatarTone[0]}, ${avatarTone[1]})` }}
@@ -160,7 +166,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             <button
               type="button"
               onClick={handleLogout}
-              className="clay-press grid size-9 place-items-center rounded-full bg-red-50 text-red-500 ring-1 ring-red-200/70 transition hover:bg-red-100 dark:bg-red-950/40 dark:text-red-400 dark:ring-red-900"
+              className="clay-press grid size-9 place-items-center rounded-full bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-400/30 transition hover:bg-red-500/25 hover:text-red-200"
               title="خروج"
               aria-label="خروج"
             >
@@ -169,13 +175,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </div>
 
-        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) */}
-        <div className="mx-auto flex max-w-6xl justify-center px-4 pb-1.5" data-noprint>
-          <LiveClock />
+        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) — روی زمینه سرمه‌ای با نسخه روشن */}
+        <div className="relative mx-auto flex max-w-6xl justify-center px-4 pb-1.5" data-noprint>
+          <LiveClock light />
         </div>
 
-        {/* نوار افقی منو در موبایل — قرص‌های گرادیانی مثل فیلترهای تراکنش‌ها */}
-        <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-2.5 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* نوار افقی منو در موبایل — قرص‌های شیشه‌ای سفید روی زمینه سرمه‌ای */}
+        <nav className="relative mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-2.5 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MENU.map((item) => {
             const active = pathname === item.href;
             return (
@@ -184,18 +190,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                 href={item.href}
                 className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all ${
                   active
-                    ? "bg-gradient-to-l from-primary-700 to-primary-500 text-white shadow-md shadow-primary-600/25"
-                    : "border border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+                    ? "bg-white text-primary-800 shadow-md shadow-black/20"
+                    : "border border-white/20 bg-white/10 text-white/75 hover:bg-white/20 hover:text-white"
                 }`}
               >
-                <ClayIcon name={item.icon} size={22} ghost ghostColor={active ? "#fff" : "currentColor"} />
+                <ClayIcon name={item.icon} size={22} ghost ghostColor={active ? "currentColor" : "#fff"} />
                 {item.label}
                 {item.badge && <UnreadBadge count={unread} />}
               </Link>
             );
           })}
         </nav>
-        <div className="h-0.5 bg-gradient-to-l from-primary-700 via-primary-500 to-primary-300" />
+        <div className="relative h-[3px] bg-gradient-to-l from-teal-300 via-cyan-400 to-primary-400" />
       </header>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-6">

@@ -16,11 +16,11 @@ type BottomNavProps = {
   onChange: (tab: MobileTab) => void;
 };
 
-/** نوار ناوبری پایین ثابت — فوتر رنگی سرمه‌ای برند با هایلایت آیتم فعال (جلسه ۳۲) */
+/** نوار ناوبری پایین ثابت — فوتر رنگی سرمه‌ای برند با هایلایت آیتم فعال (جلسه ۳۲؛ جلسه ۳۳: یک درجه روشن‌تر) */
 export default function BottomNav({ active, onChange }: BottomNavProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-primary-950 via-primary-900 to-primary-900 shadow-[0_-10px_30px_-12px_rgba(2,8,23,0.55)]"
+      className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-primary-900 via-primary-800 to-primary-800 shadow-[0_-10px_30px_-12px_rgba(2,8,23,0.45)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="ناوبری اصلی"
     >
