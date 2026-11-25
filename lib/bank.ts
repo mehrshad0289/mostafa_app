@@ -9,6 +9,12 @@ import type {
   BankMember,
 } from "./db";
 
+// سقف نویسه‌های data URL عکس رسید (~۱٫۲ مگابایت داده باینری) — مشترک بین سرور و کلاینت
+export const RECEIPT_MAX_CHARS = 1_600_000;
+
+// سقف حجم خام فایل عکس قبل از فشرده‌سازی خودکار در مرورگر
+export const RECEIPT_RAW_MAX_BYTES = 20_000_000;
+
 // ---------- ابزارهای تقویم شمسی ----------
 
 const JALALI_PARTS_FORMATTER = new Intl.DateTimeFormat("en-u-ca-persian", {

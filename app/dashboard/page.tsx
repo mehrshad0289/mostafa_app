@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { installmentStatuses, jalaliParts, memberShareDue, parseAmount } from "@/lib/bank";
+import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
 import type {
   BankDeposit,
   BankLoan,
@@ -48,18 +48,69 @@ function faDate(iso: string): string {
   }
 }
 
-/** خواندن فایل عکس رسید و تبدیل به data URL با سقف حجم */
-function readReceipt(file: File): Promise<string> {
+/** خواندن فایل به‌صورت data URL */
+function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    if (file.size > 1_100_000) {
-      reject(new Error("حجم عکس رسید باید کمتر از ۱٫۵ مگابایت باشد."));
-      return;
-    }
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(new Error("خواندن فایل ناموفق بود."));
     reader.readAsDataURL(file);
   });
+}
+
+/**
+ * فشرده‌سازی خودکار عکس‌های بزرگ با canvas — همهٔ فرمت‌هایی که مرورگر
+ * می‌شناسد (jpg/png/webp/gif/bmp/heic سافاری و…) پشتیبانی می‌شوند.
+ */
+function compressToDataUrl(file: File, maxDim: number, quality: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("canvas");
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const out = canvas.toDataURL("image/jpeg", quality);
+        resolve(out);
+      } catch (e) {
+        reject(e instanceof Error ? e : new Error("فشرده‌سازی عکس ناموفق بود."));
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("این فایل به‌عنوان عکس خوانده نشد؛ عکس دیگری انتخاب کنید یا توضیح را بنویسید."));
+    };
+    img.src = url;
+  });
+}
+
+/**
+ * خواندن عکس رسید — همهٔ فرمت‌های عکس قابل بارگذاری‌اند؛ عکس‌های بزرگ
+ * به‌صورت خودکار فشرده می‌شوند تا زیر سقف ۱٫۵ مگابایت بمانند.
+ */
+async function readReceipt(file: File): Promise<string> {
+  if (file.size > RECEIPT_RAW_MAX_BYTES) {
+    throw new Error("حجم عکس رسید خیلی بزرگ است (حداکثر ۲۰ مگابایت).");
+  }
+  if (file.size <= 1_050_000) {
+    const dataUrl = await fileToDataUrl(file);
+    if (!dataUrl.startsWith("data:image/")) {
+      throw new Error("فرمت عکس رسید معتبر نیست؛ فقط فایل عکس قابل بارگذاری است.");
+    }
+    if (dataUrl.length <= RECEIPT_MAX_CHARS) return dataUrl;
+  }
+  const compressed = await compressToDataUrl(file, 1600, 0.85);
+  if (!compressed.startsWith("data:image/") || compressed.length > RECEIPT_MAX_CHARS) {
+    throw new Error("حجم عکس رسید باید کمتر از ۱٫۵ مگابایت باشد؛ عکس کوچک‌تری انتخاب کنید.");
+  }
+  return compressed;
 }
 
 export default function DashboardPage() {
@@ -184,6 +235,10 @@ export default function DashboardPage() {
 
   async function submitSharePayment(event: React.FormEvent) {
     event.preventDefault();
+    if (!shareReceipt && !shareNote.trim()) {
+      setError("اگر عکس رسید ندارید، نوشتن توضیح پرداخت در یادداشت الزامی است.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -214,6 +269,10 @@ export default function DashboardPage() {
   async function submitInstallmentPayment(event: React.FormEvent) {
     event.preventDefault();
     if (!payModal) return;
+    if (!payReceipt && !payNote.trim()) {
+      setError("اگر عکس رسید ندارید، نوشتن توضیح پرداخت در یادداشت الزامی است.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -594,20 +653,19 @@ export default function DashboardPage() {
               <input value={shareAmount} onChange={(e) => setShareAmount(e.target.value)} className={inputClass} required />
             </label>
             <label className="block space-y-1 text-xs text-zinc-500">
-              عکس رسید (حداکثر ۱٫۵ مگابایت)
+              عکس رسید — اختیاری (همهٔ فرمت‌های عکس؛ عکس‌های بزرگ خودکار فشرده می‌شوند)
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => void pickReceipt(e.target.files?.[0], setShareReceipt)}
                 className={inputClass}
-                required
               />
             </label>
             {shareReceipt && (
               <img src={shareReceipt} alt="پیش‌نمایش رسید" className="max-h-40 rounded-xl border border-zinc-200 dark:border-zinc-800" />
             )}
             <label className="block space-y-1 text-xs text-zinc-500">
-              یادداشت (اختیاری)
+              یادداشت — توضیح پرداخت (اگر عکس رسید ندارید، الزامی)
               <input value={shareNote} onChange={(e) => setShareNote(e.target.value)} className={inputClass} />
             </label>
             <ModalError error={error} />
@@ -627,20 +685,19 @@ export default function DashboardPage() {
         <Modal title={`پرداخت قسط ${payModal.row.number.toLocaleString("fa-IR")} — ${faMoney(payModal.row.amount)} تومان`} onClose={() => setPayModal(null)}>
           <form onSubmit={submitInstallmentPayment} className="space-y-3">
             <label className="block space-y-1 text-xs text-zinc-500">
-              عکس رسید (حداکثر ۱٫۵ مگابایت)
+              عکس رسید — اختیاری (همهٔ فرمت‌های عکس؛ عکس‌های بزرگ خودکار فشرده می‌شوند)
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => void pickReceipt(e.target.files?.[0], setPayReceipt)}
                 className={inputClass}
-                required
               />
             </label>
             {payReceipt && (
               <img src={payReceipt} alt="پیش‌نمایش رسید" className="max-h-40 rounded-xl border border-zinc-200 dark:border-zinc-800" />
             )}
             <label className="block space-y-1 text-xs text-zinc-500">
-              یادداشت (اختیاری)
+              یادداشت — توضیح پرداخت (اگر عکس رسید ندارید، الزامی)
               <input value={payNote} onChange={(e) => setPayNote(e.target.value)} className={inputClass} />
             </label>
             <ModalError error={error} />

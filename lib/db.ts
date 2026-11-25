@@ -10,7 +10,9 @@ import path from "path";
 import seed from "@/data/db.json";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase";
-import { bankUid, jalaliParts, jalaliToDate, loanRemaining, loanTotals, makeSchedule, parseSharePeriod } from "./bank";
+import { bankUid, jalaliParts, jalaliToDate, loanRemaining, loanTotals, makeSchedule, parseSharePeriod, RECEIPT_MAX_CHARS } from "./bank";
+
+export { RECEIPT_MAX_CHARS };
 
 export type ItemKind = "general" | "haqiqi";
 
@@ -1817,7 +1819,10 @@ export type PaymentRequest = {
   userId: string;
   username: string;
   amount: number;
-  /** عکس رسید به‌صورت data URL (محدود حجم در API) */
+  /**
+   * عکس رسید به‌صورت data URL — اختیاری؛ هر فرمت عکس (image/*) پذیرفته می‌شود.
+   * اگر عکسی نباشد، توضیح متنی در note الزامی است.
+   */
   receipt: string;
   note: string;
   status: RequestStatus;
@@ -1842,11 +1847,12 @@ export type LoanRequest = {
   reviewNote?: string;
 };
 
-export const RECEIPT_MAX_CHARS = 1_600_000; // حدود ۱٫۲ مگابایت داده باینری
-
 function assertReceipt(receipt: string) {
+  // عکس رسید اختیاری است؛ درخواست فقط با توضیح متنی هم قابل ثبت است.
+  if (!receipt) return;
+  // هر فرمت عکس (image/*) پذیرفته می‌شود — فقط صحت data URL و سقف حجم چک می‌شود.
   if (!receipt.startsWith("data:image/")) {
-    throw new Error("عکس رسید الزامی است.");
+    throw new Error("فرمت عکس رسید معتبر نیست؛ فقط فایل عکس قابل بارگذاری است.");
   }
   if (receipt.length > RECEIPT_MAX_CHARS) {
     throw new Error("حجم عکس رسید باید کمتر از ۱٫۵ مگابایت باشد.");
@@ -1873,6 +1879,10 @@ export async function createPaymentRequest(input: {
 }): Promise<PaymentRequest> {
   const memberId = await assertMemberAccount(input.user);
   assertReceipt(input.receipt);
+  // بدون عکس رسید، حداقل یک توضیح متنی الزامی است تا مدیر بتواند درخواست را بررسی کند.
+  if (!input.receipt && !(input.note ?? "").trim()) {
+    throw new Error("اگر عکس رسید ندارید، نوشتن توضیح پرداخت در یادداشت الزامی است.");
+  }
   if (!(Number(input.amount) > 0)) {
     throw new Error("مبلغ پرداخت باید عددی بزرگ‌تر از صفر باشد.");
   }

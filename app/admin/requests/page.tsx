@@ -241,13 +241,19 @@ export default function AdminRequestsPage() {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPreview(r.receipt)}
-                      className="rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700"
-                    >
-                      دیدن رسید
-                    </button>
+                    {r.receipt ? (
+                      <button
+                        type="button"
+                        onClick={() => setPreview(r.receipt)}
+                        className="rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700"
+                      >
+                        دیدن رسید
+                      </button>
+                    ) : (
+                      <span className="rounded-xl border border-dashed border-zinc-300 px-3 py-2 text-xs text-zinc-400 dark:border-zinc-700">
+                        {r.note ? "رسید متنی (بدون عکس)" : "بدون عکس رسید"}
+                      </span>
+                    )}
                     <span className={`rounded-lg px-2 py-1 text-xs ${STATUS_CLASS[r.status]}`}>
                       {STATUS_LABEL[r.status]}
                     </span>
