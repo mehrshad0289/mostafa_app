@@ -146,6 +146,50 @@ body {
   }
 }
 
+/* ---------- آیکون و دکمه‌های سه‌بعدی پاستلی (Claymorphism) — پوسته موبایل ----------
+   لُه سفالی: گرادیان پاستلی + هایلایت نور بالا + سایه داخلی/خارجی نرم.
+   highlight با ::before و از سمت شروع (راست در RTL) می‌آید. */
+.clay {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 32%;
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.75),
+    inset 0 -4px 8px rgba(15, 23, 42, 0.18),
+    inset 2px 0 4px rgba(255, 255, 255, 0.25),
+    0 8px 16px -6px rgba(30, 64, 175, 0.38);
+}
+
+.clay::before {
+  content: "";
+  position: absolute;
+  top: 9%;
+  inset-inline-start: 13%;
+  width: 44%;
+  height: 26%;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  filter: blur(1px);
+  transform: rotate(-20deg);
+  pointer-events: none;
+}
+
+.clay > svg {
+  position: relative;
+  z-index: 1;
+}
+
+/* بازخورد لمسی نرم برای کارت‌ها و دکمه‌های clay */
+@media (prefers-reduced-motion: no-preference) {
+  .clay-press {
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+  }
+  .clay-press:active {
+    transform: scale(0.94);
+  }
+}
+
 /* چاپ گزارش (استپ ۱۷): با دکمه «چاپ گزارش» فقط بخش گزارش‌ها چاپ می‌شود —
    بقیه صفحه (header/تب‌ها/آمار) با data-noprint پنهان می‌شود */
 @media print {
