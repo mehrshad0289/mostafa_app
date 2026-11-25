@@ -9,14 +9,14 @@ type HouseLogoProps = {
 };
 
 /**
- * لوگوی فم بانک — مربع گرد آبی گرادیانی با خانه سفید ساده و حرف F ظریف
- * طلایی داخل خانه (جلسه ۲۸؛ جایگزین لوگوی خانه سفالی قبلی). حس سه‌بعدی با
- * لایه عمق تیره در راست/پایین، سایه نرم زمین (بیضی‌های تودرتو بدون filter
- * تا در همه رندرها یکسان باشد) و تیرگی ملایم کف مربع ساخته می‌شود. خط بام
- * و حرف F طلایی هم‌خانواده‌اند و مفهوم «بانک خانوادگی» را می‌رسانند؛ رنگ‌های
- * پایه از پالت primary آبی اپ (#2E63D6/#1A46AF) هستند. تمام SVG دست‌ساز و
- * بدون کتابخانه خارجی؛ شناسه گرادیان‌ها با useId یکتا می‌شوند تا چند نمونه
- * روی یک صفحه تداخل نکنند.
+ * لوگوی فم بانک — مربع گرد مشکی با خانه قرمزِ ملایم و حرف F مشکی ظریف داخل
+ * خانه (جلسه ۲۹؛ به‌خواست کاربر جایگزین طرح آبی/طلایی جلسه ۲۸ شد). حس
+ * سه‌بعدی با لایه عمق سرخِ تیره در راست/پایین، هالهٔ محیطی قرمز پشت خانه،
+ * بازتاب ملایم کف و هایلایت سفالین شیپ چپ بام ساخته می‌شود؛ همه بدون SVG
+ * filter تا رندر در مرورگر/فاوآیکون یکسان باشد. قرمزها مات و آرامش‌بخش‌اند
+ * (#D4726A→#AD4438؛ لایه عمق #7E2F27) و F با استروک نازک ۱۵ از ۵۱۲ و سرهای
+ * گرد (#131318) خوانا و ظریف است. تمام SVG دست‌ساز و بدون کتابخانه خارجی؛
+ * شناسه گرادیان‌ها با useId یکتا می‌شوند تا چند نمونه روی یک صفحه تداخل نکنند.
  */
 export default function HouseLogo({ size = 44, className = "" }: HouseLogoProps) {
   const rawId = useId().replace(/[^a-zA-Z0-9]/g, "");
@@ -30,62 +30,30 @@ export default function HouseLogo({ size = 44, className = "" }: HouseLogoProps)
       className={`shrink-0 ${className}`}
       aria-hidden="true"
       role="img"
-      style={{ filter: "drop-shadow(0 5px 9px rgba(26, 70, 175, 0.35))" }}
+      style={{ filter: "drop-shadow(0 5px 9px rgba(0, 0, 0, 0.3))" }}
     >
       <defs>
         <linearGradient id={uid("bg")} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#5E96F6" />
-          <stop offset="0.45" stopColor="#2E63D6" />
-          <stop offset="1" stopColor="#142B66" />
+          <stop offset="0" stopColor="#2B2B31" />
+          <stop offset="1" stopColor="#0D0D11" />
         </linearGradient>
-        <radialGradient id={uid("glow")} cx="0.32" cy="0.2" r="0.8">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.22" />
-          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        <radialGradient id={uid("amb")} cx="0.5" cy="0.46" r="0.62">
+          <stop offset="0" stopColor="#C2473C" stopOpacity="0.2" />
+          <stop offset="1" stopColor="#C2473C" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id={uid("vig")} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0.55" stopColor="#071636" stopOpacity="0" />
-          <stop offset="1" stopColor="#071636" stopOpacity="0.38" />
-        </linearGradient>
-        <linearGradient id={uid("roof")} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#DCE8FF" />
-        </linearGradient>
-        <linearGradient id={uid("body")} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#D7E5FF" />
-        </linearGradient>
-        <linearGradient
-          id={uid("ridge")}
-          x1="256"
-          y1="142"
-          x2="256"
-          y2="246"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0" stopColor="#FFE9A8" />
-          <stop offset="1" stopColor="#EFAF3F" />
-        </linearGradient>
-        <linearGradient
-          id={uid("f")}
-          x1="256"
-          y1="278"
-          x2="256"
-          y2="372"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0" stopColor="#FFDF94" />
-          <stop offset="1" stopColor="#E0981F" />
+        <linearGradient id={uid("house")} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#D4726A" />
+          <stop offset="1" stopColor="#AD4438" />
         </linearGradient>
         <clipPath id={uid("sq")}>
           <rect width="512" height="512" rx="118" />
         </clipPath>
       </defs>
 
-      {/* مربع گرد پس‌زمینه + درخشش بالا و تیرگی ملایم کف */}
+      {/* مربع گرد مشکی + هاله محیطی قرمز پشت خانه */}
       <rect width="512" height="512" rx="118" fill={`url(#${uid("bg")})`} />
       <g clipPath={`url(#${uid("sq")})`}>
-        <rect width="512" height="512" fill={`url(#${uid("glow")})`} />
-        <rect width="512" height="512" fill={`url(#${uid("vig")})`} />
+        <rect width="512" height="512" fill={`url(#${uid("amb")})`} />
       </g>
       {/* قاب داخلی ظریف */}
       <rect
@@ -96,52 +64,49 @@ export default function HouseLogo({ size = 44, className = "" }: HouseLogoProps)
         rx="107"
         fill="none"
         stroke="#ffffff"
-        strokeOpacity="0.16"
+        strokeOpacity="0.1"
         strokeWidth="3"
       />
 
-      {/* سایه نرم زمین (بیضی‌های تودرتو) */}
-      <ellipse cx="264" cy="428" rx="172" ry="22" fill="#04153A" opacity="0.1" />
-      <ellipse cx="262" cy="424" rx="150" ry="18" fill="#04153A" opacity="0.12" />
-      <ellipse cx="260" cy="420" rx="125" ry="14" fill="#04153A" opacity="0.14" />
+      {/* بازتاب قرمز ملایم کف */}
+      <ellipse cx="258" cy="446" rx="168" ry="20" fill="#C2473C" opacity="0.1" />
+      <ellipse cx="256" cy="442" rx="132" ry="15" fill="#C2473C" opacity="0.12" />
 
       {/* لایه عمق سه‌بعدی (جابه‌جایی راست/پایین) */}
-      <g opacity="0.92">
-        <path
-          d="M144 274 L268 148 L392 274 Z"
-          fill="#0A2150"
-          stroke="#0A2150"
-          strokeWidth="22"
-          strokeLinejoin="round"
-        />
-        <rect x="160" y="262" width="216" height="158" rx="22" fill="#0A2150" />
-      </g>
-
-      {/* خانه جلو — بدنه و بام گرادیانی با گوشه‌های گرد */}
-      <rect x="148" y="246" width="216" height="158" rx="22" fill={`url(#${uid("body")})`} />
       <path
-        d="M132 258 L256 126 L380 258 Z"
-        fill={`url(#${uid("roof")})`}
-        stroke={`url(#${uid("roof")})`}
-        strokeWidth="22"
+        d="M128 272 L268 126 L408 272 Z"
+        fill="#7E2F27"
+        stroke="#7E2F27"
+        strokeWidth="24"
+        strokeLinejoin="round"
+      />
+      <rect x="150" y="260" width="236" height="176" rx="24" fill="#7E2F27" />
+
+      {/* خانه جلو — بدنه و بام قرمز ملایم با گوشه‌های گرد */}
+      <rect x="138" y="244" width="236" height="176" rx="24" fill={`url(#${uid("house")})`} />
+      <path
+        d="M116 256 L256 110 L396 256 Z"
+        fill={`url(#${uid("house")})`}
+        stroke={`url(#${uid("house")})`}
+        strokeWidth="24"
         strokeLinejoin="round"
       />
 
-      {/* خط بام طلایی */}
+      {/* هایلایت سفالین شیب چپ بام */}
       <path
-        d="M152 246 L256 142 L360 246"
+        d="M152 240 L256 134"
         fill="none"
-        stroke={`url(#${uid("ridge")})`}
-        strokeWidth="6"
+        stroke="#FFEDE9"
+        strokeOpacity="0.55"
+        strokeWidth="5"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
 
-      {/* حرف F ظریف داخل خانه */}
-      <g stroke={`url(#${uid("f")})`} strokeWidth="18" strokeLinecap="round" fill="none">
-        <path d="M230 278 L230 372" />
-        <path d="M230 278 L302 278" />
-        <path d="M230 320 L288 320" />
+      {/* حرف F مشکی — کوچک‌تر و ظریف */}
+      <g stroke="#131318" strokeWidth="15" strokeLinecap="round" fill="none">
+        <path d="M234 290 L234 368" />
+        <path d="M234 290 L290 290" />
+        <path d="M234 326 L278 326" />
       </g>
     </svg>
   );

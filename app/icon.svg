@@ -1,70 +1,50 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-<!-- فم بانک — جلسه ۲۸: مربع گرد آبی + خانه سفید ساده + حرف F ظریف طلایی؛
-     همان طرح HouseLogo.tsx با scale(0.125) — برای بازتولید اسکریپت logo_design.py -->
+<!-- فم بانک — جلسه ۲۹: مربع گرد مشکی + خانه قرمز ملایم + حرف F مشکی ظریف؛
+     همان طرح HouseLogo.tsx با scale(0.125) — برای بازتولید: logo_design_v2.py -->
   <g transform="scale(0.125)">
     <defs>
         <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#5E96F6"/>
-          <stop offset="0.45" stop-color="#2E63D6"/>
-          <stop offset="1" stop-color="#142B66"/>
+          <stop offset="0" stop-color="#2B2B31"/>
+          <stop offset="1" stop-color="#0D0D11"/>
         </linearGradient>
-        <radialGradient id="glow" cx="0.32" cy="0.2" r="0.8">
-          <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
-          <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        <radialGradient id="amb" cx="0.5" cy="0.46" r="0.62">
+          <stop offset="0" stop-color="#C2473C" stop-opacity="0.20"/>
+          <stop offset="1" stop-color="#C2473C" stop-opacity="0"/>
         </radialGradient>
-        <linearGradient id="vig" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0.55" stop-color="#071636" stop-opacity="0"/>
-          <stop offset="1" stop-color="#071636" stop-opacity="0.38"/>
-        </linearGradient>
-        <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#ffffff"/>
-          <stop offset="1" stop-color="#DCE8FF"/>
-        </linearGradient>
-        <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#ffffff"/>
-          <stop offset="1" stop-color="#D7E5FF"/>
-        </linearGradient>
-        <linearGradient id="gold" x1="256" y1="142" x2="256" y2="246" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#FFE9A8"/>
-          <stop offset="1" stop-color="#EFAF3F"/>
-        </linearGradient>
-        <linearGradient id="goldf" x1="256" y1="278" x2="256" y2="372" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#FFDF94"/>
-          <stop offset="1" stop-color="#E0981F"/>
+        <linearGradient id="house" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#D4726A"/>
+          <stop offset="1" stop-color="#AD4438"/>
         </linearGradient>
         <clipPath id="sq"><rect width="512" height="512" rx="118"/></clipPath>
       </defs>
     
+      <!-- مربع مشکی -->
       <rect width="512" height="512" rx="118" fill="url(#bg)"/>
       <g clip-path="url(#sq)">
-        <rect width="512" height="512" fill="url(#glow)"/>
-        <rect width="512" height="512" fill="url(#vig)"/>
+        <rect width="512" height="512" fill="url(#amb)"/>
       </g>
-      <rect x="13" y="13" width="486" height="486" rx="107" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="3"/>
+      <rect x="13" y="13" width="486" height="486" rx="107" fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="3"/>
     
-      <!-- سایه نرم زمین (بیضی‌های تودرتو) -->
-      <ellipse cx="264" cy="428" rx="172" ry="22" fill="#04153A" opacity="0.10"/>
-      <ellipse cx="262" cy="424" rx="150" ry="18" fill="#04153A" opacity="0.12"/>
-      <ellipse cx="260" cy="420" rx="125" ry="14" fill="#04153A" opacity="0.14"/>
+      <!-- بازتاب قرمز ملایم کف -->
+      <ellipse cx="258" cy="446" rx="168" ry="20" fill="#C2473C" opacity="0.10"/>
+      <ellipse cx="256" cy="442" rx="132" ry="15" fill="#C2473C" opacity="0.12"/>
     
-      <!-- لایه عمق سه‌بعدی (جابه‌جایی راست/پایین) -->
-      <g fill="#0A2150" opacity="0.92">
-        <path d="M144 274 L268 148 L392 274 Z" fill="#0A2150" stroke="#0A2150" stroke-width="22" stroke-linejoin="round"/>
-        <rect x="160" y="262" width="216" height="158" rx="22"/>
-      </g>
+      <!-- لایه عمق سه‌بعدی (راست/پایین) -->
+      <path d="M128 272 L268 126 L408 272 Z" fill="#7E2F27" stroke="#7E2F27" stroke-width="24" stroke-linejoin="round"/>
+      <rect x="150" y="260" width="236" height="176" rx="24" fill="#7E2F27"/>
     
-      <!-- خانه جلو -->
-      <rect x="148" y="246" width="216" height="158" rx="22" fill="url(#body)"/>
-      <path d="M132 258 L256 126 L380 258 Z" fill="url(#roof)" stroke="url(#roof)" stroke-width="22" stroke-linejoin="round"/>
+      <!-- خانه جلو — بزرگ‌تر از نسخه قبل -->
+      <rect x="138" y="244" width="236" height="176" rx="24" fill="url(#house)"/>
+      <path d="M116 256 L256 110 L396 256 Z" fill="url(#house)" stroke="url(#house)" stroke-width="24" stroke-linejoin="round"/>
     
-      <!-- خط بام -->
-      <path d="M152 246 L256 142 L360 246" fill="none" stroke="url(#gold)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- هایلایت سفالین شیب چپ بام -->
+      <path d="M152 240 L256 134" fill="none" stroke="#FFEDE9" stroke-opacity="0.55" stroke-width="5" stroke-linecap="round"/>
     
-      <!-- حرف F ظریف داخل خانه -->
-      <g stroke="url(#goldf)" stroke-width="18" stroke-linecap="round" fill="none">
-        <path d="M230 278 L230 372"/>
-        <path d="M230 278 L302 278"/>
-        <path d="M230 320 L288 320"/>
+      <!-- حرف F مشکی — کوچک‌تر و ظریف -->
+      <g stroke="#131318" stroke-width="15" stroke-linecap="round" fill="none">
+        <path d="M234 290 L234 368"/>
+        <path d="M234 290 L290 290"/>
+        <path d="M234 326 L278 326"/>
       </g>
   </g>
 </svg>
