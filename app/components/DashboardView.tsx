@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
+import ClayIcon, { type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type {
   BankDeposit,
@@ -17,6 +18,9 @@ import type {
 
 export type TabKey = "shares" | "installments" | "loans" | "deposit" | "profile" | "settings";
 
+/** حالت خانه پوسته موبایل: "tiles" = شبکه مربع‌های سر فصل‌ها؛ بقیه = همان بخش */
+export type DashboardTab = TabKey | "tiles";
+
 const TABS: { key: TabKey; label: string }[] = [
   { key: "shares", label: "سهام" },
   { key: "installments", label: "اقساط" },
@@ -24,6 +28,19 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "deposit", label: "واریز" },
   { key: "profile", label: "پروفایل" },
   { key: "settings", label: "تنظیمات" },
+];
+
+/**
+ * مربع‌های خانه پوسته موبایل — هر سر فصل «یک تیکه»: لمس هر مربع مستقیم همان
+ * بخش را باز می‌کند (بدون واسط داشبورد کلی). جلسه ۲۶ مرحله ۲.
+ */
+const HOME_TILES: { key: TabKey; label: string; icon: ClayIconName }[] = [
+  { key: "shares", label: "سهام", icon: "coins" },
+  { key: "installments", label: "اقساط", icon: "calendar" },
+  { key: "loans", label: "تسهیلات", icon: "banknote" },
+  { key: "deposit", label: "واریز", icon: "wallet" },
+  { key: "profile", label: "پروفایل", icon: "user" },
+  { key: "settings", label: "تنظیمات", icon: "settings" },
 ];
 
 const STATUS_LABEL: Record<PaymentRequest["status"], string> = {
@@ -155,18 +172,40 @@ async function readReceipt(file: File): Promise<string> {
 type DashboardViewProps = {
   /** حالت تعبیه‌شده داخل پوسته موبایل (/mobile): بدون هدر و نوار پایین داخلی */
   embedded?: boolean;
-  /** تب اولیه داشبورد — برای رسیدن از خدمات/اکشن‌های سریع */
-  initialTab?: TabKey;
+  /** نمای اولیه — "tiles" فقط در حالت تعبیه‌شده معنا دارد (خانه مربع‌ها) */
+  initialTab?: DashboardTab;
+  /** بازگشت به خانه مربع‌ها — اگر داده شود، بالای هر بخشِ باز دکمه بازگشت می‌آید */
+  onBack?: () => void;
+  /** گزارش هر تغییر بخش به والد تا state والد همیشه همگام بماند */
+  onTabChange?: (tab: DashboardTab) => void;
 };
 
 /**
- * نمای داشبورد عضو — همان پنل قبلی؛ هم مستقل (/dashboard) و هم تعبیه‌شده
- * به‌عنوان تب «خانه» پوسته موبایل (/mobile) استفاده می‌شود.
+ * نمای داشبورد عضو — هم مستقل (/dashboard با نوار پایین تب‌ها) و هم تعبیه‌شده
+ * به‌عنوان تب «خانه» پوسته موبایل (/mobile): آنجا خانه یعنی شبکه مربع‌های
+ * سر فصل‌ها و هر بخش با دکمه بازگشت به‌صورت مستقل باز می‌شود (جلسه ۲۶).
  */
-export default function DashboardView({ embedded = false, initialTab = "shares" }: DashboardViewProps) {
+export default function DashboardView({
+  embedded = false,
+  initialTab = "shares",
+  onBack,
+  onTabChange,
+}: DashboardViewProps) {
   const router = useRouter();
   const [me, setMe] = useState<PublicUser | null | undefined>(undefined);
-  const [tab, setTab] = useState<TabKey>(initialTab);
+  const [tab, setTab] = useState<DashboardTab>(initialTab);
+  /** همگام‌سازی tab با initialTab والد (بازگشت به مربع‌ها / پرش از خدمات) —
+      الگوی رسمی React: تنظیم state هنگام رندر با مقایسه مقدار قبلی، بدون effect */
+  const [seenInitial, setSeenInitial] = useState<DashboardTab>(initialTab);
+  if (initialTab !== seenInitial) {
+    setSeenInitial(initialTab);
+    setTab(initialTab);
+  }
+  /** تغییر بخش داخل خود داشبورد (مربع‌ها) + گزارش به والد */
+  function changeTab(next: DashboardTab) {
+    setTab(next);
+    onTabChange?.(next);
+  }
   const [settings, setSettings] = useState<BankSettings | null>(null);
   const [member, setMember] = useState<BankMember | null>(null);
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
@@ -440,9 +479,6 @@ export default function DashboardView({ embedded = false, initialTab = "shares" 
     return null; // در حال ریدایرکت
   }
 
-  const chipBase =
-    "shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-all active:scale-95";
-
   const inputClass =
     "w-full rounded-xl border border-zinc-200 bg-transparent px-3 py-3 text-sm outline-none transition-colors focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 dark:border-zinc-800 dark:focus:ring-primary-500/20";
   const btnPrimary =
@@ -489,36 +525,52 @@ export default function DashboardView({ embedded = false, initialTab = "shares" 
             : "mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-5"
         }
       >
-        {embedded && (
-          <nav
-            className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            aria-label="بخش‌های داشبورد"
-          >
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setTab(t.key)}
-                className={`${chipBase} ${
-                  tab === t.key
-                    ? "bg-gradient-to-l from-primary-700 to-primary-500 text-white shadow-md shadow-primary-600/25"
-                    : "border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-800 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </nav>
+        {/* دکمه بازگشت به خانه مربع‌ها — وقتی یک سر فصل به صورت مستقل باز شده
+            (چه از مربع‌های خانه، چه از خدمات/اکشن‌های سریع) */}
+        {embedded && tab !== "tiles" && onBack && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="بازگشت به خانه"
+              className="clay-press grid size-10 place-items-center rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+            >
+              <ClayIcon name="chevron-right" size={24} ghost ghostColor="#334155" />
+            </button>
+            <h2 className="text-base font-bold">
+              {TABS.find((t) => t.key === tab)?.label ?? "بخش"}
+            </h2>
+          </div>
         )}
-        {notice && (
+        {tab === "tiles" && (
+          <section className="space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+              {HOME_TILES.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => changeTab(t.key)}
+                  className="clay-press flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-zinc-200/80 bg-white shadow-sm transition hover:border-primary-300 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-primary-700"
+                >
+                  <ClayIcon name={t.icon} size={54} />
+                  <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{t.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-[11px] leading-6 text-zinc-400">
+              برای هر بخش فقط مربع آن را لمس کنید تا مستقیم وارد همان بخش شوید.
+            </p>
+          </section>
+        )}
+        {tab !== "tiles" && notice && (
           <p className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
             {notice}
           </p>
         )}
-        {error && !shareModal && !payModal && (
+        {tab !== "tiles" && error && !shareModal && !payModal && (
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
-        {loading && <p className="text-sm text-zinc-500">در حال دریافت اطلاعات…</p>}
+        {tab !== "tiles" && loading && <p className="text-sm text-zinc-500">در حال دریافت اطلاعات…</p>}
         {!loading && !member && (
           <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
             حساب شما هنوز به عضوی از بانک متصل نشده است؛ با مدیر تماس بگیرید.

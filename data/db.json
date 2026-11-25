@@ -40,9 +40,67 @@
         }
       }
     },
-    "members": [],
+    "members": [
+      {
+        "id": "mwwbv27t-57nefy",
+        "name": "عضو آزمایشی",
+        "shares": 2,
+        "phone": "09120000000",
+        "gender": "male",
+        "note": "",
+        "totalDeposited": 0,
+        "settled": false,
+        "settledAt": null,
+        "settlementClaim": null,
+        "settlementDebt": null,
+        "settlementNet": null,
+        "createdAt": "2026-11-25T16:18:07.481Z"
+      }
+    ],
     "deposits": [],
     "loans": [],
-    "auditLog": []
-  }
+    "auditLog": [
+      {
+        "id": "mwwbv27t-hn2ron",
+        "at": "2026-11-25T16:18:07.481Z",
+        "action": "ثبت",
+        "kind": "عضو",
+        "recordId": "mwwbv27t-57nefy",
+        "detail": "عضو «عضو آزمایشی» با 2 سهم ثبت شد."
+      }
+    ]
+  },
+  "users": [
+    {
+      "id": "user-admin-default",
+      "username": "admin",
+      "passwordHash": "26318f5c8a28ae750ebfbe722433c1fd309bf3e9a947f7a22c4ca60078bfa67f9dc3d06f8e67edf0653fa833863d55ce663a09e4d5e31d44c2a7242b1d11659e",
+      "salt": "mostafa-default-admin-salt-v1",
+      "role": "admin",
+      "fullName": "مدیر سیستم",
+      "phone": "",
+      "memberId": null,
+      "active": true,
+      "passwordLoginEnabled": true,
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "mwwbv29n-6ifm65",
+      "username": "member1",
+      "passwordHash": "2411ce098d18364548759e3f3948ed502ceb720d479c87880f950866a5c9af4ef41007ded4d123830f53fce283f5ca5ca5f20268b9fc4cb7790944cd98123c3c",
+      "salt": "de0c199aaa5dad4c65993d3ffcbf9543",
+      "role": "member",
+      "fullName": "عضو آزمایشی",
+      "phone": "",
+      "memberId": "mwwbv27t-57nefy",
+      "active": true,
+      "passwordLoginEnabled": true,
+      "createdAt": "2026-11-25T16:18:07.547Z",
+      "updatedAt": "2026-11-25T16:18:07.547Z"
+    }
+  ],
+  "sessions": [],
+  "paymentRequests": [],
+  "loanRequests": []
 }

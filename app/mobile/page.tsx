@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ClayIcon, { toneForSeed } from "@/app/components/mobile/ClayIcon";
 import BottomNav, { type MobileTab } from "@/app/components/mobile/BottomNav";
-import DashboardView, { type TabKey } from "@/app/components/DashboardView";
+import DashboardView, { type DashboardTab } from "@/app/components/DashboardView";
 import ServicesScreen from "@/app/components/mobile/ServicesScreen";
 import TransactionsScreen from "@/app/components/mobile/TransactionsScreen";
 import UsersScreen from "@/app/components/mobile/UsersScreen";
@@ -14,9 +14,10 @@ import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
 import type { PublicUser } from "@/lib/db";
 
 /**
- * پوسته موبایل فم بانک — هدر برند (FB / فم بانک) + نوار ناوبری پایین
+ * پوسته موبایل فم بانک — هدر برند + نوار ناوبری پایین
  * با ۵ آیتم (خانه، خدمات، تراکنش‌ها، مدیریت کاربران، تنظیمات).
- * تب «خانه» همان داشبورد قبلی است که حالا به‌صورت تعبیه‌شده رندر می‌شود.
+ * تب «خانه» برای عضو = شبکه مربع‌های سر فصل‌ها؛ هر سر فصل «یک‌تیکه» و لمسش
+ * مستقیم همان بخش را باز می‌کند (بدون واسط داشبورد کلی) — جلسه ۲۶ مرحله ۲.
  */
 
 const BRAND_TONE: [string, string] = ["#6198F7", "#1A46AF"];
@@ -25,8 +26,9 @@ export default function MobileAppPage() {
   const router = useRouter();
   const [me, setMe] = useState<PublicUser | null | undefined>(undefined);
   const [active, setActive] = useState<MobileTab>("home");
-  /** تب داخلی داشبورد برای رسیدن از خدمات/اکشن‌های سریع */
-  const [homeTab, setHomeTab] = useState<TabKey>("shares");
+  /** نمای خانه عضو: "tiles" = مربع‌های سر فصل‌ها؛ بقیه = بخش باز با دکمه بازگشت */
+  const [dashView, setDashView] = useState<DashboardTab>("tiles");
+  /** کلید remount داشبورد برای refresh داده بعد از پرش از خدمات/تراکنش‌ها */
   const [homeKey, setHomeKey] = useState(0);
   /** بخش باز تنظیمات (وقتی از خدمات به تنظیمات پرش می‌شود) */
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
@@ -51,9 +53,9 @@ export default function MobileAppPage() {
     if (me === null) router.replace("/login");
   }, [me, router]);
 
-  /** پرش به خانه با یک بخش مشخص از داشبورد (از خدمات/تراکنش‌ها) */
-  function goHomeTab(tab: TabKey) {
-    setHomeTab(tab);
+  /** باز کردن مستقیم یک سر فصل داشبورد (از خدمات/اکشن‌های سریع) — یک‌تیکه */
+  function goHomeTab(tab: DashboardTab) {
+    setDashView(tab);
     setHomeKey((k) => k + 1);
     setActive("home");
   }
@@ -61,7 +63,7 @@ export default function MobileAppPage() {
   /** قرارداد ناوبری مشترک همه اسلایدها */
   function navigate(target: NavTarget) {
     if (target.tab === "home") {
-      goHomeTab(target.dashboardTab ?? "shares");
+      goHomeTab(target.dashboardTab ?? "tiles");
       return;
     }
     if (target.tab === "settings") {
@@ -124,7 +126,13 @@ export default function MobileAppPage() {
           (isAdmin ? (
             <AdminMobileHome name={me.fullName || me.username} />
           ) : (
-            <DashboardView key={homeKey} embedded initialTab={homeTab} />
+            <DashboardView
+              key={homeKey}
+              embedded
+              initialTab={dashView}
+              onBack={() => setDashView("tiles")}
+              onTabChange={setDashView}
+            />
           ))}
 
         {active === "services" && <ServicesScreen me={me} onNavigate={navigate} />}
@@ -139,7 +147,19 @@ export default function MobileAppPage() {
         )}
       </main>
 
-      <BottomNav active={active} onChange={setActive} />
+      <BottomNav
+        active={active}
+        onChange={(t) => {
+          // لمس «خانه» همیشه به مربع‌های سر فصل‌ها برمی‌گردد (حتی وسط یک بخش)؛
+          // اگر همین حالا آنجاییم remount لازم نیست
+          if (t === "home" && !isAdmin) {
+            if (active === "home" && dashView === "tiles") return;
+            goHomeTab("tiles");
+          } else {
+            setActive(t);
+          }
+        }}
+      />
     </div>
   );
 }
