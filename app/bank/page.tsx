@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import ClayIcon, { type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MembersTab from "@/app/components/bank/MembersTab";
 import DepositsTab from "@/app/components/bank/DepositsTab";
 import LoansTab from "@/app/components/bank/LoansTab";
@@ -15,14 +16,16 @@ import type { BankDeposit, BankLoan, BankMember, BankSettings } from "@/lib/db";
 
 type TabKey = "members" | "deposits" | "loans" | "reports" | "settings" | "audit";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "members", label: "اعضا" },
-  { key: "deposits", label: "واریزی‌ها" },
-  { key: "loans", label: "وام‌ها" },
-  { key: "reports", label: "گزارش‌ها" },
-  { key: "settings", label: "تنظیمات" },
-  { key: "audit", label: "سوابق" },
+const TABS: { key: TabKey; label: string; icon: ClayIconName }[] = [
+  { key: "members", label: "اعضا", icon: "user" },
+  { key: "deposits", label: "واریزی‌ها", icon: "wallet" },
+  { key: "loans", label: "وام‌ها", icon: "banknote" },
+  { key: "reports", label: "گزارش‌ها", icon: "chart" },
+  { key: "settings", label: "تنظیمات", icon: "settings" },
+  { key: "audit", label: "سوابق", icon: "history" },
 ];
+
+const BRAND_TONE: [string, string] = ["#6198F7", "#1A46AF"];
 
 function faNum(value: number): string {
   return value.toLocaleString("fa-IR");
@@ -91,44 +94,24 @@ export default function BankPage() {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-12">
-      <header
-        className="card flex flex-wrap items-center justify-between gap-3 p-5"
-        data-noprint
-      >
-        <div className="flex items-center gap-3">
-          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-primary-600 text-white shadow-sm dark:bg-primary-500">
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="size-6"
-            >
-              <path d="M3 21h18" />
-              <path d="M4 18h16" />
-              <path d="M6 18v-7" />
-              <path d="M10 18v-7" />
-              <path d="M14 18v-7" />
-              <path d="M18 18v-7" />
-              <path d="M12 3 4 8h16l-8-5Z" />
-            </svg>
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-6 py-10">
+      {/* هدر برند فم بانک — هم‌سبک با پوسته یوزر */}
+      <header className="flex flex-wrap items-center justify-between gap-3" data-noprint>
+        <div className="flex items-center gap-2.5">
+          <span
+            className="clay"
+            style={{ width: 52, height: 52, background: `linear-gradient(140deg, ${BRAND_TONE[0]}, ${BRAND_TONE[1]})` }}
+          >
+            <span className="relative z-10 -mb-px text-sm font-black tracking-tight text-white">FB</span>
           </span>
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight">فم بانک</h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              مدیریت اعضا، واریزی‌ها، وام‌ها و گزارش‌های بانک.
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">فم بانک فارسی</h1>
+            <p dir="ltr" className="text-left text-[10px] font-medium tracking-widest text-zinc-400">
+              FAM BANK · FB
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setLocked(true)}
-          className="btn-outline"
-        >
+        <button type="button" onClick={() => setLocked(true)} className="btn-outline">
           قفل مدیر
         </button>
       </header>
@@ -145,21 +128,29 @@ export default function BankPage() {
         ← بازگشت به Mostafa App
       </Link>
 
-      <section className="grid grid-cols-3 gap-3" data-noprint>
-        <div className="card p-4">
-          <p className="text-xs text-zinc-500">موجودی بانک</p>
-          <p className="mt-1 text-lg font-bold text-primary-700 sm:text-xl dark:text-primary-300">
-            {faNum(summary.balance)}
-            <span className="mr-1 text-xs font-normal text-zinc-500">تومان</span>
+      {/* هیرو گرادیان خلاصه بانک — هم‌سبک با هدر موجودی تراکنش‌ها */}
+      <section
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-5 text-white shadow-lg shadow-primary-900/30"
+        data-noprint
+      >
+        <div className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-white/5" />
+        <div className="relative">
+          <p className="text-xs font-medium text-white/70">خلاصه صندوق</p>
+          <p className="mt-1 text-[27px] font-black leading-9 tracking-tight">
+            {faNum(summary.balance)} <span className="text-base font-bold text-white/80">تومان</span>
           </p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-zinc-500">جمع سهم‌ها</p>
-          <p className="mt-1 text-lg font-bold sm:text-xl">{faNum(summary.totalShares)}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs text-zinc-500">تعداد اعضا</p>
-          <p className="mt-1 text-lg font-bold sm:text-xl">{faNum(members.length)}</p>
+          <p className="mt-0.5 text-[11px] text-white/55">موجودی بانک</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 text-[11px]">
+            <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+              <p className="text-white/60">جمع سهم‌ها</p>
+              <p className="mt-0.5 font-bold">{faNum(summary.totalShares)}</p>
+            </div>
+            <div className="rounded-2xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+              <p className="text-white/60">تعداد اعضا</p>
+              <p className="mt-0.5 font-bold">{faNum(members.length)}</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -174,21 +165,23 @@ export default function BankPage() {
         </p>
       )}
 
-      <nav
-        className="flex flex-wrap gap-1 rounded-2xl border border-zinc-200 bg-zinc-100 p-1 dark:border-zinc-800 dark:bg-zinc-900"
-        data-noprint
-      >
+      <nav className="flex flex-wrap gap-2" data-noprint>
         {TABS.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setTab(t.key)}
-            className={
+            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition-all active:scale-95 ${
               tab === t.key
-                ? "min-w-fit flex-1 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-primary-700 shadow-sm dark:bg-zinc-800 dark:text-primary-300"
-                : "min-w-fit flex-1 rounded-xl px-4 py-2 text-sm text-zinc-600 transition-colors hover:bg-white/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800/60 dark:hover:text-zinc-200"
-            }
+                ? "bg-gradient-to-l from-primary-700 to-primary-500 text-white shadow-md shadow-primary-600/25"
+                : "border border-zinc-200 bg-white text-zinc-500 hover:border-primary-300 hover:text-primary-700 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400 dark:hover:border-primary-700 dark:hover:text-primary-300"
+            }`}
           >
+            {tab === t.key ? (
+              <ClayIcon name={t.icon} size={22} ghost ghostColor="#fff" />
+            ) : (
+              <ClayIcon name={t.icon} size={22} ghost ghostColor="currentColor" />
+            )}
             {t.label}
           </button>
         ))}

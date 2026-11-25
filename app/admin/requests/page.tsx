@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
+import ClayIcon, { type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
 import { jalaliParts, parseAmount } from "@/lib/bank";
 import type { BankMember, LoanRequest, PaymentRequest } from "@/lib/db";
 
@@ -29,6 +30,13 @@ const STATUS_CLASS = {
   approved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300",
   rejected: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300",
 } as const;
+
+/** آیکون سفالی هر نوع درخواست — هم‌سبک با آیکون‌های پوسته یوزر */
+function requestVisual(kind: "share" | "installment" | "loan"): { icon: ClayIconName; tone: ClayTone } {
+  if (kind === "share") return { icon: "coins", tone: ["#FFD98E", "#F0A32B"] };
+  if (kind === "installment") return { icon: "calendar", tone: ["#98E5D2", "#2FB5A0"] };
+  return { icon: "banknote", tone: ["#FFB3C6", "#E85E8A"] };
+}
 
 export default function AdminRequestsPage() {
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
@@ -218,13 +226,16 @@ export default function AdminRequestsPage() {
   return (
     <AdminShell>
       <div className="space-y-6">
-        <div>
-          <h2 className="text-lg font-semibold">درخواست‌های اعضا</h2>
-          <p className="text-xs text-zinc-500">
-            تأیید پرداخت سهام، واریزی را در بانک ثبت می‌کند؛ تأیید پرداخت قسط، آن را در وام ثبت می‌کند؛
-            تأیید نهایی درخواست تسهیلات، وام را به‌صورت خودکار در بانک و پنل عضو ثبت می‌کند
-            (می‌توانید قبل از تأیید، درخواست را ویرایش کنید).
-          </p>
+        <div className="flex items-center gap-3">
+          <ClayIcon name="bell" size={44} />
+          <div>
+            <h2 className="text-lg font-semibold">درخواست‌های اعضا</h2>
+            <p className="text-xs text-zinc-500">
+              تأیید پرداخت سهام، واریزی را در بانک ثبت می‌کند؛ تأیید پرداخت قسط، آن را در وام ثبت می‌کند؛
+              تأیید نهایی درخواست تسهیلات، وام را به‌صورت خودکار در بانک و پنل عضو ثبت می‌کند
+              (می‌توانید قبل از تأیید، درخواست را ویرایش کنید).
+            </p>
+          </div>
         </div>
 
         {notice && (
@@ -234,11 +245,12 @@ export default function AdminRequestsPage() {
         )}
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <h3 className="mb-3 text-sm font-medium">
+        <section className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
+            <ClayIcon name="coins" size={28} />
             پرداخت‌های رسیده (سهام و اقساط) — {pendingPayments.length.toLocaleString("fa-IR")} در انتظار
             {unreadPayments.length > 0 && (
-              <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+              <span className="mr-2 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
                 {unreadPayments.length.toLocaleString("fa-IR")} خوانده‌نشده
               </span>
             )}
@@ -249,12 +261,16 @@ export default function AdminRequestsPage() {
             <p className="text-xs text-zinc-500">درخواست پرداختی وجود ندارد.</p>
           ) : (
             <div className="space-y-2">
-              {paymentRequests.map((r) => (
+              {paymentRequests.map((r) => {
+                const v = requestVisual(r.kind);
+                return (
                 <div
                   key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-100 px-3 py-2 dark:border-zinc-900"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-100 px-3 py-2.5 transition hover:border-primary-200 dark:border-zinc-900 dark:hover:border-zinc-800"
                 >
-                  <div className="min-w-0 space-y-1">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ClayIcon name={v.icon} tone={v.tone} size={40} className="shrink-0" />
+                    <div className="min-w-0 space-y-1">
                     <p className="text-sm">
                       {isUnread(r) && (
                         <span className="mr-1 ml-1 inline-block size-2 animate-pulse rounded-full bg-red-500 align-middle" aria-hidden="true" />
@@ -264,7 +280,7 @@ export default function AdminRequestsPage() {
                         ? `پرداخت سهام ${faMoney(r.amount)} تومان`
                         : `پرداخت قسط ${r.installmentNumber?.toLocaleString("fa-IR") ?? "—"} وام ${faMoney(r.amount)} تومان`}
                       {isUnread(r) && (
-                        <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                        <span className="mr-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
                           خوانده‌نشده
                         </span>
                       )}
@@ -273,6 +289,7 @@ export default function AdminRequestsPage() {
                       عضو: {memberName(r.memberId)} — {new Date(r.createdAt).toLocaleDateString("fa-IR")}
                       {r.note ? ` — ${r.note}` : ""}
                     </p>
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {r.receipt ? (
@@ -288,7 +305,8 @@ export default function AdminRequestsPage() {
                         {r.note ? "رسید متنی (بدون عکس)" : "بدون عکس رسید"}
                       </span>
                     )}
-                    <span className={`rounded-lg px-2 py-1 text-xs ${STATUS_CLASS[r.status]}`}>
+                    <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_CLASS[r.status]}`}
+                    >
                       {STATUS_LABEL[r.status]}
                     </span>
                     {r.status === "pending" && (
@@ -297,7 +315,7 @@ export default function AdminRequestsPage() {
                           type="button"
                           disabled={busy}
                           onClick={() => void review("payment", r.id, "approve")}
-                          className="rounded-xl bg-emerald-600 px-3 py-2 text-xs text-white disabled:opacity-50"
+                          className="rounded-xl bg-emerald-600 px-3 py-2 text-xs text-white transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
                         >
                           تأیید
                         </button>
@@ -305,7 +323,7 @@ export default function AdminRequestsPage() {
                           type="button"
                           disabled={busy}
                           onClick={() => void review("payment", r.id, "reject")}
-                          className="rounded-xl bg-red-600 px-3 py-2 text-xs text-white disabled:opacity-50"
+                          className="rounded-xl bg-red-600 px-3 py-2 text-xs text-white transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
                         >
                           رد
                         </button>
@@ -313,16 +331,18 @@ export default function AdminRequestsPage() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
 
-        <section className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <h3 className="mb-3 text-sm font-medium">
+        <section className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
+            <ClayIcon name="banknote" size={28} />
             درخواست‌های تسهیلات — {pendingLoans.length.toLocaleString("fa-IR")} در انتظار
             {unreadLoans.length > 0 && (
-              <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+              <span className="mr-2 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
                 {unreadLoans.length.toLocaleString("fa-IR")} خوانده‌نشده
               </span>
             )}
@@ -333,12 +353,16 @@ export default function AdminRequestsPage() {
             <p className="text-xs text-zinc-500">درخواستی وجود ندارد.</p>
           ) : (
             <div className="space-y-2">
-              {loanRequests.map((r) => (
+              {loanRequests.map((r) => {
+                const v = requestVisual("loan");
+                return (
                 <div
                   key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-100 px-3 py-2 dark:border-zinc-900"
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-100 px-3 py-2.5 transition hover:border-primary-200 dark:border-zinc-900 dark:hover:border-zinc-800"
                 >
-                  <div className="min-w-0 space-y-1">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ClayIcon name={v.icon} tone={v.tone} size={40} className="shrink-0" />
+                    <div className="min-w-0 space-y-1">
                     <p className="text-sm">
                       {isUnread(r) && (
                         <span className="mr-1 ml-1 inline-block size-2 animate-pulse rounded-full bg-red-500 align-middle" aria-hidden="true" />
@@ -346,7 +370,7 @@ export default function AdminRequestsPage() {
                       <strong>{r.username}</strong> — تسهیلات {faMoney(r.amount)} تومانی /{" "}
                       {r.months.toLocaleString("fa-IR")} ماهه
                       {isUnread(r) && (
-                        <span className="mr-2 rounded-lg bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                        <span className="mr-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
                           خوانده‌نشده
                         </span>
                       )}
@@ -360,9 +384,10 @@ export default function AdminRequestsPage() {
                         وام این درخواست به‌صورت خودکار در بانک ثبت شد (تب «وام‌ها و اقساط» و پنل عضو).
                       </p>
                     )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-lg px-2 py-1 text-xs ${STATUS_CLASS[r.status]}`}>
+                    <span className={`rounded-full px-2.5 py-1 text-xs ${STATUS_CLASS[r.status]}`}>
                       {STATUS_LABEL[r.status]}
                     </span>
                     {r.status === "pending" && (
@@ -371,7 +396,7 @@ export default function AdminRequestsPage() {
                           type="button"
                           disabled={busy}
                           onClick={() => openEdit(r)}
-                          className="rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700"
+                          className="rounded-xl border border-zinc-300 px-3 py-2 text-xs transition-colors hover:border-primary-400 hover:text-primary-700 dark:border-zinc-700 dark:hover:border-primary-500 dark:hover:text-primary-300"
                         >
                           ویرایش
                         </button>
@@ -379,7 +404,7 @@ export default function AdminRequestsPage() {
                           type="button"
                           disabled={busy}
                           onClick={() => openApprove(r)}
-                          className="rounded-xl bg-emerald-600 px-3 py-2 text-xs text-white disabled:opacity-50"
+                          className="rounded-xl bg-emerald-600 px-3 py-2 text-xs text-white transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
                         >
                           تأیید نهایی
                         </button>
@@ -387,7 +412,7 @@ export default function AdminRequestsPage() {
                           type="button"
                           disabled={busy}
                           onClick={() => void review("loan", r.id, "reject")}
-                          className="rounded-xl bg-red-600 px-3 py-2 text-xs text-white disabled:opacity-50"
+                          className="rounded-xl bg-red-600 px-3 py-2 text-xs text-white transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
                         >
                           رد
                         </button>
@@ -395,7 +420,8 @@ export default function AdminRequestsPage() {
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
@@ -403,12 +429,17 @@ export default function AdminRequestsPage() {
 
       {editTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">
                 ویرایش درخواست تسهیلات — {editTarget.username}
               </h3>
-              <button type="button" onClick={() => setEditTarget(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button
+                type="button"
+                onClick={() => setEditTarget(null)}
+                aria-label="بستن"
+                className="grid size-8 place-items-center rounded-full bg-zinc-100 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+              >
                 ×
               </button>
             </div>
@@ -478,18 +509,19 @@ export default function AdminRequestsPage() {
 
       {approveTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold">تأیید نهایی تسهیلات — {approveTarget.username}</h3>
               <button
                 type="button"
                 onClick={() => setApproveTarget(null)}
-                className="text-zinc-400 hover:text-zinc-600"
+                aria-label="بستن"
+                className="grid size-8 place-items-center rounded-full bg-zinc-100 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
               >
                 ×
               </button>
             </div>
-            <p className="mb-3 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+            <p className="mb-3 rounded-2xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
               وام با مبلغ {faMoney(approveTarget.amount)} تومان و {faMoney(approveTarget.months)} قسط
               به‌صورت خودکار در بانک و پنل عضو ثبت می‌شود؛ سود و تاریخ اولین قسط را اینجا تنظیم کنید.
             </p>
@@ -570,10 +602,15 @@ export default function AdminRequestsPage() {
 
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="max-h-[90vh] max-w-lg overflow-auto rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="max-h-[90vh] max-w-lg overflow-auto rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold">عکس رسید</h3>
-              <button type="button" onClick={() => setPreview(null)} className="text-zinc-400 hover:text-zinc-600">
+              <button
+                type="button"
+                onClick={() => setPreview(null)}
+                aria-label="بستن"
+                className="grid size-8 place-items-center rounded-full bg-zinc-100 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+              >
                 ×
               </button>
             </div>

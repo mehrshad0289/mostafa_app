@@ -123,10 +123,10 @@ body {
   font-family: var(--app-font, var(--font-vazir)), "Vazirmatn", Tahoma, Arial, sans-serif;
 }
 
-/* کلاس‌های مشترک ظاهری — سبک ساده و بانکی */
+/* کلاس‌های مشترک ظاهری — هم‌سبک با پوسته موبایل فم بانک (کارت‌های نرم rounded-3xl) */
 @layer components {
   .card {
-    @apply rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950;
+    @apply rounded-3xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950;
   }
 
   .input {
@@ -138,7 +138,7 @@ body {
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-500 dark:hover:bg-primary-600;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-l from-primary-700 to-primary-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-primary-600/25 transition-all hover:opacity-95 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none;
   }
 
   .btn-outline {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
+import ClayIcon, { toneForSeed } from "@/app/components/mobile/ClayIcon";
 import type { BankMember, PublicUser } from "@/lib/db";
 
 type UserRow = PublicUser;
@@ -37,9 +38,9 @@ async function copyText(text: string): Promise<boolean> {
 const inputClass =
   "w-full rounded-xl border border-zinc-200 bg-transparent px-3 py-2.5 text-sm dark:border-zinc-800";
 const btnPrimary =
-  "rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2.5 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white";
+  "rounded-xl bg-gradient-to-l from-primary-700 to-primary-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-primary-600/25 transition-all hover:opacity-95 disabled:opacity-50 active:scale-[0.98]";
 const btnGhost =
-  "rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700";
+  "rounded-xl border border-zinc-300 px-3 py-2 text-xs transition-colors hover:border-primary-400 hover:text-primary-700 dark:border-zinc-700 dark:hover:border-primary-500 dark:hover:text-primary-300";
 const btnDanger =
   "rounded-xl border border-red-300 px-3 py-2 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40";
 
@@ -282,19 +283,46 @@ export default function AdminUsersPage() {
   const memberName = (id: string | null) =>
     id ? (members.find((m) => m.id === id)?.name ?? "—") : "—";
 
+  /** آمار بالای صفحه — هم‌سبک با اسلاید مدیریت کاربران پوسته یوزر */
+  const adminCount = users.filter((u) => u.role === "admin").length;
+  const linkedCount = users.filter((u) => u.memberId).length;
+  const stats: { label: string; value: number; icon: "users" | "shield" | "wallet" }[] = [
+    { label: "کل کاربران", value: users.length, icon: "users" },
+    { label: "مدیران", value: adminCount, icon: "shield" },
+    { label: "متصل به بانک", value: linkedCount, icon: "wallet" },
+  ];
+
   return (
     <AdminShell>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">مدیریت کاربران</h2>
-            <p className="text-xs text-zinc-500">
-              ساخت حساب ورود برای ادمین‌ها و اعضای بانک
-            </p>
+          <div className="flex items-center gap-3">
+            <ClayIcon name="users" size={44} />
+            <div>
+              <h2 className="text-lg font-semibold">مدیریت کاربران</h2>
+              <p className="text-xs text-zinc-500">
+                ساخت حساب ورود برای ادمین‌ها و اعضای بانک
+              </p>
+            </div>
           </div>
           <button type="button" onClick={openCreate} className={btnPrimary}>
             ساخت کاربر جدید
           </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {stats.map((s) => (
+            <div
+              key={s.label}
+              className="flex items-center gap-2.5 rounded-3xl border border-zinc-200/80 bg-white p-3.5 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+            >
+              <ClayIcon name={s.icon} size={38} />
+              <div className="min-w-0">
+                <p className="truncate text-[10.5px] text-zinc-500 dark:text-zinc-400">{s.label}</p>
+                <p className="text-lg font-bold leading-6">{loading ? "…" : s.value.toLocaleString("fa-IR")}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {notice && (
@@ -306,9 +334,9 @@ export default function AdminUsersPage() {
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
 
-        <div className="overflow-x-auto rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="overflow-x-auto rounded-3xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
           <table className="w-full min-w-[760px] text-right text-sm">
-            <thead className="border-b border-zinc-200 text-xs text-zinc-500 dark:border-zinc-800">
+            <thead className="border-b border-zinc-200 bg-zinc-50/70 text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900/60">
               <tr>
                 <th className="px-4 py-3 font-medium">نام کاربری</th>
                 <th className="px-4 py-3 font-medium">نام کامل</th>
@@ -333,18 +361,32 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ) : (
-                users.map((user) => (
+                users.map((user) => {
+                  const avatarTone = toneForSeed(user.username);
+                  return (
                   <tr
                     key={user.id}
                     className="border-b border-zinc-100 last:border-0 dark:border-zinc-900"
                   >
-                    <td className="px-4 py-3 font-medium" dir="ltr">
-                      {user.username}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="clay shrink-0"
+                          style={{ width: 34, height: 34, background: `linear-gradient(140deg, ${avatarTone[0]}, ${avatarTone[1]})` }}
+                        >
+                          <span className="relative z-10 text-[11px] font-bold text-white">
+                            {(user.fullName || user.username).trim().charAt(0)}
+                          </span>
+                        </span>
+                        <span className="font-medium" dir="ltr">
+                          {user.username}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3">{user.fullName || "—"}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`rounded-lg px-2 py-1 text-xs ${
+                        className={`rounded-full px-2.5 py-1 text-xs ${
                           user.role === "admin"
                             ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300"
                             : "bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300"
@@ -355,7 +397,7 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`rounded-lg px-2 py-1 text-xs ${
+                        className={`rounded-full px-2.5 py-1 text-xs ${
                           user.active
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
                             : "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300"
@@ -366,7 +408,7 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`rounded-lg px-2 py-1 text-xs ${
+                        className={`rounded-full px-2.5 py-1 text-xs ${
                           user.passwordLoginEnabled
                             ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
                             : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
@@ -441,7 +483,8 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -649,10 +692,15 @@ export default function AdminUsersPage() {
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">{title}</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-600">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="بستن"
+            className="grid size-8 place-items-center rounded-full bg-zinc-100 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          >
             ×
           </button>
         </div>
