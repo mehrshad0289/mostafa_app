@@ -32,7 +32,8 @@ export default function LoginPage() {
         setError(data.error || "نام کاربری یا رمز عبور اشتباه است");
         return;
       }
-      router.replace(data.user.role === "admin" ? "/admin" : "/dashboard");
+      // جلسه بیست‌وسوم: عضو بعد از ورود به پوسته موبایل جدید (/mobile) می‌رود
+      router.replace(data.user.role === "admin" ? "/admin" : "/mobile");
     } catch {
       setError("ارتباط با سرور ناموفق بود.");
     } finally {

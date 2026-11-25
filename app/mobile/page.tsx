@@ -8,6 +8,8 @@ import BottomNav, { type MobileTab } from "@/app/components/mobile/BottomNav";
 import DashboardView, { type TabKey } from "@/app/components/DashboardView";
 import ServicesScreen from "@/app/components/mobile/ServicesScreen";
 import TransactionsScreen from "@/app/components/mobile/TransactionsScreen";
+import UsersScreen from "@/app/components/mobile/UsersScreen";
+import SettingsScreen from "@/app/components/mobile/SettingsScreen";
 import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
 import type { PublicUser } from "@/lib/db";
 
@@ -130,8 +132,14 @@ export default function MobileAppPage() {
 
         {active === "services" && <ServicesScreen me={me} onNavigate={navigate} />}
         {active === "transactions" && <TransactionsScreen me={me} onNavigate={navigate} />}
-        {active === "users" && <div className="p-4 text-sm text-zinc-500">بخش مدیریت کاربران — به‌زودی در این جلسه تکمیل می‌شود.</div>}
-        {active === "settings" && <div className="p-4 text-sm text-zinc-500">بخش تنظیمات — به‌زودی در این جلسه تکمیل می‌شود.</div>}
+        {active === "users" && <UsersScreen me={me} />}
+        {active === "settings" && (
+          <SettingsScreen
+            me={me}
+            section={settingsSection}
+            onSectionChange={(s: SettingsSection | null) => setSettingsSection(s)}
+          />
+        )}
       </main>
 
       <BottomNav active={active} onChange={setActive} />

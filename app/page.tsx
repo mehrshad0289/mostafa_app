@@ -19,7 +19,8 @@ export default function HomePage() {
         if (!data.user) {
           router.replace("/login");
         } else {
-          router.replace(data.user.role === "admin" ? "/admin" : "/dashboard");
+          // جلسه بیست‌وسوم: عضو به پوسته موبایل جدید (/mobile) می‌رود؛ ادمین به پنل خودش
+          router.replace(data.user.role === "admin" ? "/admin" : "/mobile");
         }
       })
       .catch(() => {
