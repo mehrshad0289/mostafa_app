@@ -1053,3 +1053,33 @@ API مدیریت کاربران → محافظت از APIهای بانکی → �
   ۳) روی سایت زنده: `storage-status` باید `"supabase"` شود؛ سپس CRUD واقعی
   (آیتم بساز، restart/Redeploy کن، بماند) و پاک‌سازی یادداشت‌های تست. بدون این
   متغیرها، مأموریت «ذخیره دائمی» کامل نشده است.
+
+## جلسه 2026-11-25 (سیزدهم) — اتصال واقعی Supabase + متغیرهای Vercel (در حال انجام)
+
+- **مأموریت کاربر:** اتصال واقعی Supabase، تنظیم Vercel، دیپلوی، تست CRUD واقعی و
+  ماندگاری بعد از Redeploy — بدون پرسیدن سؤال.
+- **آنچه انجام شد تا این لحظه:**
+  ۱) **پروژه Supabase ساخته شد:** org «mehrshad's projects» (Free plan) → پروژه
+  `mostafa-app` با ref **`uhappwfuqbdsynvfhdat`** (region West EU (Ireland) /
+  eu-west-1، حساب مرتبط: mehrshad02899@gmail.com). ورود به داشبورد با فلوی
+  Forgot-password + کد ایمیلی انجام شد (رمز جدید فقط در فایل محلی
+  `/home/z/my-project/supabase_login.txt` خارج از ریپو نگه داشته می‌شود — هرگز
+  در گیت نگذار).
+  ۲) **Migration اجرا شد:** محتوای `supabase/migrations/20261125000000_init.sql`
+  در SQL Editor اجرا شد (در پرس‌و‌جوی RLS گزینه «Run without RLS» انتخاب شد چون
+  طبق طراحی مأموریت فقط anon key سمت سرور است). «Success. No rows returned».
+  ۳) **تست REST با anon key:** `GET /rest/v1/items` دو یادداشت seed را داد،
+  `bank_settings` سالم (amount_per_share=500000)، `bank_members` → 200. یعنی
+  Data API با کلید anon فعال است.
+  ۴) **Vercel:** ورود به داشبورد با کد ایمیلی؛ پروژه `mostafa_app` در تیم
+  `mehrshads-projects-97f03628` → هر دو متغیر
+  `NEXT_PUBLIC_SUPABASE_URL` = `https://uhappwfuqbdsynvfhdat.supabase.co` و
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` = کلید anon (legacy JWT) با **Type: Config** و
+  **همه محیط‌ها (Production/Preview/Development)** ذخیره شدند (تأیید در صفحه
+  Environment Variables: هر دو «All Environments»).
+  ۵) دکمه Redeploy داشبورد دیپلوی نساخت؛ **پوش همین کامیت** → auto-deploy از
+  main دیپلوی جدید با متغیرها می‌سازد.
+- **قدم بعدی بلافاصله (تکمیل این جلسه):** بعد از سبز شدن دیپلوی، روی سایت زنده:
+  `GET /api/admin/storage-status` باید `"mode":"supabase"` بدهد؛ سپس CRUD واقعی
+  (ادمین بدون رمز طبق کلید جلسه هفتم + member + items + bank) و تست ماندگاری
+  بعد از Redeploy؛ در پایان همین بخش با نتیجه تست‌ها کامل شود.
