@@ -40,6 +40,8 @@ const btnPrimary =
   "rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2.5 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white";
 const btnGhost =
   "rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700";
+const btnDanger =
+  "rounded-xl border border-red-300 px-3 py-2 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -66,6 +68,7 @@ export default function AdminUsersPage() {
 
   const [pwUser, setPwUser] = useState<UserRow | null>(null);
   const [pwValue, setPwValue] = useState("");
+  const [delUser, setDelUser] = useState<UserRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -254,6 +257,28 @@ export default function AdminUsersPage() {
     }
   }
 
+  /** حذف کامل کاربر با اندپوینت DELETE؛ حساب خودتان و آخرین ادمین در سرور گارد می‌شوند */
+  async function submitDelete() {
+    if (!delUser) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/admin/users/${delUser.id}`, { method: "DELETE" });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error || "حذف کاربر ناموفق بود.");
+        return;
+      }
+      setNotice(`کاربر «${delUser.username}» و همه نشست‌های او حذف شد.`);
+      setDelUser(null);
+      await load();
+    } catch {
+      setError("ارتباط با سرور ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const memberName = (id: string | null) =>
     id ? (members.find((m) => m.id === id)?.name ?? "—") : "—";
 
@@ -277,7 +302,7 @@ export default function AdminUsersPage() {
             {notice}
           </p>
         )}
-        {error && !showCreate && !editUser && !pwUser && (
+        {error && !showCreate && !editUser && !pwUser && !delUser && (
           <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
 
@@ -395,6 +420,23 @@ export default function AdminUsersPage() {
                           }
                         >
                           {user.passwordLoginEnabled ? "بستن ورود با رمز" : "بازکردن ورود با رمز"}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || (me ? user.id === me.id : false)}
+                          onClick={() => {
+                            setDelUser(user);
+                            setError("");
+                            setNotice("");
+                          }}
+                          className={btnDanger}
+                          title={
+                            me && user.id === me.id
+                              ? "حساب خودتان را نمی‌توانید حذف کنید"
+                              : undefined
+                          }
+                        >
+                          حذف
                         </button>
                       </div>
                     </td>
@@ -571,6 +613,33 @@ export default function AdminUsersPage() {
               </button>
             </div>
           </form>
+        </Modal>
+      )}
+      {delUser && (
+        <Modal title={`حذف کاربر «${delUser.username}»`} onClose={() => setDelUser(null)}>
+          <div className="space-y-3">
+            <p className="text-sm leading-7">
+              حساب <strong dir="ltr">{delUser.username}</strong> و همه نشست‌های او برای همیشه
+              حذف می‌شود و دیگر نمی‌تواند وارد شود.
+              {delUser.memberId
+                ? " عضو بانک متصل به این حساب حذف نمی‌شود و اطلاعات مالی او باقی می‌ماند."
+                : ""}
+            </p>
+            <ModalError error={error} />
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void submitDelete()}
+                className="rounded-xl bg-red-600 hover:bg-red-700 px-4 py-2.5 text-sm text-white disabled:opacity-50"
+              >
+                {busy ? "در حال حذف…" : "حذف کاربر"}
+              </button>
+              <button type="button" onClick={() => setDelUser(null)} className={btnGhost}>
+                انصراف
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </AdminShell>

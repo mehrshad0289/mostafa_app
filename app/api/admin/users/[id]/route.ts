@@ -31,7 +31,7 @@ export async function PATCH(
   }
 }
 
-/** حذف کاربر؛ حذف آخرین ادمین فعال ممنوع است */
+/** حذف کاربر؛ حذف حساب خودِ ادمین و آخرین ادمین فعال ممنوع است */
 export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -39,6 +39,12 @@ export async function DELETE(
   const guard = await requireAdmin();
   if ("error" in guard) return guard.error;
   const { id } = await params;
+  if (id === guard.user.id) {
+    return NextResponse.json(
+      { error: "حذف حساب خودتان ممکن نیست؛ ابتدا با حساب دیگری وارد شوید." },
+      { status: 400 },
+    );
+  }
   try {
     const user = await deleteUser(id);
     if (!user) {
