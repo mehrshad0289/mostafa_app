@@ -15,9 +15,10 @@ import { getBank, getUnreadRequests } from "@/lib/db";
  * - موجودی کلی صندوق (واریزی‌ها + بازپرداخت‌ها − پرداختی وام)
  * - تعهد ماهانه سهام (جمع سهم اعضا × مبلغ هر سهم)
  * - تعهدات پرداخت‌نشده سهام (مانده تعهد ماه جاری اعضا با احتساب carry)
- * - تعهدات ماهانه وام (جمع اقساط پرداخت‌نشده با سررسید ماه شمسی جاری)
- * - تعهدات معوق وام (اقساط پرداخت‌نشده با سررسید ماه‌های قبل)
- * - تعهدات باقی‌مانده وام (مانده کل همه وام‌ها)
+ * - تعهدات ماهانه وام (مبلغ کل اقساط با سررسید ماه شمسی جاری — پرداخت‌شده +
+ *   پرداخت‌نشده؛ سهم هر کدام جداگانه هم برگردانده می‌شود)
+ * - تعهدات باقی‌مانده وام (اقساط سررسیدشدهٔ ماه‌های قبل که پرداخت نشده‌اند)
+ * - مانده کل اقساط همه وام‌ها (برای نمایش کمکی زیر کارت معوق)
  * - درخواست‌های خوانده‌نشده اعضا
  */
 export async function GET() {
@@ -45,13 +46,15 @@ export async function GET() {
     }
   }
 
-  // اقساط وام: سررسید ماه جاری، معوق و مانده کل
+  // اقساط وام: کل سررسید ماه جاری، معوق پرداخت‌نشدهٔ ماه‌های قبل و مانده کل
   const currentKey = monthKey(now);
   const currentSerial = jalaliMonthSerial(currentKey);
   let loanMonthlyDue = 0;
   let loanMonthlyCount = 0;
+  let loanMonthlyPaid = 0;
   let loanOverdue = 0;
   let loanOverdueCount = 0;
+  let loanOverdueLoans = 0;
   let loanRemainingTotal = 0;
   let activeLoanCount = 0;
   for (const loan of bank.loans) {
@@ -59,17 +62,22 @@ export async function GET() {
     const remaining = loanRemaining(loan);
     if (remaining > 0) activeLoanCount += 1;
     loanRemainingTotal += remaining;
+    let loanHasOverdue = false;
     for (const row of installmentStatuses(loan)) {
-      if (row.paid) continue;
       const serial = jalaliMonthSerial(monthKey(row.dueAt));
       if (serial === currentSerial) {
+        // کل سررسیدهای ماه جاری: پرداخت‌شده و پرداخت‌نشده با هم
         loanMonthlyDue += row.amount;
         loanMonthlyCount += 1;
-      } else if (serial < currentSerial) {
+        if (row.paid) loanMonthlyPaid += row.amount;
+      } else if (serial < currentSerial && !row.paid) {
+        // سررسیدشدهٔ ماه‌های قبل که هنوز پرداخت نشده است
         loanOverdue += row.amount;
         loanOverdueCount += 1;
+        loanHasOverdue = true;
       }
     }
+    if (loanHasOverdue) loanOverdueLoans += 1;
   }
 
   return NextResponse.json({
@@ -82,8 +90,17 @@ export async function GET() {
     },
     shareMonthlyDue,
     shareUnpaid: { amount: shareUnpaid, members: membersWithShareDebt },
-    loanMonthlyDue: { amount: loanMonthlyDue, count: loanMonthlyCount },
-    loanOverdue: { amount: loanOverdue, count: loanOverdueCount },
+    loanMonthlyDue: {
+      amount: loanMonthlyDue,
+      count: loanMonthlyCount,
+      paid: loanMonthlyPaid,
+      unpaid: loanMonthlyDue - loanMonthlyPaid,
+    },
+    loanOverdue: {
+      amount: loanOverdue,
+      count: loanOverdueCount,
+      loans: loanOverdueLoans,
+    },
     loanRemaining: { amount: loanRemainingTotal, loans: activeLoanCount },
     unread: {
       count: unread.count,

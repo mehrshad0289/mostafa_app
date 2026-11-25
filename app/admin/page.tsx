@@ -20,8 +20,8 @@ type DashboardData = {
   };
   shareMonthlyDue: number;
   shareUnpaid: { amount: number; members: number };
-  loanMonthlyDue: { amount: number; count: number };
-  loanOverdue: { amount: number; count: number };
+  loanMonthlyDue: { amount: number; count: number; paid: number; unpaid: number };
+  loanOverdue: { amount: number; count: number; loans: number };
   loanRemaining: { amount: number; loans: number };
   unread: {
     count: number;
@@ -103,7 +103,8 @@ function StatCard({
 
 /**
  * داشبورد ادمین: موجودی کلی صندوق، تعهد ماهانه سهام، تعهدات پرداخت‌نشده سهام (قرمز)،
- * تعهدات ماهانه وام، تعهدات باقی‌مانده وام (قرمز) و اعلان درخواست‌های خوانده‌نشده اعضا.
+ * تعهدات ماهانه وام (کل سررسیدهای ماه جاری)، تعهدات باقی‌مانده وام (سررسیدشدهٔ
+ * پرداخت‌نشده؛ قرمز) و اعلان درخواست‌های خوانده‌نشده اعضا.
  */
 export default function AdminDashboardPage() {
   const [users, setUsers] = useState<PublicUser[]>([]);
@@ -208,17 +209,19 @@ export default function AdminDashboardPage() {
             value={loaded ? (data ? data.loanMonthlyDue.amount : null) : null}
             subtitle={
               data && data.loanMonthlyDue.count > 0
-                ? `${faMoney(data.loanMonthlyDue.count)} قسط سررسید این ماه دارد`
+                ? `${faMoney(data.loanMonthlyDue.count)} قسط سررسید این ماه دارد — پرداخت‌شده: ${faMoney(data.loanMonthlyDue.paid)} تومان، پرداخت‌نشده: ${faMoney(data.loanMonthlyDue.unpaid)} تومان`
                 : "هیچ قسطی سررسید این ماه ندارد"
             }
           />
           <StatCard
             title="تعهدات باقی‌مانده وام"
-            value={loaded ? (data ? data.loanRemaining.amount : null) : null}
+            value={loaded ? (data ? data.loanOverdue.amount : null) : null}
             variant="danger"
             subtitle={
               data
-                ? `${faMoney(data.loanRemaining.loans)} وام فعال — اقساط معوق ماه‌های قبل: ${faMoney(data.loanOverdue.amount)} تومان (${faMoney(data.loanOverdue.count)} قسط)`
+                ? data.loanOverdue.count > 0
+                  ? `${faMoney(data.loanOverdue.count)} قسط از ${faMoney(data.loanOverdue.loans)} وام سررسیدشده و پرداخت‌نشده است — مانده کل اقساط همه وام‌ها: ${faMoney(data.loanRemaining.amount)} تومان`
+                  : `هیچ قسط سررسیدشده پرداخت‌نشده‌ای وجود ندارد — مانده کل اقساط همه وام‌ها: ${faMoney(data.loanRemaining.amount)} تومان`
                 : undefined
             }
           />
