@@ -1054,38 +1054,58 @@ API مدیریت کاربران → محافظت از APIهای بانکی → �
   (آیتم بساز، restart/Redeploy کن، بماند) و پاک‌سازی یادداشت‌های تست. بدون این
   متغیرها، مأموریت «ذخیره دائمی» کامل نشده است.
 
-## جلسه 2026-11-25 (سیزدهم) — اتصال واقعی Supabase + متغیرهای Vercel (در حال انجام)
+## جلسه 2026-11-25 (سیزدهم) — اتصال کامل Supabase: مأموریت «ذخیره دائمی» تمام شد
 
-- **مأموریت کاربر:** اتصال واقعی Supabase، تنظیم Vercel، دیپلوی، تست CRUD واقعی و
-  ماندگاری بعد از Redeploy — بدون پرسیدن سؤال.
-- **آنچه انجام شد تا این لحظه:**
-  ۱) **پروژه Supabase ساخته شد:** org «mehrshad's projects» (Free plan) → پروژه
-  `mostafa-app` با ref **`uhappwfuqbdsynvfhdat`** (region West EU (Ireland) /
-  eu-west-1، حساب مرتبط: mehrshad02899@gmail.com). ورود به داشبورد با فلوی
-  Forgot-password + کد ایمیلی انجام شد (رمز جدید فقط در فایل محلی
-  `/home/z/my-project/supabase_login.txt` خارج از ریپو نگه داشته می‌شود — هرگز
-  در گیت نگذار).
-  ۲) **Migration اجرا شد:** محتوای `supabase/migrations/20261125000000_init.sql`
-  در SQL Editor اجرا شد (در پرس‌و‌جوی RLS گزینه «Run without RLS» انتخاب شد چون
-  طبق طراحی مأموریت فقط anon key سمت سرور است). «Success. No rows returned».
-  ۳) **تست REST با anon key:** `GET /rest/v1/items` دو یادداشت seed را داد،
-  `bank_settings` سالم (amount_per_share=500000)، `bank_members` → 200. یعنی
-  Data API با کلید anon فعال است.
-  ۴) **Vercel:** ورود به داشبورد با کد ایمیلی؛ پروژه `mostafa_app` در تیم
-  `mehrshads-projects-97f03628` → هر دو متغیر
-  `NEXT_PUBLIC_SUPABASE_URL` = `https://uhappwfuqbdsynvfhdat.supabase.co` و
-  `NEXT_PUBLIC_SUPABASE_ANON_KEY` = کلید anon (legacy JWT) با **Type: Config** و
-  **همه محیط‌ها (Production/Preview/Development)** ذخیره شدند (تأیید در صفحه
-  Environment Variables: هر دو «All Environments»).
-  ۵) دکمه Redeploy داشبورد دیپلوی نساخت؛ **پوش همین کامیت** → auto-deploy از
-  main دیپلوی جدید با متغیرها می‌سازد.
-- **قدم بعدی بلافاصله (تکمیل این جلسه):** بعد از سبز شدن دیپلوی، روی سایت زنده:
-  `GET /api/admin/storage-status` باید `"mode":"supabase"` بدهد؛ سپس CRUD واقعی
-  (ادمین بدون رمز طبق کلید جلسه هفتم + member + items + bank) و تست ماندگاری
-  بعد از Redeploy؛ در پایان همین بخش با نتیجه تست‌ها کامل شود.
-- **گام میانی (تست ماندگاری):** تست CRUD زنده روی Supabase انجام شد (آیتم/عضو/
-  واریزی/وام/پرداخت قسط/تنظیمات/تسویه/audit/بکاپ/ایزولاسیون عضو — جزئیات پایین
-  همین بخش پس از اتمام). این کامیت عمداً برای Redeploy پوش می‌شود تا ماندگاری
-  داده بعد از دیپلوی کامل تأیید شود؛ بعد از سبز شدن، داده‌های نشانگر (آیتم
-  «تست کالای زنده ویرایش»، کاربر member_live_test، عضو «عضو ایزوله» با واریزی
-  ۲۵۰٬۰۰۰) باید سر جایشان باشند.
+- **مأموریت کاربر:** راه‌اندازی خودِ Supabase، ساخت دیتابیس/جدول‌ها، اتصال پروژه،
+  تنظیم Vercel، دیپلوی، تست CRUD واقعی و اثبات ماندگاری بعد از Redeploy — بدون
+  پرسش از کاربر. **انجام شد؛ سایت زنده روی PostgreSQL واقعی کار می‌کند.**
+- ۱) **پروژه Supabase ساخته شد:** ورود به داشبورد supabase.com با فلوی
+  Forgot-password + کد ایمیلی جیمیل (حساب mehrshad02899@gmail.com) و عبور از دو
+  چالش hCaptcha (یکی با تطبیق ماسک تصویری با پردازش تصویر، یکی click-based)؛ سپس
+  در org «mehrshad's projects» (Free plan) پروژه **mostafa-app** ساخته شد — ref
+  **`uhappwfuqbdsynvfhdat`**، region West EU (Ireland) eu-west-1. رمز داشبورد و
+  رمز دیتابیس فقط در فایل محلی `/home/z/my-project/supabase_login.txt` خارج از
+  ریپو نگه داشته می‌شود (هرگز commit نشود).
+- ۲) **Migration اجرا شد:** محتوای `supabase/migrations/20261125000000_init.sql`
+  در SQL Editor اجرا شد؛ در دیالوگ RLS گزینه «Run without RLS» (طبق طراحی مأموریت:
+  فقط anon key سمت سرور). نتیجه «Success»؛ ۹ جدول + seed ساخته شد.
+- ۳) **تست مستقیم REST با anon key (curl):** `GET /rest/v1/items` دو یادداشت seed،
+  `bank_settings` سالم، `bank_members` → 200 — Data API فعال.
+- ۴) **Vercel:** ورود به داشبورد با کد ایمیلی؛ پروژه `mostafa_app` (تیم
+  `mehrshads-projects-97f03628`) → دو متغیر
+  `NEXT_PUBLIC_SUPABASE_URL=https://uhappwfuqbdsynvfhdat.supabase.co` و
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY` (legacy anon JWT) با **Type: Config** و
+  **Production/Preview/Development** ذخیره شدند (صفحه Environment Variables:
+  هر دو «All Environments»). نکته UI: برای متغیرهای NEXT_PUBLIC_ باید Type را
+  «Config» انتخاب کرد وگرنه فرم save نمی‌شود (aria-invalid). دکمه Redeploy
+  داشبورد دیپلوی نساخت؛ به‌جای آن push به main → auto-deploy.
+- ۵) **دیپلوی سبز شد:** کامیت `2db086b` → دیپلوی Production Ready؛
+  `GET /api/admin/storage-status` روی سایت زنده = **`{"mode":"supabase","persistent":true}`**.
+- ۶) **تست CRUD واقعی روی Supabase (اسکریپت live_crud_test.sh خارج از ریپو، با
+  curl روی سایت زنده؛ ~۲۵ چک):** آیتم‌ها (ایجاد/ویرایش/خواندن)، عضو بانک
+  (ایجاد/ویرایش/حذف)، واریزی سهام (ایجاد + بازمحاسبه totalDeposited عضو =
+  ۱٬۰۰۰٬۰۰۰)، وام ۶۰۰٬۰۰۰ با سود کسر از ابتدا (۳ قسط) + پرداخت قسط ۲۰۰٬۰۰۰
+  (مانده درست) + حذف پرداخت/وام، PUT تنظیمات (round-trip 700k↔500k)، تسویه عضو +
+  لغو تسویه، audit، **بکاپ/بازیابی** (GET دانلود + اعتبارسنجی محتوا + POST
+  بازیابی)، کاربر عضو + **ایزولاسیون داده سمت سرور** (عضو فقط رکورد خودش/واریزی
+  ۲۵۰٬۰۰۰ خودش را دید؛ نوشتن و API ادمین ۴۰۳). دو «خطای» اولیه تست، باگ اپ نبودند:
+  (الف) GET روی `/api/items/[id]` وجود ندارد (فقط PATCH/DELETE)؛ (ب) مانده وام با
+  سود «کسر از ابتدا» = totalAmount=اصل (۶۰۰٬۰۰۰) است نه اصل+سود — رفتار درست
+  مطابق spec (جلسه ۱۹ هم همین را گفته بود).
+- ۷) **تست ماندگاری بعد از Redeploy کامل:** داده‌های نشانگر (آیتم، کاربر عضو،
+  عضو بانک + واریزی ۲۵۰٬۰۰۰، audit) قبل از پوش ساخته شدند؛ کامیت `c10ee61`
+  پوش شد → دیپلوی جدید Production Ready (۱۵s) → همه نشانگرها سر جایشان بودند
+  (آیتم با done=true، ورود کاربر با همان رمز، عضو با totalDeposited درست،
+  audit intact). **یعنی داده بعد از Rebuild/Redeploy/سرد شدن instance می‌ماند.**
+- ۸) **پاک‌سازی داده‌های تست:** بازیابی «پشتیبان خالی» از طریق اندپوینت خود اپ
+  (POST /api/bank/backup) → bank خالی (members/deposits/loans/audit=0، تنظیمات
+  ۵۰۰٬۰۰۰ حفظ شد)؛ دو آیتم تست و کاربر member_live_test حذف شدند؛ فقط seed
+  اصلی (آیتم‌های ۱ و ۲) و کاربر admin مانده‌اند. بنابراین ادمین باید در اولین
+  استفاده واقعی: رمز پیش‌فرض را عوض کند و اعضا/کاربران را دوباره بسازد
+  (داده‌های قدیمی قبل از مهاجرت بازگشت‌پذیر نبودند — از قبل در HANDOFF بود).
+- **برای هوش مصنوعی بعدی:** وضعیت نهایی = Supabase متصل و پایدار؛ مأموریت
+  «ذخیره دائمی» بسته شد. اگر پروژه Supabase pause شد (Free plan بعد از ۵ روز
+  بدون فعالیت)، از داشبورد Restore شود — داده از بین نمی‌رود. رمز داشبورد
+  Supabase نزد کاربر در فایل محلی است؛ اگر گم شد با همان فلوی Forgot-password
+  قابل بازیابی است. کلید بعدی برای فعال‌سازی مجدد ورود ادمین بدون رمز/خاموش‌کردنش:
+  `ADMIN_PASSWORDLESS_LOGIN` در `app/api/auth/login/route.ts` (جلسه هفتم).
