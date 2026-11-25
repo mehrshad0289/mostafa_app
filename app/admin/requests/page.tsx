@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
+import { parseAmount } from "@/lib/bank";
 import type { BankMember, LoanRequest, PaymentRequest } from "@/lib/db";
 
 function faMoney(value: number): string {
@@ -24,6 +25,10 @@ export default function AdminRequestsPage() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [editTarget, setEditTarget] = useState<LoanRequest | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editMonths, setEditMonths] = useState("");
+  const [editReason, setEditReason] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,10 +67,54 @@ export default function AdminRequestsPage() {
         setError(data.error || "بررسی درخواست ناموفق بود.");
         return;
       }
-      setNotice(action === "approve" ? "درخواست تأیید و در بانک ثبت شد." : "درخواست رد شد.");
+      setNotice(
+        action === "reject"
+          ? "درخواست رد شد."
+          : kind === "loan"
+            ? "درخواست تسهیلات تأیید نهایی شد و وام به‌صورت خودکار در بانک ثبت شد (پنل ادمین و پنل عضو)."
+            : "درخواست تأیید و در بانک ثبت شد.",
+      );
       await load();
     } catch {
       setError("بررسی درخواست ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openEdit(r: LoanRequest) {
+    setEditTarget(r);
+    setEditAmount(String(r.amount));
+    setEditMonths(String(r.months));
+    setEditReason(r.reason);
+  }
+
+  async function saveEdit() {
+    if (!editTarget) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch("/api/admin/requests/review", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editTarget.id,
+          amount: parseAmount(editAmount),
+          months: Number(editMonths),
+          reason: editReason,
+        }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error || "ویرایش درخواست ناموفق بود.");
+        return;
+      }
+      setEditTarget(null);
+      setNotice("درخواست ویرایش شد.");
+      await load();
+    } catch {
+      setError("ویرایش درخواست ناموفق بود.");
     } finally {
       setBusy(false);
     }
@@ -80,7 +129,9 @@ export default function AdminRequestsPage() {
         <div>
           <h2 className="text-lg font-semibold">درخواست‌های اعضا</h2>
           <p className="text-xs text-zinc-500">
-            تأیید پرداخت سهام، واریزی را در بانک ثبت می‌کند؛ تأیید پرداخت قسط، آن را در وام ثبت می‌کند.
+            تأیید پرداخت سهام، واریزی را در بانک ثبت می‌کند؛ تأیید پرداخت قسط، آن را در وام ثبت می‌کند؛
+            تأیید نهایی درخواست تسهیلات، وام را به‌صورت خودکار در بانک و پنل عضو ثبت می‌کند
+            (می‌توانید قبل از تأیید، درخواست را ویرایش کنید).
           </p>
         </div>
 
@@ -181,8 +232,8 @@ export default function AdminRequestsPage() {
                       {r.reason ? ` — ${r.reason}` : ""}
                     </p>
                     {r.status === "approved" && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        یادآوری: وام واقعی را از بخش «وام‌ها و اقساط» بانک ثبت کنید.
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                        وام این درخواست به‌صورت خودکار در بانک ثبت شد (تب «وام‌ها و اقساط» و پنل عضو).
                       </p>
                     )}
                   </div>
@@ -195,10 +246,18 @@ export default function AdminRequestsPage() {
                         <button
                           type="button"
                           disabled={busy}
+                          onClick={() => openEdit(r)}
+                          className="rounded-xl border border-zinc-300 px-3 py-2 text-xs dark:border-zinc-700"
+                        >
+                          ویرایش
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy}
                           onClick={() => void review("loan", r.id, "approve")}
                           className="rounded-xl bg-emerald-600 px-3 py-2 text-xs text-white disabled:opacity-50"
                         >
-                          تأیید
+                          تأیید نهایی
                         </button>
                         <button
                           type="button"
@@ -217,6 +276,81 @@ export default function AdminRequestsPage() {
           )}
         </section>
       </div>
+
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">
+                ویرایش درخواست تسهیلات — {editTarget.username}
+              </h3>
+              <button type="button" onClick={() => setEditTarget(null)} className="text-zinc-400 hover:text-zinc-600">
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void saveEdit();
+              }}
+              className="space-y-3"
+            >
+              <label className="block space-y-1 text-xs text-zinc-500">
+                مبلغ تسهیلات (تومان)
+                <input
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  required
+                />
+              </label>
+              <label className="block space-y-1 text-xs text-zinc-500">
+                مدت بازپرداخت (ماه)
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={editMonths}
+                  onChange={(e) => setEditMonths(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                  required
+                />
+              </label>
+              <label className="block space-y-1 text-xs text-zinc-500">
+                توضیحات یا دلیل درخواست
+                <textarea
+                  value={editReason}
+                  onChange={(e) => setEditReason(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+              <p className="text-xs text-zinc-500">
+                پس از «تأیید نهایی»، وام با همین مبلغ و تعداد قسط (سود صفر، اقساط خودکار،
+                اولین قسط حدود یک ماه بعد) به‌صورت خودکار در بانک ثبت می‌شود؛ سود و جدول اقساط
+                بعداً از تب «وام‌ها و اقساط» قابل ویرایش است.
+              </p>
+              {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className="rounded-xl bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50"
+                >
+                  {busy ? "در حال ذخیره…" : "ذخیره تغییرات"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(null)}
+                  className="rounded-xl border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+                >
+                  انصراف
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {preview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">

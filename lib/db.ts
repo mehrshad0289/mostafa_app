@@ -2032,7 +2032,60 @@ export async function reviewPaymentRequest(
   return request;
 }
 
-/** بررسی درخواست تسهیلات توسط ادمین؛ تأیید فقط وضعیت را ثبت می‌کند (وام واقعی از تب وام‌ها ثبت می‌شود) */
+/** تاریخ شمسی حدود یک ماه بعد از امروز (روز بیشتر از ۲۹/۳۰/۳۱ هر ماه شمسی بسته می‌شود) */
+function nextMonthJalaliDay(now: Date = new Date()): string {
+  const p = jalaliParts(now);
+  let year = p.year;
+  let month = p.month + 1;
+  if (month > 12) {
+    month = 1;
+    year += 1;
+  }
+  const maxDay = month <= 6 ? 31 : month <= 11 ? 30 : 29;
+  const day = Math.min(p.day, maxDay);
+  return `${year}/${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
+}
+
+/** ویرایش درخواست تسهیلات معلق توسط ادمین (مبلغ / مدت / دلیل) */
+export async function updateLoanRequest(
+  id: string,
+  patch: { amount?: number; months?: number; reason?: string },
+): Promise<LoanRequest> {
+  const db = await readDb();
+  const request = db.loanRequests.find((r) => r.id === id);
+  if (!request) {
+    throw new Error("درخواست پیدا نشد.");
+  }
+  if (request.status !== "pending") {
+    throw new Error("فقط درخواست‌های در انتظار تأیید قابل ویرایش هستند.");
+  }
+  if (patch.amount !== undefined) {
+    const amount = Number(patch.amount);
+    if (!(amount > 0)) {
+      throw new Error("مبلغ درخواستی باید عددی بزرگ‌تر از صفر باشد.");
+    }
+    request.amount = amount;
+  }
+  if (patch.months !== undefined) {
+    const months = Math.floor(Number(patch.months));
+    if (!Number.isFinite(months) || months < 1 || months > 60) {
+      throw new Error("مدت بازپرداخت باید بین ۱ تا ۶۰ ماه باشد.");
+    }
+    request.months = months;
+  }
+  if (patch.reason !== undefined) {
+    request.reason = patch.reason.trim().slice(0, 1000);
+  }
+  await writeDb(db);
+  return request;
+}
+
+/**
+ * بررسی درخواست تسهیلات توسط ادمین؛ تأیید نهایی = ثبت خودکار وام واقعی در بانک
+ * (یک write) تا وام بلافاصله در پنل ادمین (تب وام‌ها) و پنل عضو دیده شود.
+ * وام با سود صفر و اقساط خودکار ثبت می‌شود؛ ادمین می‌تواند بعداً از تب وام‌ها
+ * سود/جدول اقساط را ویرایش کند.
+ */
 export async function reviewLoanRequest(
   id: string,
   action: "approve" | "reject",
@@ -2046,8 +2099,60 @@ export async function reviewLoanRequest(
   if (request.status !== "pending") {
     throw new Error("این درخواست قبلاً بررسی شده است.");
   }
+  const now = new Date().toISOString();
+  if (action === "approve") {
+    const member = db.bank.members.find((m) => m.id === request.memberId);
+    if (!member) {
+      throw new Error(
+        "عضو این درخواست در بانک پیدا نشد؛ ابتدا عضو را بازسازی کنید یا درخواست را رد کنید.",
+      );
+    }
+    const principal = request.amount;
+    const installmentCount = request.months;
+    const firstDue = nextMonthJalaliDay();
+    const { totalAmount, disbursedAmount } = loanTotals(principal, 0, "end");
+    const schedule = makeSchedule({
+      total: totalAmount,
+      months: installmentCount,
+      firstDue,
+      mode: "auto",
+    });
+    const loan: BankLoan = {
+      id: bankUid(),
+      memberId: member.id,
+      memberName: member.name,
+      principal,
+      interestMode: "end",
+      interestAmount: 0,
+      totalAmount,
+      disbursedAmount,
+      installmentCount,
+      schedule,
+      payments: [],
+      status: "active",
+      note: `ثبت خودکار از تأیید نهایی درخواست تسهیلات کاربر «${request.username}»${
+        reviewNote?.trim() ? ` — ${reviewNote.trim()}` : ""
+      }`,
+      createdAt: now,
+    };
+    db.bank.loans.unshift(loan);
+    addAudit(
+      db.bank,
+      "ثبت",
+      "وام",
+      loan.id,
+      `وام ${faAmount(principal)} تومانی برای عضو «${member.name}» با ${installmentCount.toLocaleString("fa-IR")} قسط و کل بازپرداخت ${faAmount(totalAmount)} تومان، از تأیید نهایی درخواست تسهیلات به‌صورت خودکار ثبت شد.`,
+    );
+    addAudit(
+      db.bank,
+      "تأیید",
+      "درخواست",
+      request.id,
+      `درخواست تسهیلات کاربر «${request.username}» تأیید نهایی شد و وام آن در بانک ثبت گردید.`,
+    );
+  }
   request.status = action === "approve" ? "approved" : "rejected";
-  request.reviewedAt = new Date().toISOString();
+  request.reviewedAt = now;
   request.reviewNote = reviewNote?.trim() ?? "";
   await writeDb(db);
   return request;

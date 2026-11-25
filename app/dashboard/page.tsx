@@ -512,7 +512,11 @@ export default function DashboardPage() {
                   <RequestRow
                     key={r.id}
                     title={`تسهیلات ${faMoney(r.amount)} تومانی — ${r.months.toLocaleString("fa-IR")} ماهه`}
-                    subtitle={`${faDate(r.createdAt)}${r.reason ? ` — ${r.reason}` : ""}`}
+                    subtitle={`${faDate(r.createdAt)}${r.reason ? ` — ${r.reason}` : ""}${
+                      r.status === "approved"
+                        ? " — تأیید نهایی شد؛ وام شما در بانک ثبت شد و اقساط آن در تب «اقساط» است."
+                        : ""
+                    }`}
                     status={r.status}
                   />
                 ))}
