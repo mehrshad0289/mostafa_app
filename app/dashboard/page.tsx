@@ -15,12 +15,13 @@ import type {
   PublicUser,
 } from "@/lib/db";
 
-type TabKey = "shares" | "installments" | "loans" | "profile" | "settings";
+type TabKey = "shares" | "installments" | "loans" | "deposit" | "profile" | "settings";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "shares", label: "سهام" },
   { key: "installments", label: "اقساط" },
   { key: "loans", label: "تسهیلات" },
+  { key: "deposit", label: "واریز" },
   { key: "profile", label: "پروفایل" },
   { key: "settings", label: "تنظیمات" },
 ];
@@ -39,6 +40,35 @@ const STATUS_CLASS: Record<PaymentRequest["status"], string> = {
 
 function faMoney(value: number): string {
   return Number(value || 0).toLocaleString("fa-IR");
+}
+
+/** نمایش شماره کارت ۱۶ رقمی به شکل ۴-۴-۴-۴ */
+function formatCard(card: string): string {
+  return card.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+}
+
+/** نمایش شبا به شکل گروه‌های ۴ رقمی برای خوانایی */
+function formatSheba(sheba: string): string {
+  return sheba.replace(/(.{4})(?=\S)/g, "$1 ").trim();
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const input = document.createElement("textarea");
+      input.value = text;
+      document.body.appendChild(input);
+      input.select();
+      const ok = document.execCommand("copy");
+      input.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
 }
 
 function faDate(iso: string): string {
@@ -136,6 +166,7 @@ export default function DashboardPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [installmentSub, setInstallmentSub] = useState<"unpaid" | "paid">("unpaid");
+  const [copiedKey, setCopiedKey] = useState("");
 
   const [shareModal, setShareModal] = useState(false);
   const [shareAmount, setShareAmount] = useState("");
@@ -593,6 +624,60 @@ export default function DashboardPage() {
           </section>
         )}
 
+        {tab === "deposit" && (
+          <section className="space-y-4">
+            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <h3 className="mb-1 text-sm font-medium">اطلاعات مالی برای واریز</h3>
+              <p className="text-xs leading-6 text-zinc-500">
+                مبلغ سهام یا قسط را به یکی از حساب‌های زیر واریز کنید، سپس در تب
+                «سهام» یا «اقساط» با عکس رسید یا توضیح متنی ثبت کنید تا مدیر
+                تأیید کند. با دکمه «کپی» می‌توانید هر مورد را کپی بگیرید.
+              </p>
+            </div>
+            {(() => {
+              const accounts = settings?.depositAccounts;
+              const primary = accounts?.primary;
+              const alternate = accounts?.alternate;
+              const hasPrimary = Boolean(primary && (primary.holder || primary.cardNumber || primary.sheba));
+              const hasAlternate = Boolean(alternate && (alternate.holder || alternate.cardNumber || alternate.sheba));
+              if (!hasPrimary && !hasAlternate) {
+                return (
+                  <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-6 text-center text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                    هنوز اطلاعات حساب توسط مدیر ثبت نشده است؛ با مدیر صندوق تماس بگیرید.
+                  </p>
+                );
+              }
+              return (
+                <>
+                  {hasPrimary && (
+                    <AccountBlock
+                      title="اطلاعات اصلی — واریز به این حساب"
+                      account={primary!}
+                      accent
+                      copiedKey={copiedKey}
+                      onCopy={async (key, text) => {
+                        setCopiedKey(key);
+                        setNotice((await copyText(text)) ? "کپی شد." : "کپی ناموفق بود.");
+                      }}
+                    />
+                  )}
+                  {hasAlternate && (
+                    <AccountBlock
+                      title="اطلاعات جایگزین — در صورت نیاز"
+                      account={alternate!}
+                      copiedKey={copiedKey}
+                      onCopy={async (key, text) => {
+                        setCopiedKey(key);
+                        setNotice((await copyText(text)) ? "کپی شد." : "کپی ناموفق بود.");
+                      }}
+                    />
+                  )}
+                </>
+              );
+            })()}
+          </section>
+        )}
+
         {tab === "profile" && (
           <section className="space-y-4">
             <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
@@ -742,6 +827,64 @@ function StatCard({ label, value }: { label: string; value: string }) {
     <div className="card p-4">
       <p className="text-xs text-zinc-500">{label}</p>
       <p className="mt-1 text-base font-bold text-primary-700 dark:text-primary-300">{value}</p>
+    </div>
+  );
+}
+
+/** کارت اطلاعات یک حساب واریز: بنام + شماره کارت + شبا با دکمه کپی */
+function AccountBlock({
+  title,
+  account,
+  accent = false,
+  copiedKey,
+  onCopy,
+}: {
+  title: string;
+  account: { holder: string; cardNumber: string; sheba: string };
+  accent?: boolean;
+  copiedKey: string;
+  onCopy: (key: string, text: string) => void | Promise<void>;
+}) {
+  const tone = accent
+    ? "border-primary-200 bg-primary-50/60 dark:border-primary-900 dark:bg-primary-950/40"
+    : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950";
+  const copyBtn = (key: string, text: string) => (
+    <button
+      type="button"
+      onClick={() => void onCopy(key, text)}
+      className="shrink-0 rounded-lg border border-zinc-200 px-2.5 py-1 text-[11px] text-zinc-600 transition hover:border-primary-400 hover:text-primary-700 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-primary-600 dark:hover:text-primary-300"
+    >
+      {copiedKey === key ? "کپی شد ✓" : "کپی"}
+    </button>
+  );
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${tone}`}>
+      <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{title}</p>
+      {account.holder && (
+        <p className="mt-2 text-sm font-semibold">به نام: {account.holder}</p>
+      )}
+      {account.cardNumber && (
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="min-w-0">
+            <p className="text-[11px] text-zinc-500">شماره کارت</p>
+            <p dir="ltr" className="font-mono text-sm tracking-wider">
+              {formatCard(account.cardNumber)}
+            </p>
+          </div>
+          {copyBtn("card", account.cardNumber)}
+        </div>
+      )}
+      {account.sheba && (
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="min-w-0">
+            <p className="text-[11px] text-zinc-500">شماره شبا</p>
+            <p dir="ltr" className="font-mono text-xs tracking-wider">
+              {formatSheba(account.sheba)}
+            </p>
+          </div>
+          {copyBtn("sheba", account.sheba)}
+        </div>
+      )}
     </div>
   );
 }

@@ -171,6 +171,12 @@ function validateBackup(raw: unknown): { bank?: BankDatabase; error?: string } {
         amountPerShare: s.amountPerShare,
         depositTitles: s.depositTitles as string[],
         duplicateWarning: s.duplicateWarning,
+        // حساب‌های واریز در پشتیبان‌های قدیمی نیست؛ normalizeBank مقدار خالی می‌گذارد
+        depositAccounts:
+          (s.depositAccounts ?? {
+            primary: { holder: "", cardNumber: "", sheba: "" },
+            alternate: { holder: "", cardNumber: "", sheba: "" },
+          }) as BankDatabase["settings"]["depositAccounts"],
       },
       members: candidate.members as BankDatabase["members"],
       deposits: candidate.deposits as BankDatabase["deposits"],

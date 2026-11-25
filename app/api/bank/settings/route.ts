@@ -1,6 +1,7 @@
 import { requireAdmin, requireUser } from "@/lib/auth";
 import { getBank, updateBankSettings } from "@/lib/db";
-import type { BankSettingsPatch } from "@/lib/db";
+import type { BankSettingsPatch, DepositAccount } from "@/lib/db";
+import { normalizeDigits } from "@/lib/bank";
 
 export async function GET() {
   const guard = await requireUser();
@@ -16,6 +17,7 @@ export async function PUT(request: Request) {
     amountPerShare?: number;
     depositTitles?: unknown;
     duplicateWarning?: unknown;
+    depositAccounts?: unknown;
   };
 
   const patch: BankSettingsPatch = {};
@@ -49,6 +51,38 @@ export async function PUT(request: Request) {
       );
     }
     patch.duplicateWarning = body.duplicateWarning;
+  }
+  if (body.depositAccounts !== undefined) {
+    const raw =
+      body.depositAccounts && typeof body.depositAccounts === "object"
+        ? (body.depositAccounts as Record<string, unknown>)
+        : {};
+    const parseAccount = (value: unknown, label: string): DepositAccount => {
+      const a = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+      const text = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 60) : "");
+      const digits = (v: unknown) =>
+        normalizeDigits(typeof v === "string" ? v : "").replace(/[\s-]/g, "");
+      const card = digits(a.cardNumber);
+      if (card && !/^\d{16}$/.test(card)) {
+        throw new Error(`${label} — شماره کارت باید ۱۶ رقم باشد.`);
+      }
+      const sheba = digits(a.sheba).toUpperCase();
+      if (sheba && !/^IR\d{24}$/.test(sheba)) {
+        throw new Error(`${label} — شماره شبا باید IR و ۲۴ رقم باشد.`);
+      }
+      return { holder: text(a.holder), cardNumber: card, sheba };
+    };
+    try {
+      patch.depositAccounts = {
+        primary: parseAccount(raw.primary, "حساب اصلی"),
+        alternate: parseAccount(raw.alternate, "حساب جایگزین"),
+      };
+    } catch (error) {
+      return Response.json(
+        { error: error instanceof Error ? error.message : "اطلاعات حساب نامعتبر است." },
+        { status: 400 },
+      );
+    }
   }
 
   const settings = await updateBankSettings(patch);

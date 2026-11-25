@@ -38,10 +38,18 @@ export function parseKind(value: string | null): ItemKind | undefined {
 
 export type BankDepositType = "share" | "loan_interest" | "profit" | "misc";
 
+/** حساب واریز صندوق — ادمین در تنظیمات ثبت می‌کند و اعضا در تب «واریز» می‌بینند */
+export type DepositAccount = {
+  holder: string;
+  cardNumber: string;
+  sheba: string;
+};
+
 export type BankSettings = {
   amountPerShare: number;
   depositTitles: string[];
   duplicateWarning: boolean;
+  depositAccounts: { primary: DepositAccount; alternate: DepositAccount };
 };
 
 export type BankMember = {
@@ -124,6 +132,10 @@ export const DEFAULT_BANK: BankDatabase = {
     amountPerShare: 500000,
     depositTitles: ["سهم ماهانه", "سود وام", "واریزی سود", "واریزی متفرقه"],
     duplicateWarning: true,
+    depositAccounts: {
+      primary: { holder: "", cardNumber: "", sheba: "" },
+      alternate: { holder: "", cardNumber: "", sheba: "" },
+    },
   },
   members: [],
   deposits: [],
@@ -131,12 +143,38 @@ export const DEFAULT_BANK: BankDatabase = {
   auditLog: [],
 };
 
-function normalizeBank(bank: Partial<BankDatabase> | undefined): BankDatabase {
+/** پاک‌سازی یک حساب واریز — همه فیلدها متن اختیاری با سقف طول */
+function normalizeDepositAccount(value: unknown): DepositAccount {
+  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const text = (v: unknown, max: number) =>
+    typeof v === "string" ? v.trim().slice(0, max) : "";
   return {
-    settings:
-      bank && bank.settings && typeof bank.settings === "object"
-        ? { ...DEFAULT_BANK.settings, ...bank.settings }
-        : { ...DEFAULT_BANK.settings },
+    holder: text(raw.holder, 60),
+    cardNumber: text(raw.cardNumber, 24),
+    sheba: text(raw.sheba, 26),
+  };
+}
+
+/** پاک‌سازی جفت حساب اصلی/جایگزین */
+function normalizeDepositAccounts(value: unknown): {
+  primary: DepositAccount;
+  alternate: DepositAccount;
+} {
+  const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return {
+    primary: normalizeDepositAccount(raw.primary),
+    alternate: normalizeDepositAccount(raw.alternate),
+  };
+}
+
+function normalizeBank(bank: Partial<BankDatabase> | undefined): BankDatabase {
+  const settings =
+    bank && bank.settings && typeof bank.settings === "object"
+      ? { ...DEFAULT_BANK.settings, ...bank.settings }
+      : { ...DEFAULT_BANK.settings };
+  settings.depositAccounts = normalizeDepositAccounts(settings.depositAccounts);
+  return {
+    settings,
     members: bank && Array.isArray(bank.members) ? bank.members : [],
     deposits: bank && Array.isArray(bank.deposits) ? bank.deposits : [],
     loans: bank && Array.isArray(bank.loans) ? bank.loans : [],
@@ -257,23 +295,61 @@ function userFromRow(r: Row): User {
   };
 }
 
-function settingsToRow(s: BankSettings): Row {
+/**
+ * حساب‌های واریز (اصلی/جایگزین) در همان ستون jsonb «deposit_titles» جدول
+ * bank_settings پک می‌شوند — به شکل یک عنصر JSON نشانه‌دار کنار عنوان‌ها.
+ * دلیل: ستون ثابت جدول است و با کلاینت anon-key نمی‌توان migration اجرا کرد؛
+ * با این روش بدون DDL روی Supabase هم پایدار است. (جلسه بیست‌ودوم)
+ */
+const ACCOUNTS_MARKER = "__deposit_accounts_v1";
+
+function packSettingsRow(s: BankSettings): Row {
   return {
     id: 1,
     amount_per_share: num(s.amountPerShare),
-    deposit_titles: Array.isArray(s.depositTitles) ? s.depositTitles : [],
+    deposit_titles: [
+      ...(Array.isArray(s.depositTitles) ? s.depositTitles : []),
+      { [ACCOUNTS_MARKER]: s.depositAccounts },
+    ],
     duplicate_warning: s.duplicateWarning === true,
   };
 }
 
-function settingsFromRow(r: Row): BankSettings {
+function unpackSettingsRow(r: Row): BankSettings {
+  const rawTitles = Array.isArray(r.deposit_titles) ? r.deposit_titles : [];
+  const titles: string[] = [];
+  let accounts: { primary: DepositAccount; alternate: DepositAccount } = {
+    primary: { holder: "", cardNumber: "", sheba: "" },
+    alternate: { holder: "", cardNumber: "", sheba: "" },
+  };
+  for (const el of rawTitles) {
+    if (
+      el &&
+      typeof el === "object" &&
+      !Array.isArray(el) &&
+      ACCOUNTS_MARKER in (el as Record<string, unknown>)
+    ) {
+      accounts = normalizeDepositAccounts(
+        (el as Record<string, unknown>)[ACCOUNTS_MARKER],
+      );
+    } else if (typeof el === "string" && el.trim().length > 0) {
+      titles.push(el);
+    }
+  }
   return {
     amountPerShare: num(r.amount_per_share),
-    depositTitles: Array.isArray(r.deposit_titles)
-      ? (r.deposit_titles as string[])
-      : [...DEFAULT_BANK.settings.depositTitles],
+    depositTitles: titles,
     duplicateWarning: bool(r.duplicate_warning),
+    depositAccounts: accounts,
   };
+}
+
+function settingsToRow(s: BankSettings): Row {
+  return packSettingsRow(s);
+}
+
+function settingsFromRow(r: Row): BankSettings {
+  return unpackSettingsRow(r);
 }
 
 function memberToRow(m: BankMember): Row {
@@ -1327,6 +1403,7 @@ export type BankSettingsPatch = {
   amountPerShare?: number;
   depositTitles?: string[];
   duplicateWarning?: boolean;
+  depositAccounts?: { primary: DepositAccount; alternate: DepositAccount };
 };
 
 export async function updateBankSettings(
@@ -1342,6 +1419,9 @@ export async function updateBankSettings(
   }
   if (patch.duplicateWarning !== undefined) {
     settings.duplicateWarning = patch.duplicateWarning;
+  }
+  if (patch.depositAccounts !== undefined) {
+    settings.depositAccounts = normalizeDepositAccounts(patch.depositAccounts);
   }
   await writeDb(db);
   return settings;

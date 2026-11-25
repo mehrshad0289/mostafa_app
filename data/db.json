@@ -20,8 +20,25 @@
   "bank": {
     "settings": {
       "amountPerShare": 500000,
-      "depositTitles": ["سهم ماهانه", "سود وام", "واریزی سود", "واریزی متفرقه"],
-      "duplicateWarning": true
+      "depositTitles": [
+        "سهم ماهانه",
+        "سود وام",
+        "واریزی سود",
+        "واریزی متفرقه"
+      ],
+      "duplicateWarning": true,
+      "depositAccounts": {
+        "primary": {
+          "holder": "",
+          "cardNumber": "",
+          "sheba": ""
+        },
+        "alternate": {
+          "holder": "",
+          "cardNumber": "",
+          "sheba": ""
+        }
+      }
     },
     "members": [],
     "deposits": [],

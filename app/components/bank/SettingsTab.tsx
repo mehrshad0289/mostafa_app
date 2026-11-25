@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { jalaliParts, parseAmount } from "@/lib/bank";
-import type { BankSettings } from "@/lib/db";
+import type { BankSettings, DepositAccount } from "@/lib/db";
 import AppearanceSettings from "./AppearanceSettings";
 
 type SettingsTabProps = {
@@ -17,6 +17,16 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
   const [titles, setTitles] = useState<string[]>([]);
   const [newTitle, setNewTitle] = useState("");
   const [warn, setWarn] = useState(true);
+  const [accPrimary, setAccPrimary] = useState<DepositAccount>({
+    holder: "",
+    cardNumber: "",
+    sheba: "",
+  });
+  const [accAlternate, setAccAlternate] = useState<DepositAccount>({
+    holder: "",
+    cardNumber: "",
+    sheba: "",
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
@@ -28,6 +38,8 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
     setAmount(settings.amountPerShare ? String(settings.amountPerShare) : "");
     setTitles([...(settings.depositTitles ?? [])]);
     setWarn(settings.duplicateWarning !== false);
+    setAccPrimary({ ...settings.depositAccounts?.primary });
+    setAccAlternate({ ...settings.depositAccounts?.alternate });
   }
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -194,6 +206,15 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
     await putSettings({ duplicateWarning: checked });
   }
 
+  /** ذخیره حساب اصلی و جایگزین واریز — اعتبارسنجی شماره کارت/شبا سمت سرور است */
+  async function saveAccounts(event: React.FormEvent) {
+    event.preventDefault();
+    setSaved("");
+    await putSettings({
+      depositAccounts: { primary: accPrimary, alternate: accAlternate },
+    });
+  }
+
   const inputClass =
     "rounded-xl border border-zinc-200 bg-transparent px-3 py-2 text-sm dark:border-zinc-800";
 
@@ -227,6 +248,78 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
             className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
           >
             ذخیره مبلغ سهم
+          </button>
+        </form>
+      </section>
+
+      <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <h3 className="text-sm font-medium">حساب‌های واریز اعضا</h3>
+        <p className="text-xs text-zinc-500">
+          شماره کارت، شماره شبا و نام صاحب حساب را ثبت کنید تا اعضا در تب «واریز»
+          پنل خود ببینند و به همان حساب واریز کنند. اگر حساب جایگزین ندارید،
+          خالی بگذارید.
+        </p>
+        <form onSubmit={saveAccounts} className="space-y-4">
+          <fieldset className="space-y-2 rounded-xl border border-primary-200 p-3 dark:border-primary-900">
+            <legend className="px-1 text-xs font-medium text-primary-700 dark:text-primary-300">
+              اطلاعات اصلی
+            </legend>
+            <input
+              value={accPrimary.holder}
+              onChange={(e) => setAccPrimary({ ...accPrimary, holder: e.target.value })}
+              placeholder="نام صاحب حساب اصلی"
+              className={`${inputClass} w-full`}
+            />
+            <input
+              value={accPrimary.cardNumber}
+              onChange={(e) => setAccPrimary({ ...accPrimary, cardNumber: e.target.value })}
+              placeholder="شماره کارت اصلی — ۱۶ رقم"
+              inputMode="numeric"
+              dir="ltr"
+              className={`${inputClass} w-full text-left`}
+            />
+            <input
+              value={accPrimary.sheba}
+              onChange={(e) => setAccPrimary({ ...accPrimary, sheba: e.target.value })}
+              placeholder="شماره شبا اصلی — IR و ۲۴ رقم"
+              inputMode="numeric"
+              dir="ltr"
+              className={`${inputClass} w-full text-left`}
+            />
+          </fieldset>
+          <fieldset className="space-y-2 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+            <legend className="px-1 text-xs font-medium text-zinc-500">
+              اطلاعات جایگزین
+            </legend>
+            <input
+              value={accAlternate.holder}
+              onChange={(e) => setAccAlternate({ ...accAlternate, holder: e.target.value })}
+              placeholder="نام صاحب حساب جایگزین"
+              className={`${inputClass} w-full`}
+            />
+            <input
+              value={accAlternate.cardNumber}
+              onChange={(e) => setAccAlternate({ ...accAlternate, cardNumber: e.target.value })}
+              placeholder="شماره کارت جایگزین — ۱۶ رقم"
+              inputMode="numeric"
+              dir="ltr"
+              className={`${inputClass} w-full text-left`}
+            />
+            <input
+              value={accAlternate.sheba}
+              onChange={(e) => setAccAlternate({ ...accAlternate, sheba: e.target.value })}
+              placeholder="شماره شبا جایگزین — IR و ۲۴ رقم"
+              inputMode="numeric"
+              dir="ltr"
+              className={`${inputClass} w-full text-left`}
+            />
+          </fieldset>
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
+          >
+            ذخیره حساب‌های واریز
           </button>
         </form>
       </section>
