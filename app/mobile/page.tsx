@@ -6,6 +6,9 @@ import Link from "next/link";
 import ClayIcon, { toneForSeed } from "@/app/components/mobile/ClayIcon";
 import BottomNav, { type MobileTab } from "@/app/components/mobile/BottomNav";
 import DashboardView, { type TabKey } from "@/app/components/DashboardView";
+import ServicesScreen from "@/app/components/mobile/ServicesScreen";
+import TransactionsScreen from "@/app/components/mobile/TransactionsScreen";
+import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
 import type { PublicUser } from "@/lib/db";
 
 /**
@@ -23,6 +26,8 @@ export default function MobileAppPage() {
   /** تب داخلی داشبورد برای رسیدن از خدمات/اکشن‌های سریع */
   const [homeTab, setHomeTab] = useState<TabKey>("shares");
   const [homeKey, setHomeKey] = useState(0);
+  /** بخش باز تنظیمات (وقتی از خدمات به تنظیمات پرش می‌شود) */
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -49,6 +54,18 @@ export default function MobileAppPage() {
     setHomeTab(tab);
     setHomeKey((k) => k + 1);
     setActive("home");
+  }
+
+  /** قرارداد ناوبری مشترک همه اسلایدها */
+  function navigate(target: NavTarget) {
+    if (target.tab === "home") {
+      goHomeTab(target.dashboardTab ?? "shares");
+      return;
+    }
+    if (target.tab === "settings") {
+      setSettingsSection(target.section ?? null);
+    }
+    setActive(target.tab);
   }
 
   if (me === undefined) {
@@ -111,8 +128,8 @@ export default function MobileAppPage() {
             <DashboardView key={homeKey} embedded initialTab={homeTab} />
           ))}
 
-        {active === "services" && <div className="p-4 text-sm text-zinc-500">بخش خدمات — به‌زودی در این جلسه تکمیل می‌شود.</div>}
-        {active === "transactions" && <div className="p-4 text-sm text-zinc-500">بخش تراکنش‌ها — به‌زودی در این جلسه تکمیل می‌شود.</div>}
+        {active === "services" && <ServicesScreen me={me} onNavigate={navigate} />}
+        {active === "transactions" && <TransactionsScreen me={me} onNavigate={navigate} />}
         {active === "users" && <div className="p-4 text-sm text-zinc-500">بخش مدیریت کاربران — به‌زودی در این جلسه تکمیل می‌شود.</div>}
         {active === "settings" && <div className="p-4 text-sm text-zinc-500">بخش تنظیمات — به‌زودی در این جلسه تکمیل می‌شود.</div>}
       </main>
