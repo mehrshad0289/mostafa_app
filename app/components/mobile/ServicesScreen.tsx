@@ -39,7 +39,7 @@ function groupsFor(isAdmin: boolean): ServiceGroup[] {
   const admin: ServiceGroup = {
     title: "مدیریت بانک",
     tiles: [
-      { label: "مدیریت کاربران", icon: "users", target: { tab: "users" } },
+      // «مدیریت کاربران» از جلسه ۲۷ فقط در پنل ادمین است؛ از «پنل مدیریت» در دسترس است
       { label: "تراکنش‌ها", icon: "swap", target: { tab: "transactions" } },
       { label: "پنل مدیریت", icon: "building", target: { href: "/admin" } },
       { label: "تنظیمات بانک", icon: "settings", target: { tab: "settings", section: "fund" satisfies SettingsSection } },

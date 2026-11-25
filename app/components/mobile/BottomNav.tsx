@@ -2,13 +2,12 @@
 
 import ClayIcon, { type ClayIconName, toneForSeed } from "./ClayIcon";
 
-export type MobileTab = "home" | "services" | "transactions" | "users" | "settings";
+export type MobileTab = "home" | "services" | "transactions" | "settings";
 
 const NAV: { key: MobileTab; label: string; icon: ClayIconName }[] = [
   { key: "home", label: "خانه", icon: "home" },
   { key: "services", label: "خدمات", icon: "grid" },
   { key: "transactions", label: "تراکنش‌ها", icon: "swap" },
-  { key: "users", label: "مدیریت کاربران", icon: "users" },
   { key: "settings", label: "تنظیمات", icon: "settings" },
 ];
 

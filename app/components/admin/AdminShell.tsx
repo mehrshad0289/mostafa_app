@@ -4,20 +4,20 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import ClayIcon, { toneForSeed, type ClayIconName } from "@/app/components/mobile/ClayIcon";
+import HouseLogo from "@/app/components/mobile/HouseLogo";
+import LiveClock from "@/app/components/mobile/LiveClock";
 import type { PublicUser } from "@/lib/db";
-
-const BRAND_TONE: [string, string] = ["#6198F7", "#1A46AF"];
 
 const MENU: { href: string; label: string; icon: ClayIconName; badge?: boolean }[] = [
   { href: "/admin", label: "داشبورد", icon: "home" },
   { href: "/admin/users", label: "مدیریت کاربران", icon: "users" },
   { href: "/admin/requests", label: "درخواست‌های اعضا", icon: "bell", badge: true },
-  { href: "/bank?tab=members", label: "اعضا", icon: "user" },
-  { href: "/bank?tab=deposits", label: "تراکنش‌ها", icon: "swap" },
-  { href: "/bank?tab=loans", label: "وام‌ها و اقساط", icon: "banknote" },
-  { href: "/bank?tab=reports", label: "گزارش‌ها", icon: "chart" },
-  { href: "/bank?tab=settings", label: "تنظیمات", icon: "settings" },
-  { href: "/bank?tab=audit", label: "سوابق", icon: "history" },
+  { href: "/bank/members", label: "اعضا", icon: "user" },
+  { href: "/bank/transactions", label: "تراکنش‌ها", icon: "swap" },
+  { href: "/bank/loans", label: "وام‌ها و اقساط", icon: "banknote" },
+  { href: "/bank/reports", label: "گزارش‌ها", icon: "chart" },
+  { href: "/bank/settings", label: "تنظیمات", icon: "settings" },
+  { href: "/bank/audit", label: "سوابق", icon: "history" },
 ];
 
 function faCount(value: number): string {
@@ -36,8 +36,9 @@ function UnreadBadge({ count }: { count: number }) {
 
 /**
  * قاب پنل ادمین — هم‌سبک با پوسته «فم بانک» (پنل یوزر):
- * هدر برند FB با لوگوی سفالی + چیپ «مدیر» + آواتار سفالی، نوار گرادیان،
- * منوی کناری دسکتاپ و نوار افقی موبایل با آیکون‌های سه‌بعدی پاستلی.
+ * هدر برند با لوگوی خانه سه‌بعدی + «فم بانک» + زیرنویس انگلیسی Fam Bank +
+ * نوار روز/تاریخ/ساعت زنده + چیپ «مدیر» + آواتار سفالی، منوی کناری دسکتاپ
+ * و نوار افقی موبایل با آیکون‌های سه‌بعدی پاستلی.
  * منطق قبلی دست‌نخورده: گارد دسترسی، زنگ درخواست‌های خوانده‌نشده (هر ۳۰ ثانیه)، خروج.
  */
 export default function AdminShell({ children }: { children: React.ReactNode }) {
@@ -96,11 +97,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   if (me === undefined) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-50 dark:bg-black dark:text-zinc-50">
-        <span
-          className="clay animate-pulse"
-          style={{ width: 56, height: 56, background: `linear-gradient(140deg, ${BRAND_TONE[0]}, ${BRAND_TONE[1]})` }}
-        >
-          <span className="relative z-10 text-sm font-black text-white">FB</span>
+        <span className="animate-pulse">
+          <HouseLogo size={56} />
         </span>
         <p className="text-sm text-zinc-500">در حال باز کردن پنل مدیریت…</p>
       </main>
@@ -122,12 +120,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
-            <span
-              className="clay"
-              style={{ width: 44, height: 44, background: `linear-gradient(140deg, ${BRAND_TONE[0]}, ${BRAND_TONE[1]})` }}
-            >
-              <span className="relative z-10 -mb-px text-[13px] font-black tracking-tight text-white">FB</span>
-            </span>
+            <HouseLogo size={44} />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-[15px] font-bold leading-5">فم بانک</h1>
@@ -135,6 +128,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                   پنل مدیریت
                 </span>
               </div>
+              <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-zinc-400 dark:text-zinc-500">
+                Fam Bank
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -171,6 +167,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               <ClayIcon name="logout" size={22} ghost ghostColor="currentColor" />
             </button>
           </div>
+        </div>
+
+        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) */}
+        <div className="mx-auto flex max-w-6xl justify-center px-4 pb-1.5" data-noprint>
+          <LiveClock />
         </div>
 
         {/* نوار افقی منو در موبایل — قرص‌های گرادیانی مثل فیلترهای تراکنش‌ها */}

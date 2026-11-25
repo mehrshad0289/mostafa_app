@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- آیکون فم بانک — جلسه ۲۷: مربع گرد آبی با حرف F انگلیسی (جایگزین آیکون مشکی قبلی) -->
+  <defs>
+    <linearGradient id="famFav" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#4C86F2"/>
+      <stop offset="1" stop-color="#1A46AF"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#famFav)"/>
+  <ellipse cx="30" cy="8" rx="42" ry="20" fill="#ffffff" opacity="0.14"/>
+  <text x="32" y="35" font-family="Arial, Helvetica, sans-serif" font-size="41" font-weight="900" fill="#ffffff" text-anchor="middle" dominant-baseline="central">F</text>
+</svg>

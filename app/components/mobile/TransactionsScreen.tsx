@@ -218,7 +218,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
   const quickActions: { label: string; icon: ClayIconName; target: NavTarget | { href: string } }[] = isAdmin
     ? [
         { label: "ثبت واریز", icon: "plus", target: { href: "/admin" } },
-        { label: "اعضا", icon: "users", target: { tab: "users" } },
+        // از جلسه ۲۷: اعضا مستقیم به بخش اعضای پنل مدیریت می‌رود (مدیریت کاربران فقط در پنل ادمین)
+        { label: "اعضا", icon: "users", target: { href: "/bank/members" } },
         { label: "گزارش کامل", icon: "chart", target: { href: "/admin" } },
       ]
     : [

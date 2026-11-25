@@ -9,10 +9,10 @@ export type SettingsSection =
   | "fund"
   | "about";
 
-/** مقصد ناوبری داخل پوسته موبایل — همه صفحه‌ها با همین قرارداد به هم می‌روند */
+/** مقصد ناوبری داخل پوسته موبایل — همه صفحه‌ها با همین قرارداد به هم می‌روند
+ *  (تب «مدیریت کاربران» از جلسه ۲۷ حذف شد؛ مدیریت کاربران فقط در پنل ادمین است) */
 export type NavTarget =
   | { tab: "home"; dashboardTab?: TabKey }
   | { tab: "services" }
   | { tab: "transactions" }
-  | { tab: "users" }
   | { tab: "settings"; section?: SettingsSection };

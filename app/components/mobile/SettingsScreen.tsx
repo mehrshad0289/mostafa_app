@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName, toneForSeed } from "./ClayIcon";
+import HouseLogo from "./HouseLogo";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type { SettingsSection } from "./nav";
 import type { BankSettings, PublicUser } from "@/lib/db";
@@ -364,10 +365,13 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
         {section === "about" && (
           <div className="space-y-3">
             <div className="rounded-3xl border border-zinc-200 bg-gradient-to-bl from-primary-50 to-white p-6 text-center shadow-sm dark:border-zinc-800 dark:from-primary-950/50 dark:to-zinc-950">
-              <span className="clay mx-auto" style={{ width: 64, height: 64, background: "linear-gradient(140deg, #6198F7, #1A46AF)" }}>
-                <span className="relative z-10 text-base font-black text-white">FB</span>
+              <span className="mx-auto block w-fit">
+                <HouseLogo size={64} />
               </span>
               <p className="mt-3 text-base font-black">فم بانک</p>
+              <p dir="ltr" className="mt-0.5 text-[10px] font-medium tracking-wide text-zinc-400 dark:text-zinc-500">
+                Fam Bank
+              </p>
               <p className="mt-2 text-xs text-zinc-500">نسخه ۱٫۰٫۰ — رابط موبایل</p>
               <p className="mt-3 text-[11px] leading-6 text-zinc-500">
                 اپلیکیشن مدیریت بانک خانوادگی: سهام، اقساط، تسهیلات و گزارش‌ها —

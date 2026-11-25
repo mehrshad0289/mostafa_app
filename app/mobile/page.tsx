@@ -4,23 +4,24 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ClayIcon, { toneForSeed } from "@/app/components/mobile/ClayIcon";
+import HouseLogo from "@/app/components/mobile/HouseLogo";
+import LiveClock from "@/app/components/mobile/LiveClock";
 import BottomNav, { type MobileTab } from "@/app/components/mobile/BottomNav";
 import DashboardView, { type DashboardTab } from "@/app/components/DashboardView";
 import ServicesScreen from "@/app/components/mobile/ServicesScreen";
 import TransactionsScreen from "@/app/components/mobile/TransactionsScreen";
-import UsersScreen from "@/app/components/mobile/UsersScreen";
 import SettingsScreen from "@/app/components/mobile/SettingsScreen";
 import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
 import type { PublicUser } from "@/lib/db";
 
 /**
- * پوسته موبایل فم بانک — هدر برند + نوار ناوبری پایین
- * با ۵ آیتم (خانه، خدمات، تراکنش‌ها، مدیریت کاربران، تنظیمات).
+ * پوسته موبایل فم بانک — هدر برند (لوگوی خانه سه‌بعدی + فم بانک + Fam Bank
+ * + روز/تاریخ/ساعت زنده) + نوار ناوبری پایین با ۴ آیتم
+ * (خانه، خدمات، تراکنش‌ها، تنظیمات) — «مدیریت کاربران» از لایه یوزر حذف شد
+ * (جلسه ۲۷) و مدیریت کاربران فقط در پنل ادمین است.
  * تب «خانه» برای عضو = شبکه مربع‌های سر فصل‌ها؛ هر سر فصل «یک‌تیکه» و لمسش
  * مستقیم همان بخش را باز می‌کند (بدون واسط داشبورد کلی) — جلسه ۲۶ مرحله ۲.
  */
-
-const BRAND_TONE: [string, string] = ["#6198F7", "#1A46AF"];
 
 export default function MobileAppPage() {
   const router = useRouter();
@@ -75,8 +76,8 @@ export default function MobileAppPage() {
   if (me === undefined) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-50 dark:bg-black">
-        <span className="clay" style={{ width: 56, height: 56, background: `linear-gradient(140deg, ${BRAND_TONE[0]}, ${BRAND_TONE[1]})` }}>
-          <span className="relative z-10 text-sm font-black text-white">FB</span>
+        <span className="animate-pulse">
+          <HouseLogo size={56} />
         </span>
         <p className="text-sm text-zinc-500">در حال باز کردن فم بانک…</p>
       </main>
@@ -88,18 +89,16 @@ export default function MobileAppPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      {/* هدر برند */}
+      {/* هدر برند — لوگوی خانه سه‌بعدی + فم بانک + Fam Bank + روز/تاریخ/ساعت زنده */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md dark:bg-zinc-950/95">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex items-center gap-2.5">
-            <span
-              className="clay"
-              style={{ width: 44, height: 44, background: `linear-gradient(140deg, ${BRAND_TONE[0]}, ${BRAND_TONE[1]})` }}
-            >
-              <span className="relative z-10 -mb-px text-[13px] font-black tracking-tight text-white">FB</span>
-            </span>
+            <HouseLogo size={44} />
             <div className="min-w-0">
               <h1 className="text-[15px] font-bold leading-5">فم بانک</h1>
+              <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-zinc-400 dark:text-zinc-500">
+                Fam Bank
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -116,6 +115,10 @@ export default function MobileAppPage() {
               <span className="relative z-10 text-xs font-bold text-white">{(me.fullName || me.username).trim().charAt(0)}</span>
             </span>
           </div>
+        </div>
+        {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) */}
+        <div className="mx-auto flex max-w-md justify-center px-4 pb-1.5">
+          <LiveClock />
         </div>
         <div className="h-0.5 bg-gradient-to-l from-primary-700 via-primary-500 to-primary-300" />
       </header>
@@ -137,7 +140,6 @@ export default function MobileAppPage() {
 
         {active === "services" && <ServicesScreen me={me} onNavigate={navigate} />}
         {active === "transactions" && <TransactionsScreen me={me} onNavigate={navigate} />}
-        {active === "users" && <UsersScreen me={me} />}
         {active === "settings" && (
           <SettingsScreen
             me={me}
@@ -285,7 +287,7 @@ function AdminMobileHome({ name }: { name: string }) {
           <ClayIcon name="building" size={44} />
           <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">پنل مدیریت کامل</span>
         </Link>
-        <Link href="/bank?tab=reports" className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-sm transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950">
+        <Link href="/bank/reports" className="clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200 bg-white p-2 shadow-sm transition hover:opacity-90 dark:border-zinc-800 dark:bg-zinc-950">
           <ClayIcon name="chart" size={44} />
           <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">گزارش‌ها</span>
         </Link>
@@ -322,7 +324,7 @@ function AdminMobileHome({ name }: { name: string }) {
 
       <p className="text-center text-[11px] leading-6 text-zinc-400">
         مدیریت اعضا، وام‌ها و تنظیمات بانک در پنل مدیریت کامل انجام می‌شود؛
-        مدیریت کاربران و تراکنش‌ها از نوار پایین در دسترس است.
+        تراکنش‌ها هم از نوار پایین در دسترس است.
       </p>
     </div>
   );
