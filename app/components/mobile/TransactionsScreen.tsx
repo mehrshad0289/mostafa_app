@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName, type ClayTone } from "./ClayIcon";
 import { jalaliParts } from "@/lib/bank";
 import type { NavTarget } from "./nav";
@@ -69,6 +70,7 @@ type TransactionsScreenProps = {
 type FilterKey = "all" | "in" | "out" | "pending";
 
 export default function TransactionsScreen({ me, onNavigate }: TransactionsScreenProps) {
+  const router = useRouter();
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
   const [loans, setLoans] = useState<BankLoan[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
@@ -214,7 +216,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
       ];
 
   function openQuick(target: NavTarget | { href: string }) {
-    if ("href" in target) window.location.href = target.href;
+    if ("href" in target) router.push(target.href);
     else onNavigate(target);
   }
 

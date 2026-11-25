@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName } from "./ClayIcon";
 import type { NavTarget, SettingsSection } from "./nav";
 import type { PublicUser } from "@/lib/db";
@@ -54,11 +55,12 @@ type ServicesScreenProps = {
 
 /** اسلاید خدمات — گرید چندستونه آیکون‌های سه‌بعدی با برچسب فارسی زیر هر آیکون */
 export default function ServicesScreen({ me, onNavigate }: ServicesScreenProps) {
+  const router = useRouter();
   const groups = groupsFor(me.role === "admin");
 
   function openTile(tile: ServiceTile) {
     if ("href" in tile.target) {
-      window.location.href = tile.target.href;
+      router.push(tile.target.href);
     } else {
       onNavigate(tile.target);
     }

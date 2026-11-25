@@ -48,7 +48,9 @@ export default function UsersScreen({ me }: { me: PublicUser }) {
   }, [isAdmin]);
 
   useEffect(() => {
-    void load();
+    // شروع load در تیک بعدی — مثل DashboardView تا setState هم‌زمان در effect نباشد
+    const timer = setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
   }, [load]);
 
   const adminCount = useMemo(() => users.filter((u) => u.role === "admin").length, [users]);
