@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
-  title: "فم بانک | Fam Bank",
-  description: "اپلیکیشن موبایل فم بانک — مدیریت صندوق خانوادگی",
+  title: "فم بانک",
+  description: "اپلیکیشن موبایل فم بانک — مدیریت بانک خانوادگی",
 };
 
 export const viewport: Viewport = {

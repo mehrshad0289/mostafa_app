@@ -135,9 +135,6 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                   پنل مدیریت
                 </span>
               </div>
-              <p dir="ltr" className="text-left text-[10px] font-medium tracking-widest text-zinc-400">
-                FAM BANK · FB
-              </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">

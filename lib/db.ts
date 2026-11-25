@@ -38,7 +38,7 @@ export function parseKind(value: string | null): ItemKind | undefined {
 
 export type BankDepositType = "share" | "loan_interest" | "profit" | "misc";
 
-/** حساب واریز صندوق — ادمین در تنظیمات ثبت می‌کند و اعضا در تب «واریز» می‌بینند */
+/** حساب واریز بانک — ادمین در تنظیمات ثبت می‌کند و اعضا در تب «واریز» می‌بینند */
 export type DepositAccount = {
   holder: string;
   cardNumber: string;

@@ -9,7 +9,7 @@ import type { BankSettings, PublicUser } from "@/lib/db";
 
 /**
  * اسلاید تنظیمات — لیست زیبا از بخش‌ها؛ با زدن هر آیتم وارد جزئیاتش می‌شویم
- * (پروفایل، امنیت و رمز، ظاهر و تم، حساب‌های واریز، تنظیمات صندوق، درباره).
+ * (پروفایل، امنیت و رمز، ظاهر و تم، حساب‌های واریز، تنظیمات بانک، درباره).
  */
 
 type Props = {
@@ -31,8 +31,8 @@ const ROWS: RowDef[] = [
   { key: "profile", title: "پروفایل من", subtitle: "نام، نام کاربری و اطلاعات حساب", icon: "user" },
   { key: "security", title: "امنیت و رمز عبور", subtitle: "تغییر رمز ورود به اپ", icon: "shield" },
   { key: "appearance", title: "ظاهر اپلیکیشن", subtitle: "تم رنگی، فونت و حالت نمایش", icon: "palette" },
-  { key: "deposits", title: "حساب‌های واریز", subtitle: "شماره کارت و شبا برای واریز به صندوق", icon: "wallet" },
-  { key: "fund", title: "تنظیمات صندوق", subtitle: "سقف سهام، عنوان‌های واریز و پنل مدیریت", icon: "building", adminOnly: true },
+  { key: "deposits", title: "حساب‌های واریز", subtitle: "شماره کارت و شبا برای واریز به بانک", icon: "wallet" },
+  { key: "fund", title: "تنظیمات بانک", subtitle: "سقف سهام، عنوان‌های واریز و پنل مدیریت", icon: "building", adminOnly: true },
   { key: "about", title: "درباره فم بانک", subtitle: "نسخه اپ و معرفی", icon: "info" },
 ];
 
@@ -84,7 +84,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
   const [pwNew2, setPwNew2] = useState("");
   const [pwError, setPwError] = useState("");
 
-  // تنظیمات صندوق (برای حساب‌های واریز و بخش صندوق)
+  // تنظیمات بانک (برای حساب‌های واریز و بخش بانک)
   const [settings, setSettings] = useState<BankSettings | null>(null);
 
   useEffect(() => {
@@ -276,7 +276,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
                   <div className="rounded-3xl border border-zinc-200 bg-white px-4 py-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
                     <ClayIcon name="wallet" size={52} className="mx-auto opacity-90" />
                     <p className="mt-3 text-xs leading-6 text-zinc-500">
-                      هنوز اطلاعات حساب توسط مدیر ثبت نشده است؛ با مدیر صندوق تماس بگیرید.
+                      هنوز اطلاعات حساب توسط مدیر ثبت نشده است؛ با مدیر بانک تماس بگیرید.
                     </p>
                   </div>
                 );
@@ -368,12 +368,9 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
                 <span className="relative z-10 text-base font-black text-white">FB</span>
               </span>
               <p className="mt-3 text-base font-black">فم بانک</p>
-              <p dir="ltr" className="text-[10px] font-semibold tracking-widest text-zinc-400">
-                FAM BANK · FB
-              </p>
               <p className="mt-2 text-xs text-zinc-500">نسخه ۱٫۰٫۰ — رابط موبایل</p>
               <p className="mt-3 text-[11px] leading-6 text-zinc-500">
-                اپلیکیشن مدیریت صندوق خانوادگی: سهام، اقساط، تسهیلات و گزارش‌ها —
+                اپلیکیشن مدیریت بانک خانوادگی: سهام، اقساط، تسهیلات و گزارش‌ها —
                 با ظاهری ساده و امن برای همه اعضا.
               </p>
             </div>

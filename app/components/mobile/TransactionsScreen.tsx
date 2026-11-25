@@ -176,7 +176,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
     return out;
   }, [deposits, loans, requests, isAdmin]);
 
-  /** موجودی — عضو: مجموع واریزی‌هایش؛ ادمین: واریزی صندوق منهای تسهیلات پرداختی (تومان) */
+  /** موجودی — عضو: مجموع واریزی‌هایش؛ ادمین: واریزی بانک منهای تسهیلات پرداختی (تومان) */
   const balanceToman = useMemo(() => {
     if (isAdmin) {
       const dep = deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0);
@@ -234,7 +234,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         <div className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-white/5" />
         <div className="relative">
-          <p className="text-xs font-medium text-white/70">{isAdmin ? "موجودی صندوق" : "موجودی حساب"}</p>
+          <p className="text-xs font-medium text-white/70">{isAdmin ? "موجودی بانک" : "موجودی حساب"}</p>
           <div className="mt-1 flex items-center gap-2.5">
             <p className="text-[27px] font-black leading-9 tracking-tight">
               {balanceVisible ? (

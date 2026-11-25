@@ -84,7 +84,7 @@ export default function UsersScreen({ me }: { me: PublicUser }) {
           <ClayIcon name="shield" size={54} className="mx-auto" />
           <p className="mt-3 text-sm font-bold">دسترسی محدود</p>
           <p className="mt-1 text-xs leading-6 text-zinc-500 dark:text-zinc-400">
-            مدیریت کاربران فقط برای مدیر صندوق فعال است.
+            مدیریت کاربران فقط برای مدیر بانک فعال است.
           </p>
         </div>
         <div className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">

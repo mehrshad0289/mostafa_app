@@ -19,7 +19,7 @@ type ServiceGroup = {
 /** گروه‌های خدمات — برای عضو و مدیر (گروه مدیریت فقط برای ادمین) */
 function groupsFor(isAdmin: boolean): ServiceGroup[] {
   const bank: ServiceGroup = {
-    title: "خدمات صندوق",
+    title: "خدمات بانک",
     tiles: [
       { label: "پرداخت سهام", icon: "coins", target: { tab: "home", dashboardTab: "shares" } },
       { label: "پرداخت قسط", icon: "calendar", target: { tab: "home", dashboardTab: "installments" } },
@@ -37,12 +37,12 @@ function groupsFor(isAdmin: boolean): ServiceGroup[] {
     ],
   };
   const admin: ServiceGroup = {
-    title: "مدیریت صندوق",
+    title: "مدیریت بانک",
     tiles: [
       { label: "مدیریت کاربران", icon: "users", target: { tab: "users" } },
       { label: "تراکنش‌ها", icon: "swap", target: { tab: "transactions" } },
       { label: "پنل مدیریت", icon: "building", target: { href: "/admin" } },
-      { label: "تنظیمات صندوق", icon: "settings", target: { tab: "settings", section: "fund" satisfies SettingsSection } },
+      { label: "تنظیمات بانک", icon: "settings", target: { tab: "settings", section: "fund" satisfies SettingsSection } },
     ],
   };
   return isAdmin ? [bank, admin, app] : [bank, app];

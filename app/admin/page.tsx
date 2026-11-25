@@ -123,7 +123,7 @@ function StatCard({
 }
 
 /**
- * داشبورد ادمین — هم‌سبک با پوسته یوزر: هیرو گرادیان سرمه‌ای با موجودی صندوق +
+ * داشبورد ادمین — هم‌سبک با پوسته یوزر: هیرو گرادیان سرمه‌ای با موجودی بانک +
  * کارت‌های آماری با آیکون‌های سفالی + اعلان درخواست‌های خوانده‌نشده.
  */
 export default function AdminDashboardPage() {
@@ -167,13 +167,13 @@ export default function AdminDashboardPage() {
   return (
     <AdminShell>
       <div className="space-y-6">
-        {/* هیرو گرادیان موجودی صندوق — هم‌سبک با هدر تراکنش‌ها و خانه مدیر در پوسته یوزر */}
+        {/* هیرو گرادیان موجودی بانک — هم‌سبک با هدر تراکنش‌ها و خانه مدیر در پوسته یوزر */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-4 text-white shadow-lg shadow-primary-900/30 sm:p-5">
           <div className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-white/5" />
           <div className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-white/5" />
           <div className="relative">
             <p className="text-xs text-white/70">سلام، {name}</p>
-            <p className="mt-1 text-sm font-medium text-white/90">موجودی کلی صندوق</p>
+            <p className="mt-1 text-sm font-medium text-white/90">موجودی کلی بانک</p>
             <p className="mt-1 text-2xl font-black leading-8 tracking-tight">
               {loaded && fund ? (
                 <>

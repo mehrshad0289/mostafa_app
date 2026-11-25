@@ -98,9 +98,6 @@ export default function MobileAppPage() {
             </span>
             <div className="min-w-0">
               <h1 className="text-[15px] font-bold leading-5">فم بانک</h1>
-              <p dir="ltr" className="text-left text-[10px] font-medium tracking-widest text-zinc-400">
-                FAM BANK · FB
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -147,7 +144,7 @@ export default function MobileAppPage() {
   );
 }
 
-/** خانه مخصوص مدیر در پوسته موبایل — خلاصه صندوق از داده واقعی + میان‌برها */
+/** خانه مخصوص مدیر در پوسته موبایل — خلاصه بانک از داده واقعی + میان‌برها */
 function AdminMobileHome({ name }: { name: string }) {
   const [summary, setSummary] = useState<{ depositsTotal: number; loansTotal: number; members: number } | null>(null);
 
@@ -182,7 +179,7 @@ function AdminMobileHome({ name }: { name: string }) {
     <div className="space-y-4 px-4 pt-4">
       <div className="rounded-3xl bg-gradient-to-bl from-primary-700 via-primary-800 to-primary-950 p-5 text-white shadow-lg shadow-primary-900/30">
         <p className="text-xs text-white/70">سلام، {name}</p>
-        <p className="mt-1 text-sm font-medium text-white/90">موجودی صندوق</p>
+        <p className="mt-1 text-sm font-medium text-white/90">موجودی بانک</p>
         <p className="mt-1 text-2xl font-black tracking-tight">
           {cash === null ? "…" : `${fa(cash)} تومان`}
         </p>
@@ -205,7 +202,7 @@ function AdminMobileHome({ name }: { name: string }) {
       </div>
 
       <p className="text-center text-[11px] leading-6 text-zinc-400">
-        مدیریت اعضا، وام‌ها و تنظیمات صندوق در پنل مدیریت کامل انجام می‌شود؛
+        مدیریت اعضا، وام‌ها و تنظیمات بانک در پنل مدیریت کامل انجام می‌شود؛
         مدیریت کاربران و تراکنش‌ها از نوار پایین در دسترس است.
       </p>
     </div>

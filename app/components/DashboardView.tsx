@@ -694,7 +694,7 @@ export default function DashboardView({ embedded = false, initialTab = "shares" 
               if (!hasPrimary && !hasAlternate) {
                 return (
                   <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-6 text-center text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-                    هنوز اطلاعات حساب توسط مدیر ثبت نشده است؛ با مدیر صندوق تماس بگیرید.
+                    هنوز اطلاعات حساب توسط مدیر ثبت نشده است؛ با مدیر بانک تماس بگیرید.
                   </p>
                 );
               }

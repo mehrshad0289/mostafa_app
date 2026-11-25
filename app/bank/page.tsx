@@ -106,9 +106,6 @@ export default function BankPage() {
           </span>
           <div>
             <h1 className="text-xl font-bold tracking-tight">فم بانک</h1>
-            <p dir="ltr" className="text-left text-[10px] font-medium tracking-widest text-zinc-400">
-              FAM BANK · FB
-            </p>
           </div>
         </div>
         <button type="button" onClick={() => setLocked(true)} className="btn-outline">
@@ -136,7 +133,7 @@ export default function BankPage() {
         <div className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-white/5" />
         <div className="relative">
-          <p className="text-xs font-medium text-white/70">خلاصه صندوق</p>
+          <p className="text-xs font-medium text-white/70">خلاصه بانک</p>
           <p className="mt-1 text-[27px] font-black leading-9 tracking-tight">
             {faNum(summary.balance)} <span className="text-base font-bold text-white/80">تومان</span>
           </p>
