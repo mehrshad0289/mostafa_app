@@ -6,6 +6,7 @@ import ClayIcon, { type ClayIconName } from "./ClayIcon";
 import HouseLogo from "./HouseLogo";
 import MemberGuide from "./SystemGuide";
 import BackupSection from "./BackupSection";
+import MessagesSection from "./MessagesSection";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type { SettingsSection } from "./nav";
 import type { BankSettings, PublicUser } from "@/lib/db";
@@ -28,14 +29,17 @@ type RowDef = {
   subtitle: string;
   icon: ClayIconName;
   adminOnly?: boolean;
+  /** فقط برای اعضا — در هدر مدیر پنهان است (مثل پیام‌رسان عضو، جلسه ۵۰) */
+  memberOnly?: boolean;
 };
 
 const ROWS: RowDef[] = [
   { key: "profile", title: "پروفایل من", subtitle: "نام، نام کاربری و اطلاعات حساب", icon: "user" },
   { key: "security", title: "امنیت و رمز عبور", subtitle: "تغییر رمز ورود به اپ", icon: "shield" },
+  { key: "messages", title: "پیام‌ها", subtitle: "پیام‌های مدیر و ارسال پیام یا مشکل به مدیریت", icon: "note", memberOnly: true },
   { key: "backup", title: "پشتیبان‌گیری اطلاعات", subtitle: "دریافت اطلاعات من در قالب اکسل و PDF", icon: "download" },
   { key: "appearance", title: "ظاهر اپلیکیشن", subtitle: "تم رنگی، فونت و حالت نمایش", icon: "palette" },
-  { key: "deposits", title: "حساب‌های واریز", subtitle: "شماره کارت و شبا برای واریز به بانک", icon: "wallet" },
+  { key: "deposits", title: "حساب‌های واریز", subtitle: "نام بانک، شماره کارت و شبا برای واریز به بانک", icon: "wallet" },
   { key: "fund", title: "تنظیمات بانک", subtitle: "سقف سهام، عنوان‌های واریز و پنل مدیریت", icon: "building", adminOnly: true },
   { key: "guide", title: "راهنمای سیستم", subtitle: "نحوه کار با فَم بانک — از سهام تا تسهیلات", icon: "info" },
   { key: "about", title: "درباره فَم بانک", subtitle: "نسخه اپ و معرفی", icon: "info" },
@@ -148,7 +152,13 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
     router.replace("/login");
   }
 
-  const rows = useMemo(() => ROWS.filter((r) => !r.adminOnly || isAdmin), [isAdmin]);
+  const rows = useMemo(
+    () =>
+      ROWS.filter(
+        (r) => (!r.adminOnly || isAdmin) && (!r.memberOnly || !isAdmin),
+      ),
+    [isAdmin],
+  );
 
   /* ---------- نمای جزئیات ---------- */
   if (section) {
@@ -271,6 +281,9 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
           <BackupSection />
         )}
 
+        {/* جلسه ۵۰ — پیام‌رسان عضو ↔ مدیر در تنظیمات پنل یوزر */}
+        {section === "messages" && <MessagesSection />}
+
         {section === "appearance" && (
           <div className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <AppearanceSettings />
@@ -283,8 +296,12 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
               const accounts = settings?.depositAccounts;
               const primary = accounts?.primary;
               const alternate = accounts?.alternate;
-              const hasPrimary = Boolean(primary && (primary.holder || primary.cardNumber || primary.sheba));
-              const hasAlternate = Boolean(alternate && (alternate.holder || alternate.cardNumber || alternate.sheba));
+              const hasPrimary = Boolean(
+                primary && (primary.bankName || primary.holder || primary.cardNumber || primary.sheba),
+              );
+              const hasAlternate = Boolean(
+                alternate && (alternate.bankName || alternate.holder || alternate.cardNumber || alternate.sheba),
+              );
               if (!hasPrimary && !hasAlternate) {
                 return (
                   <div className="rounded-3xl border border-zinc-200 bg-white px-4 py-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
@@ -295,7 +312,12 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
                   </div>
                 );
               }
-              const block = (title: string, acc: { holder: string; cardNumber: string; sheba: string }, accent: boolean, key: string) => (
+              const block = (
+                title: string,
+                acc: { bankName?: string; holder: string; cardNumber: string; sheba: string },
+                accent: boolean,
+                key: string,
+              ) => (
                 <div
                   className={`rounded-3xl border p-4 shadow-sm ${
                     accent
@@ -304,7 +326,10 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
                   }`}
                 >
                   <p className="mb-2 text-[11px] font-bold text-zinc-500">{title}</p>
-                  <p className="text-sm font-bold">{acc.holder || "—"}</p>
+                  {acc.bankName && (
+                    <p className="text-sm font-bold">نام بانک: {acc.bankName}</p>
+                  )}
+                  <p className="mt-1 text-sm font-bold">{acc.holder || "—"}</p>
                   {acc.cardNumber && (
                     <div className="mt-2 flex items-center justify-between gap-2">
                       <span dir="ltr" className="text-[13px] font-semibold tracking-wider">
