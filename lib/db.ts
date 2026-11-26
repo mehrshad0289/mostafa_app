@@ -10,7 +10,7 @@ import path from "path";
 import seed from "@/data/db.json";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase";
-import { bankUid, jalaliParts, jalaliToDate, loanRemaining, loanTotals, makeSchedule, parseSharePeriod, RECEIPT_MAX_CHARS } from "./bank";
+import { bankUid, jalaliParts, jalaliToDate, loanRemaining, loanTotals, makeSchedule, normalizeDigits, parseSharePeriod, RECEIPT_MAX_CHARS } from "./bank";
 
 export { RECEIPT_MAX_CHARS };
 export type ItemKind = "general" | "haqiqi";
@@ -45,11 +45,25 @@ export type DepositAccount = {
   sheba: string;
 };
 
+/**
+ * حساب بانکی عضو برای دریافت مبلغ تسهیلات — بعد از تأیید درخواست، عضو شماره
+ * کارت/شبای خود را برای مدیر می‌فرستد (جلسه سی‌وششم).
+ */
+export type LoanPayoutAccount = {
+  holder: string;
+  cardNumber: string;
+  sheba: string;
+  note: string;
+  submittedAt: string;
+};
+
 export type BankSettings = {
   amountPerShare: number;
   depositTitles: string[];
   duplicateWarning: boolean;
   depositAccounts: { primary: DepositAccount; alternate: DepositAccount };
+  /** حساب‌های اعضا برای واریز تسهیلات — کلید = شناسه درخواست تسهیلات (جلسه ۳۶) */
+  loanPayoutAccounts: Record<string, LoanPayoutAccount>;
 };
 
 export type BankMember = {
@@ -136,6 +150,7 @@ export const DEFAULT_BANK: BankDatabase = {
       primary: { holder: "", cardNumber: "", sheba: "" },
       alternate: { holder: "", cardNumber: "", sheba: "" },
     },
+    loanPayoutAccounts: {},
   },
   members: [],
   deposits: [],
@@ -304,6 +319,8 @@ function userFromRow(r: Row): User {
  * با این روش بدون DDL روی Supabase هم پایدار است. (جلسه بیست‌ودوم)
  */
 const ACCOUNTS_MARKER = "__deposit_accounts_v1";
+/** نشانهٔ حساب‌های اعضا برای واریز تسهیلات — در همان ستون jsonb (جلسه سی‌وششم) */
+const PAYOUTS_MARKER = "__loan_payouts_v1";
 
 function packSettingsRow(s: BankSettings): Row {
   return {
@@ -312,9 +329,34 @@ function packSettingsRow(s: BankSettings): Row {
     deposit_titles: [
       ...(Array.isArray(s.depositTitles) ? s.depositTitles : []),
       { [ACCOUNTS_MARKER]: s.depositAccounts },
+      { [PAYOUTS_MARKER]: s.loanPayoutAccounts ?? {} },
     ],
     duplicate_warning: s.duplicateWarning === true,
   };
+}
+
+/** نرمال‌سازی یک ردیف حساب واریز تسهیلات از jsonb */
+function normalizeLoanPayout(value: unknown): LoanPayoutAccount | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const p = value as Record<string, unknown>;
+  const text = (v: unknown) => (typeof v === "string" ? v : "");
+  return {
+    holder: text(p.holder),
+    cardNumber: text(p.cardNumber),
+    sheba: text(p.sheba),
+    note: text(p.note),
+    submittedAt: text(p.submittedAt),
+  };
+}
+
+function normalizeLoanPayouts(value: unknown): Record<string, LoanPayoutAccount> {
+  const out: Record<string, LoanPayoutAccount> = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return out;
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const normalized = normalizeLoanPayout(raw);
+    if (normalized) out[key] = normalized;
+  }
+  return out;
 }
 
 function unpackSettingsRow(r: Row): BankSettings {
@@ -324,6 +366,7 @@ function unpackSettingsRow(r: Row): BankSettings {
     primary: { holder: "", cardNumber: "", sheba: "" },
     alternate: { holder: "", cardNumber: "", sheba: "" },
   };
+  let payouts: Record<string, LoanPayoutAccount> = {};
   for (const el of rawTitles) {
     if (
       el &&
@@ -334,6 +377,13 @@ function unpackSettingsRow(r: Row): BankSettings {
       accounts = normalizeDepositAccounts(
         (el as Record<string, unknown>)[ACCOUNTS_MARKER],
       );
+    } else if (
+      el &&
+      typeof el === "object" &&
+      !Array.isArray(el) &&
+      PAYOUTS_MARKER in (el as Record<string, unknown>)
+    ) {
+      payouts = normalizeLoanPayouts((el as Record<string, unknown>)[PAYOUTS_MARKER]);
     } else if (typeof el === "string" && el.trim().length > 0) {
       titles.push(el);
     }
@@ -343,6 +393,7 @@ function unpackSettingsRow(r: Row): BankSettings {
     depositTitles: titles,
     duplicateWarning: bool(r.duplicate_warning),
     depositAccounts: accounts,
+    loanPayoutAccounts: payouts,
   };
 }
 
@@ -2247,6 +2298,66 @@ function nextMonthJalaliDay(now: Date = new Date()): string {
   const maxDay = month <= 6 ? 31 : month <= 11 ? 30 : 29;
   const day = Math.min(p.day, maxDay);
   return `${year}/${String(month).padStart(2, "0")}/${String(day).padStart(2, "0")}`;
+}
+
+/**
+ * ثبت شماره حساب/شبای عضو برای دریافت مبلغ تسهیلات — فقط بعد از تأیید درخواست
+ * توسط خودِ عضوِ همان درخواست (جلسه سی‌وششم). حساب در همون ستون jsonb
+ * bank_settings پک می‌شود و مدیر آن را در صفحه درخواست‌ها می‌بیند.
+ */
+export async function submitLoanPayoutAccount(input: {
+  userId: string;
+  requestId: string;
+  holder?: string;
+  cardNumber?: string;
+  sheba?: string;
+  note?: string;
+}): Promise<LoanPayoutAccount> {
+  const db = await readDb();
+  const request = db.loanRequests.find((r) => r.id === input.requestId);
+  if (!request) {
+    throw new Error("درخواست تسهیلات پیدا نشد.");
+  }
+  if (request.userId !== input.userId) {
+    throw new Error("این درخواست متعلق به حساب شما نیست.");
+  }
+  if (request.status !== "approved") {
+    throw new Error("ارسال شماره حساب فقط بعد از تأیید تسهیلات امکان‌پذیر است.");
+  }
+  const digits = (v: string) => normalizeDigits(String(v ?? "")).replace(/[\s-]/g, "");
+  const card = digits(input.cardNumber ?? "");
+  if (card && !/^\d{16}$/.test(card)) {
+    throw new Error("شماره کارت باید ۱۶ رقم باشد.");
+  }
+  const sheba = digits(input.sheba ?? "").toUpperCase();
+  if (sheba && !/^IR\d{24}$/.test(sheba)) {
+    throw new Error("شماره شبا باید IR و ۲۴ رقم باشد.");
+  }
+  if (!card && !sheba) {
+    throw new Error("شماره کارت یا شماره شبا را وارد کنید.");
+  }
+  const payout: LoanPayoutAccount = {
+    holder: String(input.holder ?? "").trim().slice(0, 60),
+    cardNumber: card,
+    sheba,
+    note: String(input.note ?? "").trim().slice(0, 300),
+    submittedAt: new Date().toISOString(),
+  };
+  db.bank.settings.loanPayoutAccounts = {
+    ...(db.bank.settings.loanPayoutAccounts ?? {}),
+    [request.id]: payout,
+  };
+  addAudit(
+    db.bank,
+    "ارسال",
+    "حساب تسهیلات",
+    request.id,
+    `عضو «${request.username}» برای واریز تسهیلات ${faAmount(request.amount)} تومانی شماره حساب ارسال کرد${
+      payout.sheba ? ` — شبا ${payout.sheba}` : ""
+    }${payout.cardNumber ? ` — کارت ${payout.cardNumber}` : ""}`,
+  );
+  await writeDb(db);
+  return payout;
 }
 
 /** ویرایش درخواست تسهیلات معلق توسط ادمین (مبلغ / مدت / دلیل) */

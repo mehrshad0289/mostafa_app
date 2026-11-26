@@ -16,14 +16,18 @@ import type {
   PublicUser,
 } from "@/lib/db";
 
-export type TabKey = "shares" | "installments" | "loans" | "deposit" | "profile" | "settings";
+/** جلسه ۳۶: «اقساط» و «تسهیلات» دو بخش جدا نبودند — حالا فقط یک بخش «تسهیلات»
+ *  با دو گزینهٔ داخلی (درخواست تسهیلات / اقساط) وجود دارد. */
+export type TabKey = "shares" | "loans" | "deposit" | "profile" | "settings";
 
-/** حالت خانه پوسته موبایل: "tiles" = شبکه مربع‌های سر فصل‌ها؛ بقیه = همان بخش */
-export type DashboardTab = TabKey | "tiles";
+/**
+ * حالت خانه پوسته موبایل: "tiles" = شبکه مربع‌های سر فصل‌ها؛ بقیه = همان بخش؛
+ * "loans-installments" = پرش مستقیم به گزینهٔ اقساط داخل تسهیلات (جلسه ۳۶).
+ */
+export type DashboardTab = TabKey | "tiles" | "loans-installments";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "shares", label: "سهام" },
-  { key: "installments", label: "اقساط" },
   { key: "loans", label: "تسهیلات" },
   { key: "deposit", label: "واریز" },
   { key: "profile", label: "پروفایل" },
@@ -36,7 +40,6 @@ const TABS: { key: TabKey; label: string }[] = [
  */
 const HOME_TILES: { key: TabKey; label: string; icon: ClayIconName }[] = [
   { key: "shares", label: "سهام", icon: "coins" },
-  { key: "installments", label: "اقساط", icon: "calendar" },
   { key: "loans", label: "تسهیلات", icon: "banknote" },
   { key: "deposit", label: "واریز", icon: "wallet" },
   { key: "profile", label: "پروفایل", icon: "user" },
@@ -193,13 +196,24 @@ export default function DashboardView({
 }: DashboardViewProps) {
   const router = useRouter();
   const [me, setMe] = useState<PublicUser | null | undefined>(undefined);
-  const [tab, setTab] = useState<DashboardTab>(initialTab);
+  const [tab, setTab] = useState<DashboardTab>(initialTab === "loans-installments" ? "loans" : initialTab);
+  /** گزینهٔ فعال داخل بخش «تسهیلات»: فرم درخواست یا جدول اقساط (جلسه ۳۶) */
+  const [loansSub, setLoansSub] = useState<"request" | "installments">(
+    initialTab === "loans-installments" ? "installments" : "request",
+  );
+  /** مودال جزئیات تسهیلات تأییدشده — اقساط + مبلغ واریز شده + ارسال شبا (جلسه ۳۶) */
+  const [loanDetail, setLoanDetail] = useState<LoanRequest | null>(null);
+  const [payoutEditing, setPayoutEditing] = useState(false);
+  const [payoutHolder, setPayoutHolder] = useState("");
+  const [payoutCard, setPayoutCard] = useState("");
+  const [payoutSheba, setPayoutSheba] = useState("");
   /** همگام‌سازی tab با initialTab والد (بازگشت به مربع‌ها / پرش از خدمات) —
       الگوی رسمی React: تنظیم state هنگام رندر با مقایسه مقدار قبلی، بدون effect */
   const [seenInitial, setSeenInitial] = useState<DashboardTab>(initialTab);
   if (initialTab !== seenInitial) {
     setSeenInitial(initialTab);
-    setTab(initialTab);
+    setTab(initialTab === "loans-installments" ? "loans" : initialTab);
+    setLoansSub(initialTab === "loans-installments" ? "installments" : "request");
   }
   /** تغییر بخش داخل خود داشبورد (مربع‌ها) + گزارش به والد */
   function changeTab(next: DashboardTab) {
@@ -427,6 +441,63 @@ export default function DashboardView({
     }
   }
 
+  /**
+   * وام واقعی متصل به درخواست تأییدشده — تأیید نهایی وام را دقیقاً از مبلغ
+   * همان درخواست می‌سازد؛ پس هم‌مبلغ‌ترین وامی که بعد از ثبت درخواست ساخته
+   * شده انتخاب می‌شود (اگر فقط یک وام وجود داشته باشد همان برگرده می‌آید).
+   */
+  function loanForRequest(r: LoanRequest): BankLoan | null {
+    const candidates = loans.filter((l) => l.principal === r.amount && l.createdAt >= r.createdAt);
+    if (candidates.length > 0) return candidates[candidates.length - 1];
+    return loans.length === 1 ? loans[0] : null;
+  }
+
+  /** باز کردن مودال جزئیات — فرم شبا هم از مقدار ذخیره‌شده پر می‌شود */
+  function openLoanDetail(r: LoanRequest) {
+    const saved = (settings?.loanPayoutAccounts ?? {})[r.id];
+    setPayoutHolder(saved?.holder ?? "");
+    setPayoutCard(saved?.cardNumber ?? "");
+    setPayoutSheba(saved?.sheba ?? "");
+    setPayoutEditing(!saved);
+    setError("");
+    setLoanDetail(r);
+  }
+
+  async function submitPayoutAccount(event: React.FormEvent) {
+    event.preventDefault();
+    if (!loanDetail) return;
+    if (!payoutCard.trim() && !payoutSheba.trim()) {
+      setError("شماره کارت یا شماره شبا را وارد کنید.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/member/loan-payout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId: loanDetail.id,
+          holder: payoutHolder,
+          cardNumber: payoutCard,
+          sheba: payoutSheba,
+        }),
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(data.error || "ارسال شماره حساب ناموفق بود.");
+        return;
+      }
+      setPayoutEditing(false);
+      setNotice("شماره حساب برای مدیر ارسال شد؛ برای واریز تسهیلات استفاده می‌شود.");
+      await load();
+    } catch {
+      setError("ارسال شماره حساب ناموفق بود.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitChangePassword(event: React.FormEvent) {
     event.preventDefault();
     if (pwNew !== pwNew2) {
@@ -630,106 +701,117 @@ export default function DashboardView({
           </section>
         )}
 
-        {tab === "installments" && (
-          <section className="space-y-4">
-            <div className="flex gap-2">
-              <SubTab active={installmentSub === "unpaid"} onClick={() => setInstallmentSub("unpaid")} label="تسویه‌نشده" count={installmentRows.filter((r) => !r.paid && r.loanStatus !== "cancelled").length} />
-              <SubTab active={installmentSub === "paid"} onClick={() => setInstallmentSub("paid")} label="تسویه‌شده" count={installmentRows.filter((r) => r.paid).length} />
-            </div>
-            <div className="space-y-2">
-              {installmentRows.filter((r) => r.paid === (installmentSub === "paid")).length === 0 && (
-                <p className="rounded-2xl border border-zinc-200 bg-white px-4 py-6 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
-                  قسطی در این دسته وجود ندارد.
-                </p>
-              )}
-              {installmentRows
-                .filter((r) => r.paid === (installmentSub === "paid"))
-                .map((row) => (
-                  <div
-                    key={`${row.loanId}-${row.number}`}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
-                  >
-                    <div className="min-w-0 space-y-1">
-                      <p className="text-sm font-medium">
-                        {row.loanLabel} — قسط {row.number.toLocaleString("fa-IR")}
-                      </p>
-                      <p className="text-xs text-zinc-500">
-                        مبلغ {faMoney(row.amount)} تومان — سررسید {row.dueAt ? faDate(row.dueAt) : "—"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`rounded-lg px-2 py-1 text-xs ${row.paid ? STATUS_CLASS.approved : STATUS_CLASS.pending}`}>
-                        {row.paid ? "پرداخت‌شده" : "پرداخت‌نشده"}
-                      </span>
-                      {!row.paid && row.loanStatus !== "cancelled" && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPayModal({ loan: loans.find((l) => l.id === row.loanId)!, row });
-                            setPayReceipt("");
-                            setPayNote("");
-                            setError("");
-                          }}
-                          className="rounded-xl bg-emerald-600 px-4 py-2 text-xs text-white"
-                        >
-                          پرداخت
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </section>
-        )}
-
         {tab === "loans" && (
           <section className="space-y-4">
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <h3 className="mb-3 text-sm font-medium">درخواست تسهیلات جدید</h3>
-              <form onSubmit={submitLoanRequest} className="space-y-3">
-                <label className="block space-y-1 text-xs text-zinc-500">
-                  مبلغ درخواستی (تومان)
-                  <input value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} className={inputClass} required />
-                </label>
-                <label className="block space-y-1 text-xs text-zinc-500">
-                  مدت بازپرداخت (ماه)
-                  <input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={loanMonths}
-                    onChange={(e) => setLoanMonths(e.target.value)}
-                    className={inputClass}
-                    required
-                  />
-                </label>
-                <label className="block space-y-1 text-xs text-zinc-500">
-                  توضیحات یا دلیل درخواست
-                  <textarea value={loanReason} onChange={(e) => setLoanReason(e.target.value)} rows={3} className={inputClass} />
-                </label>
-                <button type="submit" disabled={busy || !member} className={`${btnPrimary} w-full`}>
-                  {busy ? "در حال ارسال…" : "ارسال درخواست"}
-                </button>
-              </form>
+            {/* جلسه ۳۶: بخش «تسهیلات» دو گزینه دارد — درخواست تسهیلات و اقساط */}
+            <div className="flex gap-2">
+              <SubTab active={loansSub === "request"} onClick={() => setLoansSub("request")} label="درخواست تسهیلات" />
+              <SubTab active={loansSub === "installments"} onClick={() => setLoansSub("installments")} label="اقساط" count={installmentRows.filter((r) => !r.paid && r.loanStatus !== "cancelled").length} />
             </div>
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <h3 className="mb-2 text-sm font-medium">درخواست‌های قبلی من</h3>
-              <div className="space-y-2">
-                {loanRequests.length === 0 && <p className="text-xs text-zinc-500">درخواستی ثبت نکرده‌اید.</p>}
-                {loanRequests.map((r) => (
-                  <RequestRow
-                    key={r.id}
-                    title={`تسهیلات ${faMoney(r.amount)} تومانی — ${r.months.toLocaleString("fa-IR")} ماهه`}
-                    subtitle={`${faDate(r.createdAt)}${r.reason ? ` — ${r.reason}` : ""}${
-                      r.status === "approved"
-                        ? " — تأیید نهایی شد؛ وام شما در بانک ثبت شد و اقساط آن در تب «اقساط» است."
-                        : ""
-                    }`}
-                    status={r.status}
-                  />
-                ))}
+
+            {loansSub === "installments" && (
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <SubTab active={installmentSub === "unpaid"} onClick={() => setInstallmentSub("unpaid")} label="تسویه‌نشده" count={installmentRows.filter((r) => !r.paid && r.loanStatus !== "cancelled").length} />
+                  <SubTab active={installmentSub === "paid"} onClick={() => setInstallmentSub("paid")} label="تسویه‌شده" count={installmentRows.filter((r) => r.paid).length} />
+                </div>
+                <div className="space-y-2">
+                  {installmentRows.filter((r) => r.paid === (installmentSub === "paid")).length === 0 && (
+                    <p className="rounded-2xl border border-zinc-200 bg-white px-4 py-6 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
+                      قسطی در این دسته وجود ندارد.
+                    </p>
+                  )}
+                  {installmentRows
+                    .filter((r) => r.paid === (installmentSub === "paid"))
+                    .map((row) => (
+                      <div
+                        key={`${row.loanId}-${row.number}`}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <p className="text-sm font-medium">
+                            {row.loanLabel} — قسط {row.number.toLocaleString("fa-IR")}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            مبلغ {faMoney(row.amount)} تومان — سررسید {row.dueAt ? faDate(row.dueAt) : "—"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded-lg px-2 py-1 text-xs ${row.paid ? STATUS_CLASS.approved : STATUS_CLASS.pending}`}>
+                            {row.paid ? "پرداخت‌شده" : "پرداخت‌نشده"}
+                          </span>
+                          {!row.paid && row.loanStatus !== "cancelled" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPayModal({ loan: loans.find((l) => l.id === row.loanId)!, row });
+                                setPayReceipt("");
+                                setPayNote("");
+                                setError("");
+                              }}
+                              className="rounded-xl bg-emerald-600 px-4 py-2 text-xs text-white"
+                            >
+                              پرداخت
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {loansSub === "request" && (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                  <h3 className="mb-3 text-sm font-medium">درخواست تسهیلات جدید</h3>
+                  <form onSubmit={submitLoanRequest} className="space-y-3">
+                    <label className="block space-y-1 text-xs text-zinc-500">
+                      مبلغ درخواستی (تومان)
+                      <input value={loanAmount} onChange={(e) => setLoanAmount(e.target.value)} className={inputClass} required />
+                    </label>
+                    <label className="block space-y-1 text-xs text-zinc-500">
+                      مدت بازپرداخت (ماه)
+                      <input
+                        type="number"
+                        min={1}
+                        max={60}
+                        value={loanMonths}
+                        onChange={(e) => setLoanMonths(e.target.value)}
+                        className={inputClass}
+                        required
+                      />
+                    </label>
+                    <label className="block space-y-1 text-xs text-zinc-500">
+                      توضیحات یا دلیل درخواست
+                      <textarea value={loanReason} onChange={(e) => setLoanReason(e.target.value)} rows={3} className={inputClass} />
+                    </label>
+                    <button type="submit" disabled={busy || !member} className={`${btnPrimary} w-full`}>
+                      {busy ? "در حال ارسال…" : "ارسال درخواست"}
+                    </button>
+                  </form>
+                </div>
+                <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                  <h3 className="mb-2 text-sm font-medium">درخواست‌های قبلی من</h3>
+                  <div className="space-y-2">
+                    {loanRequests.length === 0 && <p className="text-xs text-zinc-500">درخواستی ثبت نکرده‌اید.</p>}
+                    {loanRequests.map((r) => (
+                      <RequestRow
+                        key={r.id}
+                        title={`تسهیلات ${faMoney(r.amount)} تومانی — ${r.months.toLocaleString("fa-IR")} ماهه`}
+                        subtitle={`${faDate(r.createdAt)}${r.reason ? ` — ${r.reason}` : ""}${
+                          r.status === "approved"
+                            ? " — تأیید شد؛ لمس کنید: اقساط، مبلغ واریز شده و ارسال شماره حساب"
+                            : ""
+                        }`}
+                        status={r.status}
+                        onClick={r.status === "approved" ? () => openLoanDetail(r) : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -929,6 +1011,115 @@ export default function DashboardView({
           </form>
         </Modal>
       )}
+
+      {/* جلسه ۳۶: جزئیات تسهیلات تأییدشده — اقساط، مبلغ واریز شده و ارسال شبا */}
+      {loanDetail &&
+        (() => {
+          const loan = loanForRequest(loanDetail);
+          const saved = (settings?.loanPayoutAccounts ?? {})[loanDetail.id];
+          const rows = loan ? installmentStatuses(loan) : [];
+          const remaining = rows.filter((x) => !x.paid).reduce((s, x) => s + x.amount, 0);
+          return (
+            <Modal title={`جزئیات تسهیلات ${faMoney(loanDetail.amount)} تومانی`} onClose={() => setLoanDetail(null)}>
+              <div className="space-y-4">
+                <p className="text-xs leading-5 text-zinc-500">
+                  تأیید شده{loanDetail.reviewedAt ? ` — ${faDate(loanDetail.reviewedAt)}` : ""}
+                  {loanDetail.reviewNote ? ` — پیام مدیر: ${loanDetail.reviewNote}` : ""}
+                </p>
+                {loan ? (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      <StatCard label="مبلغ واریز شده به شما" value={`${faMoney(loan.disbursedAmount)} تومان`} />
+                      <StatCard label="کل بازپرداخت" value={`${faMoney(loan.totalAmount)} تومان`} />
+                      <StatCard label="تعداد اقساط" value={loan.installmentCount.toLocaleString("fa-IR")} />
+                      <StatCard label="مانده اقساط" value={`${faMoney(remaining)} تومان`} />
+                    </div>
+                    <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800">
+                      <div className="max-h-56 divide-y divide-zinc-100 overflow-y-auto dark:divide-zinc-900">
+                        {rows.map((x) => (
+                          <div key={x.number} className="flex flex-wrap items-center justify-between gap-1.5 px-3 py-2 text-xs">
+                            <span className="font-medium">قسط {x.number.toLocaleString("fa-IR")}</span>
+                            <span className="text-zinc-500">
+                              {faMoney(x.amount)} تومان — سررسید {x.dueAt ? faDate(x.dueAt) : "—"}
+                            </span>
+                            <span className={`rounded-lg px-2 py-0.5 text-[11px] ${x.paid ? STATUS_CLASS.approved : STATUS_CLASS.pending}`}>
+                              {x.paid ? "پرداخت‌شده" : "پرداخت‌نشده"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-[11px] leading-5 text-zinc-500">
+                      برای پرداخت هر قسط، به گزینهٔ «اقساط» در همین بخش تسهیلات بروید.
+                    </p>
+                  </>
+                ) : (
+                  <p className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                    وام متصل به این درخواست در بانک پیدا نشد؛ برای بررسی با مدیر تماس بگیرید.
+                  </p>
+                )}
+
+                <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-3 dark:border-primary-900 dark:bg-primary-950/40">
+                  {saved && !payoutEditing ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-primary-800 dark:text-primary-300">
+                        شماره حساب ارسال‌شده برای واریز تسهیلات
+                      </p>
+                      {saved.holder && <p className="text-sm">به نام: {saved.holder}</p>}
+                      {saved.cardNumber && (
+                        <p dir="ltr" className="text-left font-mono text-xs tracking-wider">
+                          {formatCard(saved.cardNumber)}
+                        </p>
+                      )}
+                      {saved.sheba && (
+                        <p dir="ltr" className="text-left font-mono text-xs tracking-wider">
+                          {formatSheba(saved.sheba)}
+                        </p>
+                      )}
+                      {saved.submittedAt && (
+                        <p className="text-[11px] text-zinc-500">ارسال در {faDate(saved.submittedAt)}</p>
+                      )}
+                      <button type="button" onClick={() => setPayoutEditing(true)} className={btnGhost}>
+                        ویرایش شماره حساب
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={submitPayoutAccount} className="space-y-3">
+                      <p className="text-xs leading-5 text-primary-900 dark:text-primary-200">
+                        تسهیلات شما تأیید شده است؛ شماره حساب یا شبای خود را برای مدیر بفرستید تا مبلغ واریز شده به حسابتان واریز شود.
+                      </p>
+                      <input
+                        value={payoutHolder}
+                        onChange={(e) => setPayoutHolder(e.target.value)}
+                        placeholder="به نام (اختیاری)"
+                        className={inputClass}
+                      />
+                      <input
+                        value={payoutCard}
+                        onChange={(e) => setPayoutCard(e.target.value)}
+                        placeholder="شماره کارت (۱۶ رقم — اختیاری اگر شبا می‌دهید)"
+                        dir="ltr"
+                        inputMode="numeric"
+                        className={`${inputClass} text-left`}
+                      />
+                      <input
+                        value={payoutSheba}
+                        onChange={(e) => setPayoutSheba(e.target.value)}
+                        placeholder="شماره شبا (IR + ۲۴ رقم — اختیاری اگر کارت می‌دهید)"
+                        dir="ltr"
+                        className={`${inputClass} text-left`}
+                      />
+                      <ModalError error={error} />
+                      <button type="submit" disabled={busy} className={`${btnPrimary} w-full`}>
+                        {busy ? "در حال ارسال…" : "ارسال برای مدیر"}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </Modal>
+          );
+        })()}
     </div>
   );
 }
@@ -1000,7 +1191,7 @@ function AccountBlock({
   );
 }
 
-function SubTab({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
+function SubTab({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count?: number }) {
   return (
     <button
       type="button"
@@ -1011,23 +1202,44 @@ function SubTab({ active, onClick, label, count }: { active: boolean; onClick: (
           : "border-zinc-200 text-zinc-600 hover:border-primary-300 hover:text-primary-700 dark:border-zinc-800 dark:text-zinc-400 dark:hover:border-primary-700 dark:hover:text-primary-300"
       }`}
     >
-      {label} ({count.toLocaleString("fa-IR")})
+      {label}
+      {count !== undefined && ` (${count.toLocaleString("fa-IR")})`}
     </button>
   );
 }
 
-function RequestRow({ title, subtitle, status, approved }: { title: string; subtitle: string; status?: PaymentRequest["status"]; approved?: boolean }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-100 px-3 py-2 dark:border-zinc-900">
+/** ردیف درخواست/واریزی — با onClick به دکمه تبدیل می‌شود (جزئیات تسهیلات، جلسه ۳۶) */
+function RequestRow({ title, subtitle, status, approved, onClick, hint }: { title: string; subtitle: string; status?: PaymentRequest["status"]; approved?: boolean; onClick?: () => void; hint?: string }) {
+  const body = (
+    <>
       <div className="min-w-0">
         <p className="truncate text-sm">{title}</p>
         <p className="truncate text-xs text-zinc-500">{subtitle}</p>
+        {hint && (
+          <p className="mt-0.5 text-[11px] font-medium text-primary-600 dark:text-primary-300">{hint}</p>
+        )}
       </div>
       {(status || approved) && (
         <span className={`shrink-0 rounded-lg px-2 py-1 text-xs ${approved ? STATUS_CLASS.approved : status ? STATUS_CLASS[status] : ""}`}>
           {approved ? "تأیید شده" : status ? STATUS_LABEL[status] : ""}
         </span>
       )}
+    </>
+  );
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-100 px-3 py-2 text-right transition-colors hover:border-primary-300 dark:border-zinc-900 dark:hover:border-primary-700"
+      >
+        {body}
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-100 px-3 py-2 dark:border-zinc-900">
+      {body}
     </div>
   );
 }

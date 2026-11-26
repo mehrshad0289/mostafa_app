@@ -224,8 +224,9 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
       ]
     : [
         { label: "واریز سهام", icon: "coins", target: { tab: "home", dashboardTab: "shares" } },
-        { label: "پرداخت قسط", icon: "calendar", target: { tab: "home", dashboardTab: "installments" } },
-        { label: "درخواست وام", icon: "banknote", target: { tab: "home", dashboardTab: "loans" } },
+        // جلسه ۳۶: پرش مستقیم به گزینهٔ اقساط داخل بخش یکپارچهٔ تسهیلات
+        { label: "اقساط", icon: "calendar", target: { tab: "home", dashboardTab: "loans-installments" } },
+        { label: "تسهیلات", icon: "banknote", target: { tab: "home", dashboardTab: "loans" } },
       ];
 
   function openQuick(target: NavTarget | { href: string }) {

@@ -1,14 +1,26 @@
 import { requireAdmin, requireUser } from "@/lib/auth";
-import { getBank, updateBankSettings } from "@/lib/db";
-import type { BankSettingsPatch, DepositAccount } from "@/lib/db";
+import { getBank, listUserRequests, updateBankSettings } from "@/lib/db";
+import type { BankSettingsPatch, DepositAccount, LoanPayoutAccount } from "@/lib/db";
 import { normalizeDigits } from "@/lib/bank";
 
 export async function GET() {
   const guard = await requireUser();
   if ("error" in guard) return guard.error;
   const bank = await getBank();
-  return Response.json(bank.settings);
+  // حساب‌های واریز تسهیلات اعضا (شبا/کارت) اطلاعات شخصی است — ادمین همه را
+  // می‌بیند، ولی عضو فقط ارسال‌های خودش (جلسه سی‌وششم).
+  if (guard.user.role === "admin") {
+    return Response.json(bank.settings);
+  }
+  const own: Record<string, LoanPayoutAccount> = {};
+  const requests = await listUserRequests(guard.user.id);
+  for (const r of requests.loanRequests) {
+    const payout = bank.settings.loanPayoutAccounts?.[r.id];
+    if (payout) own[r.id] = payout;
+  }
+  return Response.json({ ...bank.settings, loanPayoutAccounts: own });
 }
+
 
 export async function PUT(request: Request) {
   const guard = await requireAdmin();

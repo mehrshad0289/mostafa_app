@@ -4,10 +4,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
 import ClayIcon, { type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
 import { jalaliParts, parseAmount } from "@/lib/bank";
-import type { BankMember, LoanRequest, PaymentRequest } from "@/lib/db";
+import type { BankMember, LoanPayoutAccount, LoanRequest, PaymentRequest } from "@/lib/db";
 
 function faMoney(value: number): string {
   return Number(value || 0).toLocaleString("fa-IR");
+}
+
+/** نمایش شماره کارت ۱۶ رقمی به شکل ۴-۴-۴-۴ */
+function formatCard(card: string): string {
+  return card.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+}
+
+/** نمایش شبا به شکل گروه‌های ۴ رقمی برای خوانایی */
+function formatSheba(sheba: string): string {
+  return sheba.replace(/(.{4})(?=\S)/g, "$1 ").trim();
 }
 
 /** تاریخ شمسی حدود یک ماه بعد از امروز — همان پیش‌فرض سمت سرور */
@@ -57,6 +67,9 @@ export default function AdminRequestsPage() {
   const [approveInterestMode, setApproveInterestMode] = useState<"beginning" | "end">("end");
   const [approveFirstDue, setApproveFirstDue] = useState("");
   const [approveNote, setApproveNote] = useState("");
+  // حساب‌های واریز تسهیلات اعضا (شبا/کارت) — کلید = شناسه درخواست (جلسه ۳۶)
+  const [payouts, setPayouts] = useState<Record<string, LoanPayoutAccount>>({});
+  const [copiedKey, setCopiedKey] = useState("");
   // درخواست‌های pending که از آخرین بازدید ادمین جدیدترند = خوانده‌نشده
   const isUnread = useCallback(
     (r: { status: string; createdAt: string }) =>
@@ -68,16 +81,18 @@ export default function AdminRequestsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [req, m] = await Promise.all([
+      const [req, m, s] = await Promise.all([
         fetch("/api/admin/requests").then((r) =>
           r.ok ? r.json() : { paymentRequests: [], loanRequests: [] },
         ),
         fetch("/api/bank/members").then((r) => (r.ok ? r.json() : [])),
+        fetch("/api/bank/settings").then((r) => (r.ok ? r.json() : null)),
       ]);
       setPaymentRequests(Array.isArray(req.paymentRequests) ? req.paymentRequests : []);
       setLoanRequests(Array.isArray(req.loanRequests) ? req.loanRequests : []);
       setLastReadAt(typeof req.lastReadAt === "string" ? req.lastReadAt : "");
       setMembers(Array.isArray(m) ? m : []);
+      setPayouts(s && typeof s === "object" ? s.loanPayoutAccounts ?? {} : {});
     } catch {
       setError("دریافت درخواست‌ها ناموفق بود.");
     } finally {
@@ -133,6 +148,15 @@ export default function AdminRequestsPage() {
     setEditAmount(String(r.amount));
     setEditMonths(String(r.months));
     setEditReason(r.reason);
+  }
+
+  async function copyText(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function openApprove(r: LoanRequest) {
@@ -383,6 +407,63 @@ export default function AdminRequestsPage() {
                       <p className="text-xs text-emerald-700 dark:text-emerald-400">
                         وام این درخواست به‌صورت خودکار در بانک ثبت شد (تب «وام‌ها و اقساط» و پنل عضو).
                       </p>
+                    )}
+                    {/* جلسه ۳۶: حساب واریزی که عضو برای دریافت مبلغ تسهیلات فرستاده */}
+                    {r.status === "approved" && (
+                      payouts[r.id] ? (
+                        <div className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/60 px-3 py-2 dark:border-primary-900 dark:bg-primary-950/40">
+                          <p className="text-[11px] font-semibold text-primary-800 dark:text-primary-300">
+                            حساب واریز تسهیلات از عضو
+                            {payouts[r.id].submittedAt
+                              ? ` — ${new Date(payouts[r.id].submittedAt).toLocaleDateString("fa-IR")}`
+                              : ""}
+                          </p>
+                          {payouts[r.id].holder && (
+                            <p className="mt-1 text-xs">به نام: {payouts[r.id].holder}</p>
+                          )}
+                          {payouts[r.id].cardNumber && (
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <p dir="ltr" className="font-mono text-xs tracking-wider">
+                                {formatCard(payouts[r.id].cardNumber)}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setCopiedKey(`${r.id}-card`);
+                                  setNotice((await copyText(payouts[r.id].cardNumber)) ? "کپی شد." : "کپی ناموفق بود.");
+                                }}
+                                className="shrink-0 rounded-lg border border-zinc-200 px-2 py-0.5 text-[11px] dark:border-zinc-700"
+                              >
+                                {copiedKey === `${r.id}-card` ? "کپی شد ✓" : "کپی"}
+                              </button>
+                            </div>
+                          )}
+                          {payouts[r.id].sheba && (
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <p dir="ltr" className="font-mono text-[11px] tracking-wider">
+                                {formatSheba(payouts[r.id].sheba)}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setCopiedKey(`${r.id}-sheba`);
+                                  setNotice((await copyText(payouts[r.id].sheba)) ? "کپی شد." : "کپی ناموفق بود.");
+                                }}
+                                className="shrink-0 rounded-lg border border-zinc-200 px-2 py-0.5 text-[11px] dark:border-zinc-700"
+                              >
+                                {copiedKey === `${r.id}-sheba` ? "کپی شد ✓" : "کپی"}
+                              </button>
+                            </div>
+                          )}
+                          {payouts[r.id].note && (
+                            <p className="mt-1 text-[11px] text-zinc-500">یادداشت عضو: {payouts[r.id].note}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                          عضو هنوز شماره حساب/شبای خود را برای واریز تسهیلات ارسال نکرده است.
+                        </p>
+                      )
                     )}
                     </div>
                   </div>

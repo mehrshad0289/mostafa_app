@@ -177,6 +177,9 @@ function validateBackup(raw: unknown): { bank?: BankDatabase; error?: string } {
             primary: { holder: "", cardNumber: "", sheba: "" },
             alternate: { holder: "", cardNumber: "", sheba: "" },
           }) as BankDatabase["settings"]["depositAccounts"],
+        // حساب‌های واریز تسهیلات اعضا در پشتیبان‌های قدیمی نیست؛ خالی گذاشته می‌شود (جلسه ۳۶)
+        loanPayoutAccounts:
+          (s.loanPayoutAccounts ?? {}) as BankDatabase["settings"]["loanPayoutAccounts"],
       },
       members: candidate.members as BankDatabase["members"],
       deposits: candidate.deposits as BankDatabase["deposits"],

@@ -21,9 +21,10 @@ function groupsFor(isAdmin: boolean): ServiceGroup[] {
   const bank: ServiceGroup = {
     title: "خدمات بانک",
     tiles: [
+      // جلسه ۳۶: «پرداخت قسط» و «درخواست تسهیلات» یک کارت شدند — تسهیلات
+      // شامل هر دو گزینه است (درخواست تسهیلات + اقساط)
       { label: "پرداخت سهام", icon: "coins", target: { tab: "home", dashboardTab: "shares" } },
-      { label: "پرداخت قسط", icon: "calendar", target: { tab: "home", dashboardTab: "installments" } },
-      { label: "درخواست تسهیلات", icon: "banknote", target: { tab: "home", dashboardTab: "loans" } },
+      { label: "تسهیلات", icon: "banknote", target: { tab: "home", dashboardTab: "loans" } },
       { label: "حساب‌های واریز", icon: "wallet", target: { tab: "home", dashboardTab: "deposit" } },
     ],
   };
