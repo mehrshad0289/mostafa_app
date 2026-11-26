@@ -241,6 +241,41 @@ body {
   }
 }
 
+/* ---------- ناوبری کشویی صفحات (جلسه ۳۹) ----------
+   با سوایپ راست/چپ بین صفحات و بخش‌ها (به‌جای لمس مربع/تب) + انیمیشن ورود نرم.
+   RTL: صفحهٔ «بعدی» سمت چپ است و از چپ وارد می‌شود (مثل ورق زدن کتاب فارسی)؛
+   صفحهٔ «قبلی» از راست وارد می‌شود. فقط transform/opacity برای روان ماندن. */
+@keyframes page-in-next {
+  from {
+    opacity: 0;
+    transform: translateX(-26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes page-in-prev {
+  from {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-in-next {
+    animation: page-in-next 0.22s ease-out;
+  }
+  .page-in-prev {
+    animation: page-in-prev 0.22s ease-out;
+  }
+}
+
 /* چاپ گزارش (استپ ۱۷): با دکمه «چاپ گزارش» فقط بخش گزارش‌ها چاپ می‌شود —
    بقیه صفحه (header/تب‌ها/آمار) با data-noprint پنهان می‌شود */
 @media print {

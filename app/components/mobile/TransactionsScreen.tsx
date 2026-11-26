@@ -297,8 +297,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           </div>
         </div>
 
-        {/* فیلترها */}
-        <div className="mb-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* فیلترها — نوار اسکرول افقی؛ سوایپ روی آن نباید تعویض صفحه شود (جلسه ۳۹) */}
+        <div data-swipe-ignore className="mb-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {FILTERS.map((f) => (
             <button
               key={f.key}

@@ -434,7 +434,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
 
       {/* مودال تأیید خروج */}
       {confirmLogout && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div data-swipe-ignore className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
             <ClayIcon name="logout" size={48} tone={["#FCA9A9", "#D95050"]} />
             <h3 className="mt-3 text-sm font-bold">خروج از حساب</h3>

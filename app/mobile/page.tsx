@@ -13,7 +13,11 @@ import ServicesScreen from "@/app/components/mobile/ServicesScreen";
 import TransactionsScreen from "@/app/components/mobile/TransactionsScreen";
 import SettingsScreen from "@/app/components/mobile/SettingsScreen";
 import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
+import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
 import type { PublicUser } from "@/lib/db";
+
+/** ترتیب تب‌های پوسته برای ناوبری کشویی و جهت انیمیشن — RTL: راست = بعدی (جلسه ۳۹) */
+const TAB_ORDER: MobileTab[] = ["home", "services", "transactions", "settings"];
 
 /**
  * پوسته موبایل فم بانک — هدر برند (لوگوی خانه سه‌بعدی + فم بانک + Fam Bank
@@ -36,6 +40,8 @@ export default function MobileAppPage() {
   const [homeKey, setHomeKey] = useState(0);
   /** بخش باز تنظیمات (وقتی از خدمات به تنظیمات پرش می‌شود) */
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
+  /** جهت آخرین جابه‌جایی صفحه برای انیمیشن ورود کشویی (جلسه ۳۹) */
+  const [navDir, setNavDir] = useState<"next" | "prev">("next");
 
   useEffect(() => {
     let alive = true;
@@ -59,10 +65,35 @@ export default function MobileAppPage() {
 
   /** باز کردن مستقیم یک سر فصل داشبورد (از خدمات/اکشن‌های سریع) — یک‌تیکه */
   function goHomeTab(tab: DashboardTab) {
+    if (active !== "home") setNavDir("prev"); // خانه در RTL اولین صفحه است (از راست وارد می‌شود)
     setDashView(tab);
     setHomeKey((k) => k + 1);
     setActive("home");
   }
+
+  /** تغییر تب پوسته با جهت انیمیشن کشویی — ترتیب RTL (جلسه ۳۹) */
+  function goTab(t: MobileTab) {
+    if (t === active) return;
+    setNavDir(TAB_ORDER.indexOf(t) >= TAB_ORDER.indexOf(active) ? "next" : "prev");
+    setActive(t);
+  }
+
+  /** سوایپ افقی بین تب‌های پوسته — RTL: کشیدن به راست = بعدی (جلسه ۳۹) */
+  function stepShell(delta: 1 | -1) {
+    const next = TAB_ORDER[TAB_ORDER.indexOf(active) + delta];
+    if (!next) return;
+    if (next === "home" && !isAdmin) {
+      goHomeTab("tiles"); // خانه عضو همیشه از مربع‌های سر فصل‌ها شروع می‌شود
+    } else {
+      setNavDir(delta === 1 ? "next" : "prev");
+      setActive(next);
+    }
+  }
+
+  const swipe = useSwipeNav({
+    onSwipeNext: () => stepShell(1),
+    onSwipePrev: () => stepShell(-1),
+  });
 
   /** قرارداد ناوبری مشترک همه اسلایدها */
   function navigate(target: NavTarget) {
@@ -134,30 +165,33 @@ export default function MobileAppPage() {
         <div className="relative h-[3px] bg-gradient-to-l from-sky-300 via-sky-400 to-primary-500" />
       </header>
 
-      {/* محتوای تب فعال */}
-      <main className="mx-auto w-full max-w-md flex-1 pb-28">
-        {active === "home" &&
-          (isAdmin ? (
-            <AdminMobileHome name={me.fullName || me.username} />
-          ) : (
-            <DashboardView
-              key={homeKey}
-              embedded
-              initialTab={dashView}
-              onBack={() => setDashView("tiles")}
-              onTabChange={setDashView}
-            />
-          ))}
+      {/* محتوای تب فعال — سوایپ افقی هم تب‌ها را عوض می‌کند (جلسه ۳۹)؛ هر تب با
+          کلید خودش remount می‌شود تا انیمیشن ورود کشویی پخش شود */}
+      <main className="mx-auto w-full max-w-md flex-1 pb-28" {...swipe}>
+        <div key={active} className={navDir === "prev" ? "page-in-prev" : "page-in-next"}>
+          {active === "home" &&
+            (isAdmin ? (
+              <AdminMobileHome name={me.fullName || me.username} />
+            ) : (
+              <DashboardView
+                key={homeKey}
+                embedded
+                initialTab={dashView}
+                onBack={() => setDashView("tiles")}
+                onTabChange={setDashView}
+              />
+            ))}
 
-        {active === "services" && <ServicesScreen me={me} onNavigate={navigate} />}
-        {active === "transactions" && <TransactionsScreen me={me} onNavigate={navigate} />}
-        {active === "settings" && (
-          <SettingsScreen
-            me={me}
-            section={settingsSection}
-            onSectionChange={(s: SettingsSection | null) => setSettingsSection(s)}
-          />
-        )}
+          {active === "services" && <ServicesScreen me={me} onNavigate={navigate} />}
+          {active === "transactions" && <TransactionsScreen me={me} onNavigate={navigate} />}
+          {active === "settings" && (
+            <SettingsScreen
+              me={me}
+              section={settingsSection}
+              onSectionChange={(s: SettingsSection | null) => setSettingsSection(s)}
+            />
+          )}
+        </div>
       </main>
 
       <BottomNav
@@ -169,7 +203,7 @@ export default function MobileAppPage() {
             if (active === "home" && dashView === "tiles") return;
             goHomeTab("tiles");
           } else {
-            setActive(t);
+            goTab(t);
           }
         }}
       />

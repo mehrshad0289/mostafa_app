@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES, shareDeadlineState } from "@/lib/bank";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MemberBell from "@/app/components/mobile/MemberBell";
+import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type {
   BankDeposit,
@@ -34,6 +35,17 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "profile", label: "پروفایل" },
   { key: "settings", label: "تنظیمات" },
 ];
+
+/** جلسه ۳۹ — ترتیب بخش‌ها برای ناوبری کشویی (swipe): حالت تعبیه‌شده از خانهٔ
+ *  مربع‌ها شروع می‌شود و بخش‌ها بعد از آن؛ حالت مستقل فقط ۵ تب را دارد.
+ *  RTL: کشیدن انگشت به راست = بخش بعدی، به چپ = قبلی. */
+const SWIPE_ORDER_EMBEDDED: DashboardTab[] = ["tiles", "shares", "loans", "deposit", "profile", "settings"];
+const SWIPE_ORDER_STANDALONE: DashboardTab[] = ["shares", "loans", "deposit", "profile", "settings"];
+
+/** کلید یکسان‌شدهٔ بخش برای ناوبری کشویی (پرش عمیق loans-installments = loans) */
+function swipeKey(tab: DashboardTab): Exclude<DashboardTab, "loans-installments"> {
+  return tab === "loans-installments" ? "loans" : tab;
+}
 
 /**
  * مربع‌های خانه پوسته موبایل — هر سر فصل «یک تیکه»: لمس هر مربع مستقیم همان
@@ -220,6 +232,8 @@ export default function DashboardView({
   const router = useRouter();
   const [me, setMe] = useState<PublicUser | null | undefined>(undefined);
   const [tab, setTab] = useState<DashboardTab>(initialTab === "loans-installments" ? "loans" : initialTab);
+  /** جهت آخرین جابه‌جایی بخش برای انیمیشن ورود کشویی (جلسه ۳۹) */
+  const [navDir, setNavDir] = useState<"next" | "prev">("next");
   /** گزینهٔ فعال داخل بخش «تسهیلات»: فرم درخواست یا جدول اقساط (جلسه ۳۶) */
   const [loansSub, setLoansSub] = useState<"request" | "installments">(
     initialTab === "loans-installments" ? "installments" : "request",
@@ -238,11 +252,31 @@ export default function DashboardView({
     setTab(initialTab === "loans-installments" ? "loans" : initialTab);
     setLoansSub(initialTab === "loans-installments" ? "installments" : "request");
   }
-  /** تغییر بخش داخل خود داشبورد (مربع‌ها) + گزارش به والد */
+  /** تغییر بخش داخل خود داشبورد (مربع‌ها / سوایپ / تب‌های مستقل) + گزارش به والد */
   function changeTab(next: DashboardTab) {
+    const order = embedded ? SWIPE_ORDER_EMBEDDED : SWIPE_ORDER_STANDALONE;
+    setNavDir(order.indexOf(swipeKey(next)) >= order.indexOf(swipeKey(tab)) ? "next" : "prev");
     setTab(next);
     onTabChange?.(next);
   }
+
+  /** سوایپ افقی بین بخش‌های داشبورد — RTL: راست = بعدی (جلسه ۳۹).
+   *  در حالت تعبیه‌شده stopPropagation لازم است تا یک سوایپ، هم بخشِ داشبورد
+   *  را عوض کند و هم به هندلر پوسته موبایل نشت کند و تب پوسته را جلو نزند. */
+  function stepDash(delta: 1 | -1) {
+    const order = embedded ? SWIPE_ORDER_EMBEDDED : SWIPE_ORDER_STANDALONE;
+    const next = order[order.indexOf(swipeKey(tab)) + delta];
+    if (!next) return;
+    changeTab(next);
+  }
+
+  const dashSwipe = useSwipeNav(
+    {
+      onSwipeNext: () => stepDash(1),
+      onSwipePrev: () => stepDash(-1),
+    },
+    { stopPropagation: true },
+  );
   const [settings, setSettings] = useState<BankSettings | null>(null);
   const [member, setMember] = useState<BankMember | null>(null);
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
@@ -724,11 +758,16 @@ export default function DashboardView({
         </header>
       )}
 
+      {/* جلسه ۳۹ — سوایپ افقی بین بخش‌ها + انیمیشن ورود کشویی؛ هر بخش با کلید
+          خودش remount می‌شود (مودال‌ها بیرون این main هستند و مختل نمی‌شوند) */}
       <main
+        key={tab}
+        {...dashSwipe}
         className={
-          embedded
+          (embedded
             ? "w-full space-y-4 px-4 pb-6 pt-3"
-            : "mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-5"
+            : "mx-auto w-full max-w-2xl flex-1 space-y-4 px-4 py-5") +
+          (navDir === "prev" ? " page-in-prev" : " page-in-next")
         }
       >
         {/* دکمه بازگشت به خانه مربع‌ها — وقتی یک سر فصل به صورت مستقل باز شده
@@ -1168,7 +1207,7 @@ export default function DashboardView({
               <button
                 key={t.key}
                 type="button"
-                onClick={() => setTab(t.key)}
+                onClick={() => changeTab(t.key)}
                 className={`flex-1 py-4 text-sm ${
                   tab === t.key
                     ? "font-semibold text-zinc-900 dark:text-zinc-50"
@@ -1530,7 +1569,7 @@ function RequestRow({ title, subtitle, status, approved, onClick, hint }: { titl
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div data-swipe-ignore className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-5 shadow-lg dark:border-zinc-800 dark:bg-zinc-950">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">{title}</h3>
