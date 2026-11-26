@@ -6,9 +6,9 @@ import DepositsTab from "@/app/components/bank/DepositsTab";
 import { useBankData } from "@/app/components/bank/useBankData";
 
 /**
- * بخش «تراکنش‌ها» — یک‌تیکه: فقط محتوای تراکنش‌ها (جلسه ۲۷) — واریزها،
- * پرداخت اقساط تسهیلات و برداشت‌های بانک. ناوبری بین بخش‌ها از منوی پنل
- * مدیریت است، مثل «مدیریت کاربران».
+ * بخش «تراکنش‌ها» — یک‌تیکه: فقط محتوای تراکنش‌ها (جلسه ۲۷) — واریز و برداشت
+ * با جزئیات کامل هر تراکنش پس از لمس (جلسه ۵۱). ناوبری بین بخش‌ها از منوی
+ * پنل مدیریت است، مثل «مدیریت کاربران».
  */
 export default function BankTransactionsPage() {
   const { members, deposits, loans, settings, loading, error, load } = useBankData();
@@ -17,7 +17,7 @@ export default function BankTransactionsPage() {
     <AdminShell>
       <BankSection
         title="تراکنش‌ها"
-        subtitle="همه واریزی‌ها، اقساط پرداختی و برداشت‌های بانک"
+        subtitle="واریز و برداشت — با لمس هر تراکنش، جزئیات کامل آن نمایش داده می‌شود"
         icon="swap"
         loading={loading}
         error={error}

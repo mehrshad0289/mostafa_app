@@ -15,7 +15,7 @@ import { downloadCsv } from "./csv";
 type DepositsTabProps = {
   members: BankMember[];
   deposits: BankDeposit[];
-  /** وام‌ها — برای نمایش پرداخت اقساط و برداشت از بانک در فهرست تراکنش‌ها */
+  /** وام‌ها — برای نمایش پرداخت اقساط و تسهیلات پرداختی در فهرست تراکنش‌ها */
   loans: BankLoan[];
   settings: BankSettings | null;
   onRefresh: () => void;
@@ -24,7 +24,9 @@ type DepositsTabProps = {
 /**
  * تب «تراکنش‌ها» (جلسه ۲۶ — نام قبلی: واریزی‌ها): همه تراکنش‌های بانک در یک
  * فهرست با زیرمجموعه واریز/برداشت — واریز سهام بانک، سود بانک، واریز متفرقه،
- * پرداخت اقساط تسهیلات و برداشت از بانک. فرم ثبت واریزی و مدیریت عنوان‌ها
+ * پرداخت اقساط تسهیلات و تسهیلات پرداختی. جلسه ۵۱: عنوان هر ردیف فقط «واریز»
+ * و «برداشت» است (به درخواست کاربر) و نوع/توضیحات در بج کوچک و مودال جزئیاتِ
+ * بعد از لمس دیده می‌شود. فرم ثبت واریزی و مدیریت عنوان‌ها
  * مثل قبل کار می‌کنند؛ فقط واریزی‌ها قابل حذف‌اند (اقساط/برداشت از تب وام‌ها
  * مدیریت می‌شوند).
  */
@@ -106,6 +108,13 @@ function loanStatusLabel(status: BankLoan["status"]): string {
   return "در جریان";
 }
 
+/** جلسه ۵۱ — شرح ساده هر تراکنش برای مودال جزئیات (توضیحات بعد از لمس) */
+function txDescription(r: TxRow): string {
+  if (r.payment) return "واریز بابت پرداخت قسط تسهیلات توسط عضو.";
+  if (r.loan && r.group === "withdraw") return "برداشت مبلغ تسهیلات پرداخت‌شده به عضو از موجودی بانک.";
+  return "واریز به حساب عضو در بانک ثبت شد.";
+}
+
 type DetailLine = { label: string; value: string; tone?: "green" | "red" };
 
 /** جلسه ۵۰ — خط‌های مودال جزئیات کامل هر تراکنش */
@@ -113,15 +122,21 @@ function detailLines(r: TxRow): DetailLine[] {
   const lines: DetailLine[] = [];
   lines.push({
     label: "گروه",
-    value: r.group === "deposit" ? "واریز به بانک" : "برداشت از بانک",
+    value: r.group === "deposit" ? "واریز" : "برداشت",
     tone: r.group === "deposit" ? "green" : "red",
   });
   lines.push({ label: "نوع تراکنش", value: r.kindLabel });
+  lines.push({ label: "شرح", value: txDescription(r) });
   if (r.title && r.title !== r.kindLabel) {
     lines.push({ label: "عنوان ثبت‌شده", value: r.title });
   }
   if (r.member) lines.push({ label: "عضو", value: r.member });
   lines.push({ label: "مبلغ", value: toMoney(r.amount), tone: r.group === "deposit" ? "green" : "red" });
+  lines.push({
+    label: "اثر روی موجودی",
+    value: r.group === "deposit" ? "افزایش موجودی بانک" : "کاهش موجودی بانک",
+    tone: r.group === "deposit" ? "green" : "red",
+  });
   if (r.periodKey) lines.push({ label: "دوره", value: r.periodKey });
   const time = faTime(r.at);
   lines.push({ label: "تاریخ ثبت", value: `${faDate(r.at)}${time ? ` — ساعت ${time}` : ""}` });
@@ -179,7 +194,7 @@ export default function DepositsTab({
     return parseSharePeriod(form.period, dateIso ? new Date(dateIso) : undefined);
   }, [hydrated, form.type, form.period, dateIso]);
 
-  /** همه تراکنش‌ها: واریزی‌ها + پرداخت اقساط تسهیلات + برداشت از بانک */
+  /** همه تراکنش‌ها: واریزی‌ها + پرداخت اقساط تسهیلات + تسهیلات پرداختی */
   const txRows = useMemo<TxRow[]>(() => {
     const rows: TxRow[] = [];
     deposits.forEach((d) => {
@@ -204,7 +219,7 @@ export default function DepositsTab({
         rows.push({
           id: `w-${loan.id}`,
           group: "withdraw",
-          kindLabel: "برداشت از بانک",
+          kindLabel: "تسهیلات پرداختی",
           title: "",
           member: loan.memberName || "",
           amount: disbursed,
@@ -688,8 +703,10 @@ export default function DepositsTab({
                 }`}
               >
               <div className="space-y-1">
-                <p className="text-sm font-medium">
-                  {r.kindLabel}
+                {/* جلسه ۵۱ — عنوان ردیف فقط «واریز»/«برداشت» است (به درخواست کاربر)؛
+                    نوع تراکنش در بج کوچک کنار عنوان و بقیهٔ توضیحات در مودال جزئیات */}
+                <p className="text-sm font-bold">
+                  {r.group === "deposit" ? "واریز" : "برداشت"}
                   <span
                     className={`mr-2 rounded-lg px-2 py-0.5 text-[11px] font-normal ${
                       r.group === "deposit"
@@ -697,7 +714,7 @@ export default function DepositsTab({
                         : "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300"
                     }`}
                   >
-                    {r.group === "deposit" ? "واریز" : "برداشت"}
+                    {r.kindLabel}
                   </span>
                 </p>
                 <p className="text-xs text-zinc-500">
