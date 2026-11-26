@@ -205,7 +205,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
         {/* جلسه ۴۸ — منوی موبایل بازطراحی شد (به درخواست کاربر): به‌جای ردیف
             افقی فشرده، «خانه» به‌صورت ثابت می‌ماند و بقیه سر فصل‌ها در یک
-            لیست کشویی هستند که با لمس دکمهٔ سه‌خط بالای صفحه باز می‌شود. */}
+            لیست کشویی هستند که با لمس دکمهٔ سه‌خط بالای صفحه باز می‌شود.
+            جلسه ۵۰: عنوان دکمه به درخواست کاربر «فهرست» شد (قبلاً «بخش‌ها»). */}
         <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 pb-3.5 md:hidden" data-noprint>
           <Link
             href="/admin"
@@ -227,7 +228,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             type="button"
             onClick={() => setMenuOpen((o) => !o)}
             aria-expanded={menuOpen}
-            aria-label={menuOpen ? "بستن فهرست بخش‌ها" : "باز کردن فهرست بخش‌ها"}
+            aria-label={menuOpen ? "بستن فهرست" : "باز کردن فهرست"}
             className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all ${
               menuOpen
                 ? "bg-white text-primary-800 shadow-md shadow-black/20"
@@ -240,7 +241,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               <span className={`h-[2px] w-4 rounded-full ${menuOpen ? "bg-primary-700" : "bg-white"}`} />
               <span className={`h-[2px] w-4 rounded-full ${menuOpen ? "bg-primary-700" : "bg-white"}`} />
             </span>
-            {menuOpen ? "بستن فهرست" : "بخش‌ها"}
+            {menuOpen ? "بستن فهرست" : "فهرست"}
           </button>
         </div>
 
