@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import ClayIcon, { type ClayTone } from "./ClayIcon";
 import { jalaliParts } from "@/lib/bank";
-import type { AdminMessage, MemberMessage, MemberNotification } from "@/lib/db";
+import type { AdminMessage, LoanRequest, MemberMessage, MemberNotification, PaymentRequest } from "@/lib/db";
 
 /** جلسه ۴۰ — تِم طلایی زنگوله (هم‌خانوادهٔ رنگ طلایی آیکون‌های اپ) به درخواست کاربر */
 const GOLD_TONE: ClayTone = ["#FFD98E", "#F0A32B"];
@@ -37,6 +37,16 @@ function notifTitle(n: MemberNotification): string {
   return `پرداخت قسط ${(n.installmentNumber ?? 0).toLocaleString("fa-IR")} — ${faMoney(n.amount)} تومان`;
 }
 
+/** جلسه ۵۱ — عنوان درخواستِ در انتظار بررسی برای پنل زنگوله */
+function pendingTitle(r: PaymentRequest | LoanRequest): string {
+  if ("kind" in r) {
+    return r.kind === "share"
+      ? `پرداخت سهام ${faMoney(r.amount)} تومانی`
+      : `پرداخت قسط ${(r.installmentNumber ?? 0).toLocaleString("fa-IR")} — ${faMoney(r.amount)} تومان`;
+  }
+  return `درخواست تسهیلات ${faMoney(r.amount)} تومانی — ${faMoney(r.months)} ماهه`;
+}
+
 /**
  * زنگوله اعلان‌ها و پیام‌های عضو (جلسه سی‌وهفتم) — دکمهٔ زنگ در هدر پنل یوزر با
  * نشان قرمز تعداد پیام‌های خوانده‌نشده؛ با لمس، پنل اعلان‌ها باز می‌شود (نتیجهٔ
@@ -44,6 +54,9 @@ function notifTitle(n: MemberNotification): string {
  * جلسه ۴۹: پیام‌رسان دوطرفه — پیام‌های مستقیم مدیر خطاب به عضو در همین پنل
  * دیده می‌شود و عضو می‌تواند از پایین پنل پیام به مدیر بفرستد و وضعیت
  * پیام‌های خودش را ببیند.
+ * جلسه ۵۱: بخش «در انتظار بررسی مدیر» — همهٔ درخواست‌های خودِ عضو که هنوز
+ * بررسی نشده‌اند (تسهیلات، سهام، اقساط) هم در پنل زنگوله دیده می‌شوند تا
+ * زنگوله به هر نوع پیامی اطلاع‌رسانی کند (به درخواست کاربر).
  * جلسه ۴۰: زنگوله طلایی و متمایز (به درخواست کاربر).
  */
 export default function MemberBell() {
@@ -51,6 +64,8 @@ export default function MemberBell() {
   const [items, setItems] = useState<MemberNotification[]>([]);
   const [adminMsgs, setAdminMsgs] = useState<AdminMessage[]>([]);
   const [mySent, setMySent] = useState<MemberMessage[]>([]);
+  /** جلسه ۵۱ — درخواست‌های خودِ عضو که هنوز در انتظار بررسی‌اند */
+  const [pendingItems, setPendingItems] = useState<(PaymentRequest | LoanRequest)[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [draft, setDraft] = useState("");
@@ -101,6 +116,15 @@ export default function MemberBell() {
         const d = (await r2.json()) as { fromAdmin?: AdminMessage[]; mySent?: MemberMessage[] };
         setAdminMsgs(Array.isArray(d.fromAdmin) ? d.fromAdmin : []);
         setMySent(Array.isArray(d.mySent) ? d.mySent : []);
+      }
+      // جلسه ۵۱ — درخواست‌های در انتظار بررسی (پرداخت‌ها + تسهیلات)
+      const r3 = await fetch("/api/member/requests");
+      if (r3.ok) {
+        const d = (await r3.json()) as { paymentRequests?: PaymentRequest[]; loanRequests?: LoanRequest[] };
+        const pays = Array.isArray(d.paymentRequests) ? d.paymentRequests.filter((x) => x.status === "pending") : [];
+        const loans = Array.isArray(d.loanRequests) ? d.loanRequests.filter((x) => x.status === "pending") : [];
+        const merged = [...loans, ...pays].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+        setPendingItems(merged);
       }
       // باز کردن پنل = خواندن همه اعلان‌ها و پیام‌ها؛ نشان قرمز بلافاصله پاک می‌شود
       await fetch("/api/member/notifications", { method: "POST" });
@@ -218,7 +242,7 @@ export default function MemberBell() {
                   </div>
                 )}
 
-                {items.length === 0 && adminMsgs.length === 0 ? (
+                {items.length === 0 && adminMsgs.length === 0 && pendingItems.length === 0 ? (
                   <div className="py-6 text-center">
                     <ClayIcon name="check" size={44} className="mx-auto" />
                     <p className="mt-3 text-xs leading-6 text-zinc-500">
@@ -227,49 +251,82 @@ export default function MemberBell() {
                     </p>
                   </div>
                 ) : (
-                  items.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300">
-                        <ClayIcon name="history" size={26} />
-                        نتیجهٔ بررسی درخواست‌ها
-                      </p>
-                      {items.map((n) => (
-                        <div
-                          key={`${n.kind}-${n.id}`}
-                          className="flex items-start gap-3 rounded-2xl border border-zinc-100 p-3 dark:border-zinc-900"
-                        >
-                          <ClayIcon
-                            name={n.kind === "loan" ? "banknote" : n.kind === "share" ? "coins" : "calendar"}
-                            size={38}
-                            className="shrink-0"
-                          />
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-sm font-medium">{notifTitle(n)}</p>
-                              <span
-                                className={`shrink-0 rounded-lg px-2 py-1 text-xs ${
-                                  n.status === "approved"
-                                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-                                    : "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300"
-                                }`}
-                              >
-                                {n.status === "approved" ? "تأیید شد" : "رد شد"}
+                  <>
+                    {/* جلسه ۵۱ — درخواست‌های خود عضو که هنوز در انتظار بررسی‌اند */}
+                    {pendingItems.length > 0 && (
+                      <div className="mb-4 space-y-2">
+                        <p className="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                          <ClayIcon name="clock" size={26} />
+                          در انتظار بررسی مدیر
+                        </p>
+                        {pendingItems.map((r) => (
+                          <div
+                            key={r.id}
+                            className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900 dark:bg-amber-950/30"
+                          >
+                            <ClayIcon
+                              name={"kind" in r ? (r.kind === "share" ? "coins" : "calendar") : "banknote"}
+                              size={38}
+                              className="shrink-0"
+                            />
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <p className="text-sm font-medium">{pendingTitle(r)}</p>
+                              <p className="text-[11px] text-zinc-500">
+                                ارسال‌شده در {faDate(r.createdAt)} — {faTime(r.createdAt)}
+                              </p>
+                              <span className="inline-block rounded-lg bg-amber-100 px-2 py-1 text-xs text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                                در انتظار تأیید مدیر
                               </span>
                             </div>
-                            <p className="text-[11px] text-zinc-500">
-                              {faDate(n.reviewedAt)}
-                              {n.kind === "loan" && n.months ? ` — ${n.months.toLocaleString("fa-IR")} ماهه` : ""}
-                            </p>
-                            {n.reviewNote && (
-                              <p className="rounded-xl bg-amber-100/70 px-3 py-1.5 text-[11px] leading-5 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
-                                پیام مدیر: {n.reviewNote}
-                              </p>
-                            )}
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
+                        ))}
+                      </div>
+                    )}
+
+                    {items.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="flex items-center gap-2 text-xs font-bold text-zinc-600 dark:text-zinc-300">
+                          <ClayIcon name="history" size={26} />
+                          نتیجهٔ بررسی درخواست‌ها
+                        </p>
+                        {items.map((n) => (
+                          <div
+                            key={`${n.kind}-${n.id}`}
+                            className="flex items-start gap-3 rounded-2xl border border-zinc-100 p-3 dark:border-zinc-900"
+                          >
+                            <ClayIcon
+                              name={n.kind === "loan" ? "banknote" : n.kind === "share" ? "coins" : "calendar"}
+                              size={38}
+                              className="shrink-0"
+                            />
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-medium">{notifTitle(n)}</p>
+                                <span
+                                  className={`shrink-0 rounded-lg px-2 py-1 text-xs ${
+                                    n.status === "approved"
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                                      : "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300"
+                                  }`}
+                                >
+                                  {n.status === "approved" ? "تأیید شد" : "رد شد"}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-zinc-500">
+                                {faDate(n.reviewedAt)}
+                                {n.kind === "loan" && n.months ? ` — ${n.months.toLocaleString("fa-IR")} ماهه` : ""}
+                              </p>
+                              {n.reviewNote && (
+                                <p className="rounded-xl bg-amber-100/70 px-3 py-1.5 text-[11px] leading-5 text-amber-900 dark:bg-amber-950/60 dark:text-amber-200">
+                                  پیام مدیر: {n.reviewNote}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {/* جلسه ۴۹ — ارسال پیام به مدیر (امکان پیام‌رسان برای یوزرها) */}

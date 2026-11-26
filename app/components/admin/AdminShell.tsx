@@ -3,13 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import ClayIcon, { toneForSeed, type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
+import AdminBell from "@/app/components/admin/AdminBell";
+import ClayIcon, { toneForSeed, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import HouseLogo from "@/app/components/mobile/HouseLogo";
 import LiveClock from "@/app/components/mobile/LiveClock";
 import type { PublicUser } from "@/lib/db";
-
-/** جلسه ۴۱ — تم طلایی زنگولهٔ ادمین (هم‌رنگ زنگولهٔ عضو) به درخواست کاربر */
-const GOLD_TONE: ClayTone = ["#FFD98E", "#F0A32B"];
 
 const MENU: { href: string; label: string; icon: ClayIconName; badge?: boolean; badgeKind?: "requests" | "messages" }[] = [
   { href: "/admin", label: "خانه", icon: "home" },
@@ -160,24 +158,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Link
-              href="/admin/requests"
-              title="درخواست‌ها و حساب‌های واریز جدید اعضا"
-              aria-label={`درخواست‌ها و حساب‌های واریز خوانده‌نشده: ${unread}`}
-              className="clay-press relative grid size-8 place-items-center rounded-full transition"
-            >
-              {/* جلسه ۴۱: زنگولهٔ ادمین طلایی و کوچکتر شد (پیش‌تر گلیف سفید
-                  ۲۶px داخل قرص شیشه‌ای بود — حالا لُه سفالی طلایی ۲۴px) */}
-              <ClayIcon name="bell" size={24} tone={GOLD_TONE} />
-              {unread > 0 && (
-                <>
-                  <span className="absolute -left-1 -top-1 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                    {faCount(unread)}
-                  </span>
-                  <span className="absolute -left-1 -top-1 size-2.5 animate-pulse rounded-full bg-red-500" />
-                </>
-              )}
-            </Link>
+            {/* جلسه ۵۱ — زنگولهٔ ادمین به «همهٔ» انواع پیام پاسخ می‌دهد
+                (درخواست‌های پرداخت، درخواست‌های تسهیلات، حساب‌های واریز
+                ارسال‌شده و پیام‌های اعضا) و با لمس پنل اعلان‌ها باز می‌شود؛
+                قبلاً فقط درخواست‌ها را می‌شمرد و مستقیم می‌پرید */}
+            <AdminBell />
             <span className="max-w-[9rem] truncate text-xs text-white/80">{displayName}</span>
             <span
               className="clay"
