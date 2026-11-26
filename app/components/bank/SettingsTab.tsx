@@ -180,11 +180,13 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
   const [newTitle, setNewTitle] = useState("");
   const [warn, setWarn] = useState(true);
   const [accPrimary, setAccPrimary] = useState<DepositAccount>({
+    bankName: "",
     holder: "",
     cardNumber: "",
     sheba: "",
   });
   const [accAlternate, setAccAlternate] = useState<DepositAccount>({
+    bankName: "",
     holder: "",
     cardNumber: "",
     sheba: "",
@@ -443,15 +445,21 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
       <section className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <h3 className="text-sm font-medium">حساب‌های واریز اعضا</h3>
         <p className="text-xs text-zinc-500">
-          شماره کارت، شماره شبا و نام صاحب حساب را ثبت کنید تا اعضا در تب «واریز»
-          پنل خود ببینند و به همان حساب واریز کنند. اگر حساب جایگزین ندارید،
-          خالی بگذارید.
+          نام بانک، شماره کارت، شماره شبا و نام صاحب حساب را ثبت کنید تا اعضا در
+          تب «واریز» پنل خود با همین جزئیات ببینند و به همان حساب واریز کنند.
+          اگر حساب جایگزین ندارید، خالی بگذارید.
         </p>
         <form onSubmit={saveAccounts} className="space-y-4">
           <fieldset className="space-y-2 rounded-xl border border-primary-200 p-3 dark:border-primary-900">
             <legend className="px-1 text-xs font-medium text-primary-700 dark:text-primary-300">
               اطلاعات اصلی
             </legend>
+            <input
+              value={accPrimary.bankName}
+              onChange={(e) => setAccPrimary({ ...accPrimary, bankName: e.target.value })}
+              placeholder="نام بانک حساب اصلی — مثل بانک ملت"
+              className={`${inputClass} w-full`}
+            />
             <input
               value={accPrimary.holder}
               onChange={(e) => setAccPrimary({ ...accPrimary, holder: e.target.value })}
@@ -479,6 +487,12 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
             <legend className="px-1 text-xs font-medium text-zinc-500">
               اطلاعات جایگزین
             </legend>
+            <input
+              value={accAlternate.bankName}
+              onChange={(e) => setAccAlternate({ ...accAlternate, bankName: e.target.value })}
+              placeholder="نام بانک حساب جایگزین — مثل بانک ملی"
+              className={`${inputClass} w-full`}
+            />
             <input
               value={accAlternate.holder}
               onChange={(e) => setAccAlternate({ ...accAlternate, holder: e.target.value })}

@@ -87,7 +87,7 @@ export async function PUT(request: Request) {
       if (sheba && !/^IR\d{24}$/.test(sheba)) {
         throw new Error(`${label} — شماره شبا باید IR و ۲۴ رقم باشد.`);
       }
-      return { holder: text(a.holder), cardNumber: card, sheba };
+      return { bankName: text(a.bankName), holder: text(a.holder), cardNumber: card, sheba };
     };
     try {
       patch.depositAccounts = {

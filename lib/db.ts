@@ -40,6 +40,7 @@ export type BankDepositType = "share" | "loan_interest" | "profit" | "misc";
 
 /** حساب واریز بانک — ادمین در تنظیمات ثبت می‌کند و اعضا در تب «واریز» می‌بینند */
 export type DepositAccount = {
+  bankName: string;
   holder: string;
   cardNumber: string;
   sheba: string;
@@ -181,8 +182,8 @@ export const DEFAULT_BANK: BankDatabase = {
     depositTitles: ["واریز سهام بانک", "سود بانک", "واریز متفرقه"],
     duplicateWarning: true,
     depositAccounts: {
-      primary: { holder: "", cardNumber: "", sheba: "" },
-      alternate: { holder: "", cardNumber: "", sheba: "" },
+      primary: { bankName: "", holder: "", cardNumber: "", sheba: "" },
+      alternate: { bankName: "", holder: "", cardNumber: "", sheba: "" },
     },
     loanPayoutAccounts: {},
     memberNotifCursors: {},
@@ -200,6 +201,7 @@ function normalizeDepositAccount(value: unknown): DepositAccount {
   const text = (v: unknown, max: number) =>
     typeof v === "string" ? v.trim().slice(0, max) : "";
   return {
+    bankName: text(raw.bankName, 60),
     holder: text(raw.holder, 60),
     cardNumber: text(raw.cardNumber, 24),
     sheba: text(raw.sheba, 26),
@@ -465,8 +467,8 @@ function unpackSettingsRow(r: Row): BankSettings {
   const rawTitles = Array.isArray(r.deposit_titles) ? r.deposit_titles : [];
   const titles: string[] = [];
   let accounts: { primary: DepositAccount; alternate: DepositAccount } = {
-    primary: { holder: "", cardNumber: "", sheba: "" },
-    alternate: { holder: "", cardNumber: "", sheba: "" },
+    primary: { bankName: "", holder: "", cardNumber: "", sheba: "" },
+    alternate: { bankName: "", holder: "", cardNumber: "", sheba: "" },
   };
   let payouts: Record<string, LoanPayoutAccount> = {};
   let memberNotifCursors: Record<string, string> = {};

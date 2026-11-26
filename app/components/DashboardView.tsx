@@ -1162,8 +1162,12 @@ export default function DashboardView({
               const accounts = settings?.depositAccounts;
               const primary = accounts?.primary;
               const alternate = accounts?.alternate;
-              const hasPrimary = Boolean(primary && (primary.holder || primary.cardNumber || primary.sheba));
-              const hasAlternate = Boolean(alternate && (alternate.holder || alternate.cardNumber || alternate.sheba));
+              const hasPrimary = Boolean(
+                primary && (primary.bankName || primary.holder || primary.cardNumber || primary.sheba),
+              );
+              const hasAlternate = Boolean(
+                alternate && (alternate.bankName || alternate.holder || alternate.cardNumber || alternate.sheba),
+              );
               if (!hasPrimary && !hasAlternate) {
                 return (
                   <p className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-6 text-center text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
@@ -1421,7 +1425,7 @@ export default function DashboardView({
                   ) : (
                     <form onSubmit={submitPayoutAccount} className="space-y-3">
                       <p className="text-xs leading-5 text-primary-900 dark:text-primary-200">
-                        تسهیلات شما تأیید شده است؛ شماره حساب یا شبای خود را برای مدیر بفرستید تا مبلغ واریز شده به حسابتان واریز شود.
+                        اطلاعات بانکی خود را جهت واریز وام مربوطه به مدیر ارسال کنید.
                       </p>
                       <input
                         value={payoutHolder}
@@ -1468,7 +1472,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** کارت اطلاعات یک حساب واریز: بنام + شماره کارت + شبا با دکمه کپی */
+/** کارت اطلاعات یک حساب واریز: نام بانک + بنام + شماره کارت + شبا با دکمه کپی */
 function AccountBlock({
   title,
   account,
@@ -1477,7 +1481,7 @@ function AccountBlock({
   onCopy,
 }: {
   title: string;
-  account: { holder: string; cardNumber: string; sheba: string };
+  account: { bankName?: string; holder: string; cardNumber: string; sheba: string };
   accent?: boolean;
   copiedKey: string;
   onCopy: (key: string, text: string) => void | Promise<void>;
@@ -1497,8 +1501,11 @@ function AccountBlock({
   return (
     <div className={`rounded-2xl border p-4 shadow-sm ${tone}`}>
       <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{title}</p>
+      {account.bankName && (
+        <p className="mt-2 text-sm font-semibold">نام بانک: {account.bankName}</p>
+      )}
       {account.holder && (
-        <p className="mt-2 text-sm font-semibold">به نام: {account.holder}</p>
+        <p className="mt-1 text-sm">به نام: {account.holder}</p>
       )}
       {account.cardNumber && (
         <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950">
