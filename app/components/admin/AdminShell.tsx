@@ -120,10 +120,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg shadow-primary-900/30"
         data-noprint
       >
-        {/* درخشش‌های تزئینی — همان پالت لوگوی جلسه ۳۰، هماهنگ با هدر پوسته موبایل */}
-        <div aria-hidden className="pointer-events-none absolute -top-12 left-16 size-44 rounded-full bg-cyan-400/25 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-24 size-40 rounded-full bg-primary-400/25 blur-3xl" />
-        <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 size-28 rounded-full bg-teal-300/15 blur-2xl" />
+        {/* درخشش‌های تزئینی — همان پالت لوگو؛ جلسه ۳۵: radial-gradient به‌جای blur زنده (سرعت اسکرول) */}
+        <div aria-hidden className="pointer-events-none absolute -top-12 left-16 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.25), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-24 size-40 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(47,212,189,0.25), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(94,234,212,0.15), transparent)" }} />
         <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <HouseLogo size={44} />

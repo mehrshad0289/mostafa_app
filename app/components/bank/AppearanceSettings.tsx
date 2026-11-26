@@ -5,13 +5,15 @@ import { useHydrated } from "./useHydrated";
 
 /** تم‌های رنگی — فقط متغیرهای رنگ برند (--color-primary-*) عوض می‌شوند.
  *  جلسه ۳۳: سه تم جدید (آبی آسمانی روشن‌تر، سرخابی، کهربایی) به درخواست
- *  «رنگ‌های بیشتر» اضافه شد — مجموع ۸ تم */
+ *  «رنگ‌های بیشتر» اضافه شد — مجموع ۸ تم
+ *  جلسه ۳۵: تم پیش‌فرض از «آبی بانکی» به «فیروزه‌ای برند» (خانواده فیروزه‌ای،
+ *  یکم تیره‌تر از فیروزه‌ای) تغییر کرد — پالت پیش‌فرض در globals.css */
 const THEMES: {
   key: string;
   label: string;
   swatches: [string, string, string];
 }[] = [
-  { key: "default", label: "آبی بانکی", swatches: ["#2258d7", "#3d77ef", "#94bbfc"] },
+  { key: "default", label: "فیروزه‌ای برند", swatches: ["#0d9488", "#14b8a6", "#6be4d4"] },
   { key: "sky", label: "آبی آسمانی", swatches: ["#0284c7", "#38bdf8", "#7dd3fc"] },
   { key: "emerald", label: "زمردی", swatches: ["#059669", "#10b981", "#6ee7b7"] },
   { key: "teal", label: "فیروزه‌ای", swatches: ["#0d9488", "#14b8a6", "#5eead4"] },

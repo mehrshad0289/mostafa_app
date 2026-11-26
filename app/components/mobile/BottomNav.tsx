@@ -16,11 +16,11 @@ type BottomNavProps = {
   onChange: (tab: MobileTab) => void;
 };
 
-/** نوار ناوبری پایین ثابت — فوتر رنگی آبی برند با هایلایت آیتم فعال (جلسه ۳۲؛ جلسه ۳۳ یک درجه، جلسه ۳۴ دو درجه روشن‌تر به درخواست «فوترها تیره است») */
+/** نوار ناوبری پایین ثابت — فوتر فیروزه‌ای برند (یکم تیره‌تر از فیروزه‌ای، جلسه ۳۵) با هایلایت آیتم فعال (جلسه ۳۲؛ جلسه ۳۳/۳۴ روشن‌تر؛ جلسه ۳۵ تغییر خانواده رنگ به فیروزه‌ای) */
 export default function BottomNav({ active, onChange }: BottomNavProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-primary-700 via-primary-600 to-primary-600 shadow-[0_-10px_30px_-12px_rgba(29,78,216,0.35)]"
+      className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-primary-800 via-primary-700 to-primary-700 shadow-[0_-10px_30px_-12px_rgba(13,148,136,0.45)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="ناوبری اصلی"
     >
@@ -42,7 +42,7 @@ export default function BottomNav({ active, onChange }: BottomNavProps) {
               {isActive ? (
                 <ClayIcon name={item.icon} size={40} tone={toneForSeed(item.key)} />
               ) : (
-                <ClayIcon name={item.icon} size={40} ghost ghostColor="#c3d2ef" />
+                <ClayIcon name={item.icon} size={40} ghost ghostColor="#cfeee8" />
               )}
               <span
                 className={`text-[10px] leading-3 transition-colors ${

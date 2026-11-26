@@ -5,23 +5,25 @@
    می‌گذارد تا صفحه چشمک نزند؛ حالت «سیستم» هم همان‌جا با media query حل می‌شود. */
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
-/* پالت برند «فم بانک»: آبی بانکی + خنثی با ته‌مایه آبی (سبک اپ‌های بانکی).
+/* پالت برند «فم بانک»: فیروزه‌ای برند (یکم تیره‌تر از فیروزه‌ای، هماهنگ با
+   لوگو و درخشش‌های فیروزه‌ای/آبی آن — جلسه ۳۵ به درخواست کاربر:
+   «بالا و پایین تیره هست، نزدیک به آبی فیروزه‌ای کن») + خنثی با ته‌مایه سبز-آبی.
    رنگ‌های zinc پروژه به‌صورت سراسری به خاکستریِ آبی‌فام (اسلیت) تغییر می‌کنند
    تا همه صفحات و کامپوننت‌های موجود بدون تغییر کلاس‌ها یکدست شوند.
    تم‌های جایگزین (تنظیمات ظاهری) فقط متغیرهای --color-primary-* را عوض می‌کنند
    و چون کلاس‌های Tailwind به همین متغیرها اشاره می‌کنند، کل اپ رنگ عوض می‌کند. */
 @theme {
-  --color-primary-50: #edf4ff;
-  --color-primary-100: #dce9ff;
-  --color-primary-200: #c0d6fe;
-  --color-primary-300: #94bbfc;
-  --color-primary-400: #6198f7;
-  --color-primary-500: #3d77ef;
-  --color-primary-600: #2258d7;
-  --color-primary-700: #1a46af;
-  --color-primary-800: #193c8e;
-  --color-primary-900: #1b3573;
-  --color-primary-950: #142447;
+  --color-primary-50: #ecfdf9;
+  --color-primary-100: #d0faf3;
+  --color-primary-200: #a3f0e6;
+  --color-primary-300: #6be4d4;
+  --color-primary-400: #2fd4bd;
+  --color-primary-500: #14b8a6;
+  --color-primary-600: #0d9488;
+  --color-primary-700: #0f766e;
+  --color-primary-800: #14655c;
+  --color-primary-900: #17554c;
+  --color-primary-950: #0a332e;
 
   --color-zinc-50: #f8fafc;
   --color-zinc-100: #f1f5f9;
@@ -203,9 +205,13 @@ body {
     inset 0 2px 4px rgba(255, 255, 255, 0.75),
     inset 0 -4px 8px rgba(15, 23, 42, 0.18),
     inset 2px 0 4px rgba(255, 255, 255, 0.25),
-    0 8px 16px -6px rgba(30, 64, 175, 0.38);
+    0 8px 16px -6px rgba(13, 148, 136, 0.35);
 }
 
+/* بازخورد لمسی نرم برای کارت‌ها و دکمه‌های clay
+   جلسه ۳۵ (سرعت رابط کاربری): هایلایت نور به‌جای filter: blur(1px) با
+   radial-gradient نرم ساخته می‌شود — ظاهر همان است ولی دیگر فیلتر زنده روی
+   GPU هر لمس/اسکرول پردازش نمی‌شود (ده‌ها عنصر clay در هر صفحه). */
 .clay::before {
   content: "";
   position: absolute;
@@ -214,8 +220,7 @@ body {
   width: 44%;
   height: 26%;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  filter: blur(1px);
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0));
   transform: rotate(-20deg);
   pointer-events: none;
 }

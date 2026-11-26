@@ -328,7 +328,6 @@ export default function ClayIcon({
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
-      style={ghost ? undefined : { filter: "drop-shadow(0 1px 1.5px rgba(15,23,42,0.28))" }}
     >
       {GLYPHS[name] ?? GLYPHS.info}
     </svg>
