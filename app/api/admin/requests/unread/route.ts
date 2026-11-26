@@ -11,6 +11,9 @@ export async function GET() {
     count: unread.count,
     paymentCount: unread.paymentCount,
     loanCount: unread.loanCount,
+    // جلسه ۳۷: حساب‌های شبا/کارت ارسال‌شدهٔ اعضا هم در زنگ ادمین شمرده می‌شوند
+    payoutCount: unread.payoutCount,
+    payouts: unread.payouts,
     lastReadAt: unread.lastReadAt,
     paymentRequests: unread.paymentRequests.map(({ receipt, ...rest }) => {
       void receipt;

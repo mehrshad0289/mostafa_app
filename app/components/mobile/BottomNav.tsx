@@ -18,7 +18,7 @@ type BottomNavProps = {
 
 /** نوار ناوبری پایین ثابت — جلسه ۳۶: فوتر سفید به درخواست کاربر (جلوهٔ زیباتر)
  *  با قرص فعال تینت برند، آیکون فعال رنگی و آیکون/برچسب غیرفعال خاکستری؛
- *  نوار باریک برند فیروزه‌ای بالای نوار حفظ شد تا هویت برند بماند. */
+ *  نوار باریک برند بالای نوار حفظ شد تا هویت برند بماند (جلسه ۳۷: آبی آسمانی). */
 export default function BottomNav({ active, onChange }: BottomNavProps) {
   return (
     <nav
@@ -26,8 +26,8 @@ export default function BottomNav({ active, onChange }: BottomNavProps) {
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="ناوبری اصلی"
     >
-      {/* نوار باریک برند فیروزه‌ای — هماهنگ با لوگو و هدر */}
-      <div aria-hidden className="h-[2px] w-full bg-gradient-to-l from-teal-300 via-cyan-400 to-primary-400" />
+      {/* نوار باریک برند آبی آسمانی — هماهنگ با لوگو و هدر (جلسه ۳۷) */}
+      <div aria-hidden className="h-[2px] w-full bg-gradient-to-l from-sky-300 via-sky-400 to-primary-500" />
       <div className="mx-auto flex max-w-md items-stretch justify-around gap-1 px-2 py-1.5">
         {NAV.map((item) => {
           const isActive = active === item.key;

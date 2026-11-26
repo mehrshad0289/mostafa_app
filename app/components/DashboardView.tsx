@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
+import MemberBell from "@/app/components/mobile/MemberBell";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type {
   BankDeposit,
@@ -576,6 +577,10 @@ export default function DashboardView({
                 <p className="text-xs text-zinc-500">پنل عضو</p>
                 <h1 className="truncate text-base font-semibold">{me.fullName || me.username}</h1>
               </div>
+              {/* جلسه ۳۷: زنگوله اعلان‌ها در هدر پنل عضو */}
+              <span className="mr-1">
+                <MemberBell variant="light" />
+              </span>
             </div>
             <button
               type="button"

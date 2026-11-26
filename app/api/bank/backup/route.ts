@@ -180,6 +180,9 @@ function validateBackup(raw: unknown): { bank?: BankDatabase; error?: string } {
         // حساب‌های واریز تسهیلات اعضا در پشتیبان‌های قدیمی نیست؛ خالی گذاشته می‌شود (جلسه ۳۶)
         loanPayoutAccounts:
           (s.loanPayoutAccounts ?? {}) as BankDatabase["settings"]["loanPayoutAccounts"],
+        // نشانگر زنگوله اعضا در پشتیبان‌های قدیمی نیست؛ خالی گذاشته می‌شود (جلسه ۳۷)
+        memberNotifCursors:
+          (s.memberNotifCursors ?? {}) as BankDatabase["settings"]["memberNotifCursors"],
       },
       members: candidate.members as BankDatabase["members"],
       deposits: candidate.deposits as BankDatabase["deposits"],

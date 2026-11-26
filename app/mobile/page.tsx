@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ClayIcon, { toneForSeed } from "@/app/components/mobile/ClayIcon";
+import ClayIcon, { NAVY_TONE } from "@/app/components/mobile/ClayIcon";
 import HouseLogo from "@/app/components/mobile/HouseLogo";
 import LiveClock from "@/app/components/mobile/LiveClock";
+import MemberBell from "@/app/components/mobile/MemberBell";
 import BottomNav, { type MobileTab } from "@/app/components/mobile/BottomNav";
 import DashboardView, { type DashboardTab } from "@/app/components/DashboardView";
 import ServicesScreen from "@/app/components/mobile/ServicesScreen";
@@ -21,6 +22,8 @@ import type { PublicUser } from "@/lib/db";
  * (جلسه ۲۷) و مدیریت کاربران فقط در پنل ادمین است.
  * تب «خانه» برای عضو = شبکه مربع‌های سر فصل‌ها؛ هر سر فصل «یک‌تیکه» و لمسش
  * مستقیم همان بخش را باز می‌کند (بدون واسط داشبورد کلی) — جلسه ۲۶ مرحله ۲.
+ * جلسه ۳۷: زنگوله اعلان‌های عضو در هدر + رنگ برند آبی آسمانی (به‌جای فیروزه‌ای)
+ * + آواتار پروفایل هم‌رنگ آیکون سورمه‌ای.
  */
 
 export default function MobileAppPage() {
@@ -89,16 +92,15 @@ export default function MobileAppPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      {/* هدر برند — فیروزه‌ای برند (یکم تیره‌تر از فیروزه‌ای، جلسه ۳۵) با درخشش هماهنگ با لوگو (جلسه ۳۲؛
-          جلسه ۳۳ یک درجه روشن‌تر):
-          لوگوی خانه سه‌بعدی + فم بانک + Fam Bank + روز/تاریخ/ساعت زنده.
-          نشان نقش فقط برای «مدیر» نمایش داده می‌شود؛ کلمه «عضو» حذف شد (درخواست کاربر). */}
+      {/* هدر برند — آبی آسمانی برند (جلسه ۳۷ به درخواست کاربر: «رنگ آبی فیروزه‌ای رو
+          به رنگ آبی آسمانی تغییر بده») با درخشش آبی هماهنگ با لوگو (جلسه ۳۲):
+          لوگوی خانه سه‌بعدی + فم بانک + Fam Bank + روز/تاریخ/ساعت زنده + زنگوله
+          اعلان‌های عضو (جلسه ۳۷). نشان نقش فقط برای «مدیر» نمایش داده می‌شود. */}
       <header className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg shadow-primary-900/30">
-        {/* درخشش‌های تزئینی — همان پالت لوگو؛ جلسه ۳۵: به‌جای blur زنده (فیلتر سنگین روی GPU در اسکرول)
-            radial-gradient از پیش نرم‌شده — ظاهر یکسان، سرعت بهتر */}
-        <div aria-hidden className="pointer-events-none absolute -top-12 left-2 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.25), transparent)" }} />
-        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-8 size-40 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(47,212,189,0.25), transparent)" }} />
-        <div aria-hidden className="pointer-events-none absolute -top-8 right-1/3 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(94,234,212,0.15), transparent)" }} />
+        {/* درخشش‌های تزئینی — جلسه ۳۵: radial-gradient به‌جای blur زنده؛ جلسه ۳۷: پالت آبی آسمانی */}
+        <div aria-hidden className="pointer-events-none absolute -top-12 left-2 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.25), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-8 size-40 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(125,211,252,0.25), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -top-8 right-1/3 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
         <div className="relative mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-2.5">
             <HouseLogo size={44} />
@@ -110,12 +112,17 @@ export default function MobileAppPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {!isAdmin && <MemberBell />}
             {isAdmin && (
               <span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-semibold text-white ring-1 ring-inset ring-white/25">
                 مدیر
               </span>
             )}
-            <span className="clay" style={{ width: 38, height: 38, background: `linear-gradient(140deg, ${toneForSeed(me.username)[0]}, ${toneForSeed(me.username)[1]})` }}>
+            {/* جلسه ۳۷: آواتار پروفایل هم‌رنگ آیکون سورمه‌ای (به درخواست کاربر) */}
+            <span
+              className="clay"
+              style={{ width: 38, height: 38, background: `linear-gradient(140deg, ${NAVY_TONE[0]}, ${NAVY_TONE[1]})` }}
+            >
               <span className="relative z-10 text-xs font-bold text-white">{(me.fullName || me.username).trim().charAt(0)}</span>
             </span>
           </div>
@@ -124,7 +131,7 @@ export default function MobileAppPage() {
         <div className="relative mx-auto flex max-w-md justify-center px-4 pb-2">
           <LiveClock light />
         </div>
-        <div className="relative h-[3px] bg-gradient-to-l from-teal-300 via-cyan-400 to-primary-400" />
+        <div className="relative h-[3px] bg-gradient-to-l from-sky-300 via-sky-400 to-primary-500" />
       </header>
 
       {/* محتوای تب فعال */}
@@ -239,8 +246,8 @@ function AdminMobileHome({ name }: { name: string }) {
   return (
     <div className="space-y-4 px-4 pt-4">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-600 via-primary-700 to-primary-900 p-5 text-white shadow-lg shadow-primary-800/30">
-        <div aria-hidden className="pointer-events-none absolute -left-8 -top-10 size-32 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.2), transparent)" }} />
-        <div aria-hidden className="pointer-events-none absolute -bottom-12 right-4 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(94,234,212,0.15), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -left-8 -top-10 size-32 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.2), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -bottom-12 right-4 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
         <p className="relative text-xs text-white/70">سلام، {name}</p>
         <p className="relative mt-1 text-sm font-medium text-white/90">موجودی بانک</p>
         <p className="relative mt-1 text-2xl font-black tracking-tight">

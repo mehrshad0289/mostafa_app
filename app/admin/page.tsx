@@ -32,7 +32,7 @@ type DashboardData = {
     lastReadAt: string;
     latest: {
       id: string;
-      kind: "share" | "installment" | "loan";
+      kind: "share" | "installment" | "loan" | "payout";
       username: string;
       amount: number;
       installmentNumber: number | null;
@@ -45,6 +45,8 @@ const KIND_LABEL = {
   share: "پرداخت سهام",
   installment: "پرداخت قسط",
   loan: "درخواست تسهیلات",
+  // جلسه ۳۷: ارسال شبا/کارت عضو برای واریز تسهیلات در زنگ ادمین
+  payout: "ارسال حساب واریز تسهیلات",
 } as const;
 
 type TileVariant = "default" | "danger" | "warning";
@@ -347,9 +349,9 @@ export default function AdminDashboardPage() {
             (جلسه ۳۳: یک درجه روشن‌تر + درخشش‌های رنگی پالت لوگو) */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-600 via-primary-700 to-primary-900 p-4 text-white shadow-lg shadow-primary-800/30 sm:p-5">
           {/* درخشش‌های تزئینی — جلسه ۳۵: radial-gradient به‌جای blur زنده (سرعت اسکرول) */}
-          <div aria-hidden className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.2), transparent)" }} />
-          <div aria-hidden className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(47,212,189,0.2), transparent)" }} />
-          <div aria-hidden className="pointer-events-none absolute -top-10 right-1/4 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(94,234,212,0.15), transparent)" }} />
+          <div aria-hidden className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.2), transparent)" }} />
+          <div aria-hidden className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(125,211,252,0.2), transparent)" }} />
+          <div aria-hidden className="pointer-events-none absolute -top-10 right-1/4 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
           <div className="relative">
             <p className="text-xs text-white/70">سلام، {name}</p>
             <p className="mt-1 text-sm font-medium text-white/90">موجودی کلی بانک</p>

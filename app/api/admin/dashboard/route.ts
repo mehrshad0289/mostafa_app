@@ -145,6 +145,15 @@ export async function GET() {
           installmentNumber: null,
           createdAt: r.createdAt,
         })),
+        // جلسه ۳۷: ارسال شبا/کارت برای واریز تسهیلات هم در لیست اعلان داشبورد
+        ...unread.payouts.slice(0, 5).map((p) => ({
+          id: p.requestId,
+          kind: "payout" as const,
+          username: p.username,
+          amount: p.amount,
+          installmentNumber: null,
+          createdAt: p.submittedAt,
+        })),
       ]
         .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
         .slice(0, 5),

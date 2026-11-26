@@ -64,6 +64,8 @@ export type BankSettings = {
   depositAccounts: { primary: DepositAccount; alternate: DepositAccount };
   /** حساب‌های اعضا برای واریز تسهیلات — کلید = شناسه درخواست تسهیلات (جلسه ۳۶) */
   loanPayoutAccounts: Record<string, LoanPayoutAccount>;
+  /** آخرین زمان بازدید هر عضو از زنگوله اعلان‌هایش — کلید = شناسه کاربر (جلسه ۳۷) */
+  memberNotifCursors: Record<string, string>;
 };
 
 export type BankMember = {
@@ -151,6 +153,7 @@ export const DEFAULT_BANK: BankDatabase = {
       alternate: { holder: "", cardNumber: "", sheba: "" },
     },
     loanPayoutAccounts: {},
+    memberNotifCursors: {},
   },
   members: [],
   deposits: [],
@@ -321,6 +324,8 @@ function userFromRow(r: Row): User {
 const ACCOUNTS_MARKER = "__deposit_accounts_v1";
 /** نشانهٔ حساب‌های اعضا برای واریز تسهیلات — در همان ستون jsonb (جلسه سی‌وششم) */
 const PAYOUTS_MARKER = "__loan_payouts_v1";
+/** نشانهٔ نشانگر زنگوله اعلان‌های اعضا — در همان ستون jsonb (جلسه سی‌وهفتم) */
+const MEMBER_NOTIF_MARKER = "__member_notif_v1";
 
 function packSettingsRow(s: BankSettings): Row {
   return {
@@ -330,6 +335,7 @@ function packSettingsRow(s: BankSettings): Row {
       ...(Array.isArray(s.depositTitles) ? s.depositTitles : []),
       { [ACCOUNTS_MARKER]: s.depositAccounts },
       { [PAYOUTS_MARKER]: s.loanPayoutAccounts ?? {} },
+      { [MEMBER_NOTIF_MARKER]: s.memberNotifCursors ?? {} },
     ],
     duplicate_warning: s.duplicateWarning === true,
   };
@@ -359,6 +365,16 @@ function normalizeLoanPayouts(value: unknown): Record<string, LoanPayoutAccount>
   return out;
 }
 
+/** نرمال‌سازی نشانگر زنگوله اعضا — { شناسه کاربر: زمان ISO آخرین بازدید } */
+function normalizeMemberNotifCursors(value: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return out;
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof raw === "string" && raw) out[key] = raw;
+  }
+  return out;
+}
+
 function unpackSettingsRow(r: Row): BankSettings {
   const rawTitles = Array.isArray(r.deposit_titles) ? r.deposit_titles : [];
   const titles: string[] = [];
@@ -367,6 +383,7 @@ function unpackSettingsRow(r: Row): BankSettings {
     alternate: { holder: "", cardNumber: "", sheba: "" },
   };
   let payouts: Record<string, LoanPayoutAccount> = {};
+  let memberNotifCursors: Record<string, string> = {};
   for (const el of rawTitles) {
     if (
       el &&
@@ -384,6 +401,15 @@ function unpackSettingsRow(r: Row): BankSettings {
       PAYOUTS_MARKER in (el as Record<string, unknown>)
     ) {
       payouts = normalizeLoanPayouts((el as Record<string, unknown>)[PAYOUTS_MARKER]);
+    } else if (
+      el &&
+      typeof el === "object" &&
+      !Array.isArray(el) &&
+      MEMBER_NOTIF_MARKER in (el as Record<string, unknown>)
+    ) {
+      memberNotifCursors = normalizeMemberNotifCursors(
+        (el as Record<string, unknown>)[MEMBER_NOTIF_MARKER],
+      );
     } else if (typeof el === "string" && el.trim().length > 0) {
       titles.push(el);
     }
@@ -394,6 +420,7 @@ function unpackSettingsRow(r: Row): BankSettings {
     duplicateWarning: bool(r.duplicate_warning),
     depositAccounts: accounts,
     loanPayoutAccounts: payouts,
+    memberNotifCursors,
   };
 }
 
@@ -898,7 +925,9 @@ async function readDb(): Promise<Database> {
     const raw = await readFile(DATA_FILE, "utf8");
     return normalizeDb(JSON.parse(raw) as Partial<Database>);
   } catch {
-    return normalizeDb(seed as Partial<Database>);
+    // seed (data/db.json) فیلد memberNotifCursors را ندارد؛ normalizeBank مقدار
+    // پیش‌فرض خالی را از DEFAULT_BANK.settings پر می‌کند.
+    return normalizeDb(seed as unknown as Partial<Database>);
   }
 }
 
@@ -2190,16 +2219,32 @@ export async function markRequestsRead(): Promise<string> {
   return at;
 }
 
+export type UnreadPayout = {
+  requestId: string;
+  username: string;
+  /** مبلغ تسهیلاتِ درخواست مربوطه */
+  amount: number;
+  holder: string;
+  sheba: string;
+  cardNumber: string;
+  submittedAt: string;
+};
+
 export type UnreadRequests = {
   count: number;
   paymentCount: number;
   loanCount: number;
+  /** حساب‌های واریز تسهیلات (شبا/کارت) که بعد از آخرین بازدید ادمین ارسال شده‌اند (جلسه ۳۷) */
+  payoutCount: number;
+  payouts: UnreadPayout[];
   lastReadAt: string;
   paymentRequests: PaymentRequest[];
   loanRequests: LoanRequest[];
 };
 
-/** درخواست‌های خوانده‌نشده = pending با createdAt جدیدتر از آخرین بازدید ادمین */
+/** درخواست‌های خوانده‌نشده = pending با createdAt جدیدتر از آخرین بازدید ادمین؛
+ *  جلسه ۳۷: حساب‌های شبا/کارت ارسال‌شدهٔ اعضا هم شمرده می‌شوند تا زنگوله ادمین
+ *  ارسال شبا را نشان دهد (submittedAt جدیدتر از نشانگر = خوانده‌نشده). */
 export async function getUnreadRequests(): Promise<UnreadRequests> {
   const db = await readDb();
   const lastReadAt = readCursorAt(db.bank);
@@ -2207,14 +2252,106 @@ export async function getUnreadRequests(): Promise<UnreadRequests> {
     r.status === "pending" && (!lastReadAt || r.createdAt > lastReadAt);
   const paymentRequests = db.paymentRequests.filter(isNew);
   const loanRequests = db.loanRequests.filter(isNew);
+  const payouts: UnreadPayout[] = [];
+  for (const [requestId, payout] of Object.entries(db.bank.settings.loanPayoutAccounts ?? {})) {
+    if (!payout.submittedAt || (lastReadAt && payout.submittedAt <= lastReadAt)) continue;
+    const request = db.loanRequests.find((r) => r.id === requestId);
+    if (!request) continue;
+    payouts.push({
+      requestId,
+      username: request.username,
+      amount: request.amount,
+      holder: payout.holder,
+      sheba: payout.sheba,
+      cardNumber: payout.cardNumber,
+      submittedAt: payout.submittedAt,
+    });
+  }
+  payouts.sort((a, b) => (a.submittedAt < b.submittedAt ? 1 : -1));
   return {
-    count: paymentRequests.length + loanRequests.length,
+    count: paymentRequests.length + loanRequests.length + payouts.length,
     paymentCount: paymentRequests.length,
     loanCount: loanRequests.length,
+    payoutCount: payouts.length,
+    payouts,
     lastReadAt,
     paymentRequests,
     loanRequests,
   };
+}
+
+// ---------- زنگوله اعلان‌های عضو (جلسه سی‌وهفتم) ----------
+//
+// پیام‌های مدیر به عضو: نتیجهٔ بررسی درخواست‌ها (تأیید/رد) + یادداشت مدیر
+// (reviewNote). «خوانده‌نشده» با نشانگر زمانی per-user در همان ستون jsonb
+// bank_settings (نشانهٔ __member_notif_v1) نگه داشته می‌شود — بدون مایگریشن،
+// هم روی فایل و هم روی Supabase کار می‌کند. هر بررسی جدید (reviewedAt
+// جدیدتر از نشانگر) یک اعلان خوانده‌نشده است.
+
+export type MemberNotification = {
+  id: string;
+  kind: "loan" | "share" | "installment";
+  status: Exclude<RequestStatus, "pending">;
+  amount: number;
+  /** فقط برای درخواست تسهیلات: مدت بازپرداخت به ماه */
+  months?: number;
+  /** فقط برای پرداخت قسط: شماره قسط */
+  installmentNumber?: number;
+  reviewedAt: string;
+  /** یادداشت/پیام مدیر هنگام بررسی */
+  reviewNote: string;
+};
+
+/** اعلان‌های خوانده‌نشدهٔ یک عضو — نتیجهٔ بررسی درخواست‌هایش بعد از آخرین بازدید زنگوله */
+export async function getMemberNotifications(
+  user: Pick<User, "id">,
+): Promise<{ count: number; lastSeenAt: string; items: MemberNotification[] }> {
+  const db = await readDb();
+  const lastSeenAt = db.bank.settings.memberNotifCursors?.[user.id] ?? "";
+  const isFresh = (r: {
+    userId: string;
+    status: RequestStatus;
+    reviewedAt?: string;
+  }) => !!r.reviewedAt && r.status !== "pending" && (!lastSeenAt || r.reviewedAt > lastSeenAt);
+  const items: MemberNotification[] = [];
+  for (const r of db.loanRequests) {
+    if (r.userId !== user.id || !isFresh(r)) continue;
+    items.push({
+      id: r.id,
+      kind: "loan",
+      status: r.status === "approved" ? "approved" : "rejected",
+      amount: r.amount,
+      months: r.months,
+      reviewedAt: r.reviewedAt!,
+      reviewNote: r.reviewNote ?? "",
+    });
+  }
+  for (const r of db.paymentRequests) {
+    if (r.userId !== user.id || !isFresh(r)) continue;
+    items.push({
+      id: r.id,
+      kind: r.kind,
+      status: r.status === "approved" ? "approved" : "rejected",
+      amount: r.amount,
+      installmentNumber: r.installmentNumber,
+      reviewedAt: r.reviewedAt!,
+      reviewNote: r.reviewNote ?? "",
+    });
+  }
+  items.sort((a, b) => (a.reviewedAt < b.reviewedAt ? 1 : -1));
+  return { count: items.length, lastSeenAt, items };
+}
+
+/** ثبت بازدید عضو از زنگوله — همه اعلان‌هایش تا همین لحظه خوانده‌شده می‌شوند */
+export async function markMemberNotificationsSeen(user: Pick<User, "id">): Promise<string> {
+  const db = await readDb();
+  const at = new Date().toISOString();
+  db.bank.settings.memberNotifCursors = {
+    ...(db.bank.settings.memberNotifCursors ?? {}),
+    [user.id]: at,
+  };
+  await writeDb(db);
+  return at;
 }
 
 /** بررسی درخواست پرداخت توسط ادمین؛ تأیید = ثبت رکورد واقعی در بانک (یک write) */

@@ -113,17 +113,16 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      {/* هدر برند — هم‌سبک با هدر پوسته موبایل فم بانک؛ جلسه ۳۳: هدر هر دو لایه
-          رنگی شد (گرادیان سرمه‌ای برند یک درجه روشن‌تر + درخشش فیروزه‌ای/آبی
-          + نوار باریک فیروزه‌ای→آبی) به درخواست «رنگ‌های بیشتر در هر دو لایه» */}
+      {/* هدر برند — هم‌سبک با هدر پوسته موبایل فم بانک؛ جلسه ۳۷: رنگ برند
+          آبی آسمانی شد (به درخواست کاربر، هم لایه یوزر هم ادمین) */}
       <header
         className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg shadow-primary-900/30"
         data-noprint
       >
-        {/* درخشش‌های تزئینی — همان پالت لوگو؛ جلسه ۳۵: radial-gradient به‌جای blur زنده (سرعت اسکرول) */}
-        <div aria-hidden className="pointer-events-none absolute -top-12 left-16 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(34,211,238,0.25), transparent)" }} />
-        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-24 size-40 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(47,212,189,0.25), transparent)" }} />
-        <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(94,234,212,0.15), transparent)" }} />
+        {/* درخشش‌های تزئینی — جلسه ۳۵: radial-gradient به‌جای blur زنده (سرعت اسکرول)؛ جلسه ۳۷: پالت آبی آسمانی */}
+        <div aria-hidden className="pointer-events-none absolute -top-12 left-16 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.25), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -bottom-16 right-24 size-40 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(125,211,252,0.25), transparent)" }} />
+        <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
         <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <HouseLogo size={44} />
@@ -142,8 +141,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <div className="flex shrink-0 items-center gap-2">
             <Link
               href="/admin/requests"
-              title="درخواست‌های خوانده‌نشده اعضا"
-              aria-label={`درخواست‌های خوانده‌نشده: ${unread}`}
+              title="درخواست‌ها و حساب‌های واریز جدید اعضا"
+              aria-label={`درخواست‌ها و حساب‌های واریز خوانده‌نشده: ${unread}`}
               className="clay-press relative grid size-9 place-items-center rounded-full bg-white/12 text-white/85 ring-1 ring-inset ring-white/20 transition hover:bg-white/20 hover:text-white"
             >
               <ClayIcon name="bell" size={26} ghost />
@@ -175,12 +174,12 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </div>
 
-        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) — روی زمینه سرمه‌ای با نسخه روشن */}
+        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) — روی زمینه آبی آسمانی با نسخه روشن */}
         <div className="relative mx-auto flex max-w-6xl justify-center px-4 pb-1.5" data-noprint>
           <LiveClock light />
         </div>
 
-        {/* نوار افقی منو در موبایل — قرص‌های شیشه‌ای سفید روی زمینه سرمه‌ای */}
+        {/* نوار افقی منو در موبایل — قرص‌های شیشه‌ای سفید روی زمینه آبی آسمانی */}
         <nav className="relative mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-2.5 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MENU.map((item) => {
             const active = pathname === item.href;
@@ -201,7 +200,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             );
           })}
         </nav>
-        <div className="relative h-[3px] bg-gradient-to-l from-teal-300 via-cyan-400 to-primary-400" />
+        <div className="relative h-[3px] bg-gradient-to-l from-sky-300 via-sky-400 to-primary-500" />
       </header>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-6">

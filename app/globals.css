@@ -5,25 +5,25 @@
    می‌گذارد تا صفحه چشمک نزند؛ حالت «سیستم» هم همان‌جا با media query حل می‌شود. */
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
 
-/* پالت برند «فم بانک»: فیروزه‌ای برند (یکم تیره‌تر از فیروزه‌ای، هماهنگ با
-   لوگو و درخشش‌های فیروزه‌ای/آبی آن — جلسه ۳۵ به درخواست کاربر:
-   «بالا و پایین تیره هست، نزدیک به آبی فیروزه‌ای کن») + خنثی با ته‌مایه سبز-آبی.
+/* پالت برند «فم بانک»: آبی آسمانی (جلسه ۳۷ به درخواست کاربر:
+   «رنگ آبی فیروزه‌ای رو به رنگ آبی آسمانی تغییر بده، هم در لایه یوزر هم ادمین»)
+   — پالت Sky تیلویند؛ هدر و هیروها از 900→700 آبی آسمانی عمیق تا روشن.
    رنگ‌های zinc پروژه به‌صورت سراسری به خاکستریِ آبی‌فام (اسلیت) تغییر می‌کنند
    تا همه صفحات و کامپوننت‌های موجود بدون تغییر کلاس‌ها یکدست شوند.
    تم‌های جایگزین (تنظیمات ظاهری) فقط متغیرهای --color-primary-* را عوض می‌کنند
    و چون کلاس‌های Tailwind به همین متغیرها اشاره می‌کنند، کل اپ رنگ عوض می‌کند. */
 @theme {
-  --color-primary-50: #ecfdf9;
-  --color-primary-100: #d0faf3;
-  --color-primary-200: #a3f0e6;
-  --color-primary-300: #6be4d4;
-  --color-primary-400: #2fd4bd;
-  --color-primary-500: #14b8a6;
-  --color-primary-600: #0d9488;
-  --color-primary-700: #0f766e;
-  --color-primary-800: #14655c;
-  --color-primary-900: #17554c;
-  --color-primary-950: #0a332e;
+  --color-primary-50: #f0f9ff;
+  --color-primary-100: #e0f2fe;
+  --color-primary-200: #bae6fd;
+  --color-primary-300: #7dd3fc;
+  --color-primary-400: #38bdf8;
+  --color-primary-500: #0ea5e9;
+  --color-primary-600: #0284c7;
+  --color-primary-700: #0369a1;
+  --color-primary-800: #075985;
+  --color-primary-900: #0c4a6e;
+  --color-primary-950: #082f49;
 
   --color-zinc-50: #f8fafc;
   --color-zinc-100: #f1f5f9;
@@ -104,19 +104,20 @@
   --color-primary-950: #042f2e;
 }
 
-/* آبی آسمانی — روشن‌تر از آبی بانکی (جلسه ۳۳) */
+/* آبی بانکی — آبی عمیق‌تر از آسمانی برای متمایز ماندن (جلسه ۳۷؛ کلید قبلی sky
+   که حالا پیش‌فرض است، به آبی بانکی تغییر مقدار داد) */
 [data-theme="sky"] {
-  --color-primary-50: #f0f9ff;
-  --color-primary-100: #e0f2fe;
-  --color-primary-200: #bae6fd;
-  --color-primary-300: #7dd3fc;
-  --color-primary-400: #38bdf8;
-  --color-primary-500: #0ea5e9;
-  --color-primary-600: #0284c7;
-  --color-primary-700: #0369a1;
-  --color-primary-800: #075985;
-  --color-primary-900: #0c4a6e;
-  --color-primary-950: #082f49;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  --color-primary-950: #172554;
 }
 
 /* سرخابی (جلسه ۳۳) */
@@ -205,7 +206,7 @@ body {
     inset 0 2px 4px rgba(255, 255, 255, 0.75),
     inset 0 -4px 8px rgba(15, 23, 42, 0.18),
     inset 2px 0 4px rgba(255, 255, 255, 0.25),
-    0 8px 16px -6px rgba(13, 148, 136, 0.35);
+    0 8px 16px -6px rgba(2, 132, 199, 0.35);
 }
 
 /* بازخورد لمسی نرم برای کارت‌ها و دکمه‌های clay

@@ -70,6 +70,15 @@ export default function AdminRequestsPage() {
   // حساب‌های واریز تسهیلات اعضا (شبا/کارت) — کلید = شناسه درخواست (جلسه ۳۶)
   const [payouts, setPayouts] = useState<Record<string, LoanPayoutAccount>>({});
   const [copiedKey, setCopiedKey] = useState("");
+  // مودال «پیام به عضو» — تأیید/رد پرداخت و رد تسهیلات با پیام اختیاری ثبت می‌شود؛
+  // پیام در زنگوله عضو نمایش داده می‌شود (جلسه ۳۷)
+  const [msgTarget, setMsgTarget] = useState<{
+    kind: "payment" | "loan";
+    id: string;
+    label: string;
+    action: "approve" | "reject";
+  } | null>(null);
+  const [msgNote, setMsgNote] = useState("");
   // درخواست‌های pending که از آخرین بازدید ادمین جدیدترند = خوانده‌نشده
   const isUnread = useCallback(
     (r: { status: string; createdAt: string }) =>
@@ -113,7 +122,12 @@ export default function AdminRequestsPage() {
     void fetch("/api/admin/requests/read", { method: "POST" }).catch(() => undefined);
   }, []);
 
-  async function review(kind: "payment" | "loan", id: string, action: "approve" | "reject") {
+  async function review(
+    kind: "payment" | "loan",
+    id: string,
+    action: "approve" | "reject",
+    note?: string,
+  ) {
     setBusy(true);
     setError("");
     setNotice("");
@@ -121,7 +135,7 @@ export default function AdminRequestsPage() {
       const response = await fetch("/api/admin/requests/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind, id, action }),
+        body: JSON.stringify({ kind, id, action, note }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
@@ -239,6 +253,14 @@ export default function AdminRequestsPage() {
   const pendingLoans = loanRequests.filter((r) => r.status === "pending");
   const unreadPayments = paymentRequests.filter(isUnread);
   const unreadLoans = loanRequests.filter(isUnread);
+  // جلسه ۳۷: حساب‌های شبا/کارت ارسال‌شدهٔ جدید (بعد از آخرین بازدید ادمین)
+  const unreadPayouts = Object.entries(payouts).filter(
+    ([, p]) => p.submittedAt && (!lastReadAt || p.submittedAt > lastReadAt),
+  );
+  const payoutUnread = (requestId: string) => {
+    const p = payouts[requestId];
+    return !!p?.submittedAt && (!lastReadAt || p.submittedAt > lastReadAt);
+  };
   const approveInterestValue = approveInterest === "" ? 0 : Math.max(0, parseAmount(approveInterest) || 0);
   const approvePrincipal = approveTarget?.amount ?? 0;
   const approveTotal =
@@ -338,7 +360,10 @@ export default function AdminRequestsPage() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void review("payment", r.id, "approve")}
+                          onClick={() => {
+                            setMsgNote("");
+                            setMsgTarget({ kind: "payment", id: r.id, label: `${r.username} — پرداخت ${faMoney(r.amount)} تومان`, action: "approve" });
+                          }}
                           className="rounded-xl bg-emerald-600 px-3 py-2 text-xs text-white transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
                         >
                           تأیید
@@ -346,7 +371,10 @@ export default function AdminRequestsPage() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void review("payment", r.id, "reject")}
+                          onClick={() => {
+                            setMsgNote("");
+                            setMsgTarget({ kind: "payment", id: r.id, label: `${r.username} — پرداخت ${faMoney(r.amount)} تومان`, action: "reject" });
+                          }}
                           className="rounded-xl bg-red-600 px-3 py-2 text-xs text-white transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
                         >
                           رد
@@ -362,12 +390,19 @@ export default function AdminRequestsPage() {
         </section>
 
         <section className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <h3 className="mb-3 flex items-center gap-2 text-sm font-medium">
+          <h3 className="mb-3 flex flex-wrap items-center gap-2 text-sm font-medium">
             <ClayIcon name="banknote" size={28} />
             درخواست‌های تسهیلات — {pendingLoans.length.toLocaleString("fa-IR")} در انتظار
             {unreadLoans.length > 0 && (
               <span className="mr-2 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
                 {unreadLoans.length.toLocaleString("fa-IR")} خوانده‌نشده
+              </span>
+            )}
+            {/* جلسه ۳۷: اعلان شبا/کارت‌های واریز ارسال‌شدهٔ جدید */}
+            {unreadPayouts.length > 0 && (
+              <span className="mr-2 inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                <span className="size-2 animate-pulse rounded-full bg-red-500" aria-hidden="true" />
+                {unreadPayouts.length.toLocaleString("fa-IR")} حساب واریز جدید (شبا/کارت)
               </span>
             )}
           </h3>
@@ -411,9 +446,21 @@ export default function AdminRequestsPage() {
                     {/* جلسه ۳۶: حساب واریزی که عضو برای دریافت مبلغ تسهیلات فرستاده */}
                     {r.status === "approved" && (
                       payouts[r.id] ? (
-                        <div className="mt-1 w-full rounded-xl border border-primary-200 bg-primary-50/60 px-3 py-2 dark:border-primary-900 dark:bg-primary-950/40">
+                        <div className={`mt-1 w-full rounded-xl border px-3 py-2 ${
+                          payoutUnread(r.id)
+                            ? "border-red-300 bg-red-50/70 dark:border-red-900 dark:bg-red-950/30"
+                            : "border-primary-200 bg-primary-50/60 dark:border-primary-900 dark:bg-primary-950/40"
+                        }`}>
                           <p className="text-[11px] font-semibold text-primary-800 dark:text-primary-300">
+                            {payoutUnread(r.id) && (
+                              <span className="mr-1 ml-1 inline-block size-2 animate-pulse rounded-full bg-red-500 align-middle" aria-hidden="true" />
+                            )}
                             حساب واریز تسهیلات از عضو
+                            {payoutUnread(r.id) && (
+                              <span className="mr-2 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-950/60 dark:text-red-300">
+                                جدید
+                              </span>
+                            )}
                             {payouts[r.id].submittedAt
                               ? ` — ${new Date(payouts[r.id].submittedAt).toLocaleDateString("fa-IR")}`
                               : ""}
@@ -492,7 +539,10 @@ export default function AdminRequestsPage() {
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => void review("loan", r.id, "reject")}
+                          onClick={() => {
+                            setMsgNote("");
+                            setMsgTarget({ kind: "loan", id: r.id, label: `${r.username} — درخواست تسهیلات ${faMoney(r.amount)} تومانی`, action: "reject" });
+                          }}
                           className="rounded-xl bg-red-600 px-3 py-2 text-xs text-white transition-all hover:opacity-90 disabled:opacity-50 active:scale-95"
                         >
                           رد
@@ -697,6 +747,72 @@ export default function AdminRequestsPage() {
             </div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview} alt="رسید" className="max-w-full rounded-xl" />
+          </div>
+        </div>
+      )}
+
+      {/* جلسه ۳۷: مودال بررسی با «پیام به عضو» — پیام در زنگوله عضو نمایش داده می‌شود */}
+      {msgTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200/80 bg-white p-5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold">
+                {msgTarget.action === "approve" ? "تأیید درخواست" : "رد درخواست"} — {msgTarget.label}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setMsgTarget(null)}
+                aria-label="بستن"
+                className="grid size-8 place-items-center rounded-full bg-zinc-100 text-zinc-400 transition hover:bg-zinc-200 hover:text-zinc-600 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+              >
+                ×
+              </button>
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const target = msgTarget;
+                setMsgTarget(null);
+                void review(target.kind, target.id, target.action, msgNote.trim() || undefined);
+              }}
+              className="space-y-3"
+            >
+              <p className="rounded-2xl bg-zinc-50 px-3 py-2 text-xs leading-6 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+                {msgTarget.action === "approve"
+                  ? "درخواست تأیید و در بانک ثبت می‌شود."
+                  : "درخواست رد می‌شود."}
+                {" "}پیام اختیاری زیر در زنگوله اعلان‌های عضو نمایش داده می‌شود.
+              </p>
+              <label className="block space-y-1 text-xs text-zinc-500">
+                پیام به عضو (اختیاری)
+                <textarea
+                  value={msgNote}
+                  onChange={(e) => setMsgNote(e.target.value)}
+                  rows={3}
+                  maxLength={500}
+                  placeholder="مثلاً: رسید دریافت شد؛ مبلغ به حسابتان واریز شد."
+                  className="w-full rounded-xl border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+                />
+              </label>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={busy}
+                  className={`rounded-xl px-4 py-2 text-sm text-white disabled:opacity-50 ${
+                    msgTarget.action === "approve" ? "bg-emerald-600" : "bg-red-600"
+                  }`}
+                >
+                  {msgTarget.action === "approve" ? "تأیید و ثبت" : "رد درخواست"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMsgTarget(null)}
+                  className="rounded-xl border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+                >
+                  انصراف
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

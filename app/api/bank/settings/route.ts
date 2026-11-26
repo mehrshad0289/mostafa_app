@@ -7,10 +7,14 @@ export async function GET() {
   const guard = await requireUser();
   if ("error" in guard) return guard.error;
   const bank = await getBank();
+  // نشانگر زنگوله اعلان‌ها (memberNotifCursors) داخلی است — به هیچ کلاینتی
+  // برگردانده نمی‌شود (جلسه سی‌وهفتم).
+  const { memberNotifCursors: _hidden, ...settings } = bank.settings;
+  void _hidden;
   // حساب‌های واریز تسهیلات اعضا (شبا/کارت) اطلاعات شخصی است — ادمین همه را
   // می‌بیند، ولی عضو فقط ارسال‌های خودش (جلسه سی‌وششم).
   if (guard.user.role === "admin") {
-    return Response.json(bank.settings);
+    return Response.json(settings);
   }
   const own: Record<string, LoanPayoutAccount> = {};
   const requests = await listUserRequests(guard.user.id);
@@ -18,7 +22,7 @@ export async function GET() {
     const payout = bank.settings.loanPayoutAccounts?.[r.id];
     if (payout) own[r.id] = payout;
   }
-  return Response.json({ ...bank.settings, loanPayoutAccounts: own });
+  return Response.json({ ...settings, loanPayoutAccounts: own });
 }
 
 

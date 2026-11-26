@@ -43,7 +43,12 @@ export type ClayIconName =
 
 export type ClayTone = [string, string];
 
-/** جفت رنگ پاستلی هر آیکون — [روشن بالا، اشباع پایین] */
+/**
+ * رنگ سورمه‌ای پروفایل — آواتار هدر پنل یوزر و کارت پروفایل تنظیمات هم با همین
+ * جفت رنگ ساخته می‌شوند تا «آیکون پروفایل هم‌رنگ آیکون سورمه‌ای» باشد (جلسه ۳۷).
+ */
+export const NAVY_TONE: ClayTone = ["#9FB6F2", "#2B4EA6"];
+
 const TONES: Record<ClayIconName, ClayTone> = {
   home: ["#9CC6FF", "#4C82E0"],
   grid: ["#8FD8B6", "#3AAE75"],
@@ -55,7 +60,9 @@ const TONES: Record<ClayIconName, ClayTone> = {
   banknote: ["#FFB3C6", "#E85E8A"],
   wallet: ["#B5EBA5", "#5CB85C"],
   card: ["#9ADDF2", "#3E9BD6"],
-  user: ["#9CC6FF", "#4C82E0"],
+  // جلسه ۳۷: آیکون پروفایل (کاربر) سورمه‌ای شد به درخواست کاربر —
+  // «آیکون پروفایل به رنگ همون آیکون سورمه‌ای باشد»
+  user: NAVY_TONE,
   shield: ["#B0B8F8", "#6568D9"],
   palette: ["#F6A8CF", "#D65CA2"],
   info: ["#AECBE0", "#5C87A8"],
