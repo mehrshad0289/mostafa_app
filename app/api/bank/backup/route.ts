@@ -183,6 +183,9 @@ function validateBackup(raw: unknown): { bank?: BankDatabase; error?: string } {
         // نشانگر زنگوله اعضا در پشتیبان‌های قدیمی نیست؛ خالی گذاشته می‌شود (جلسه ۳۷)
         memberNotifCursors:
           (s.memberNotifCursors ?? {}) as BankDatabase["settings"]["memberNotifCursors"],
+        // پیام‌رسان در پشتیبان‌های قدیمی نیست؛ خالی گذاشته می‌شود (جلسه ۴۹)
+        messages:
+          (s.messages ?? { fromAdmin: [], fromMembers: [] }) as BankDatabase["settings"]["messages"],
       },
       members: candidate.members as BankDatabase["members"],
       deposits: candidate.deposits as BankDatabase["deposits"],

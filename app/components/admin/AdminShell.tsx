@@ -11,10 +11,11 @@ import type { PublicUser } from "@/lib/db";
 /** جلسه ۴۱ — تم طلایی زنگولهٔ ادمین (هم‌رنگ زنگولهٔ عضو) به درخواست کاربر */
 const GOLD_TONE: ClayTone = ["#FFD98E", "#F0A32B"];
 
-const MENU: { href: string; label: string; icon: ClayIconName; badge?: boolean }[] = [
+const MENU: { href: string; label: string; icon: ClayIconName; badge?: boolean; badgeKind?: "requests" | "messages" }[] = [
   { href: "/admin", label: "خانه", icon: "home" },
   { href: "/admin/users", label: "مدیریت کاربران", icon: "users" },
-  { href: "/admin/requests", label: "درخواست‌های اعضا", icon: "bell", badge: true },
+  { href: "/admin/requests", label: "درخواست‌های اعضا", icon: "bell", badge: true, badgeKind: "requests" },
+  { href: "/bank/messages", label: "پیام‌ها", icon: "note", badge: true, badgeKind: "messages" },
   { href: "/bank/members", label: "اعضا", icon: "user" },
   { href: "/bank/transactions", label: "تراکنش‌ها", icon: "swap" },
   { href: "/bank/loans", label: "وام‌ها و اقساط", icon: "banknote" },
@@ -51,6 +52,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [unread, setUnread] = useState(0);
   /** جلسه ۴۸ — منوی کشویی بخش‌ها در موبایل (سه خط هامبرگر) */
   const [menuOpen, setMenuOpen] = useState(false);
+  /** جلسه ۴۹ — تعداد پیام خوانده‌نشدهٔ اعضا برای نشان قرمز منوی «پیام‌ها» */
+  const [msgUnread, setMsgUnread] = useState(0);
 
   const refreshUnread = useCallback(async () => {
     try {
@@ -58,6 +61,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       if (!r.ok) return;
       const d = (await r.json()) as { count?: number };
       setUnread(Number.isFinite(d.count) ? Number(d.count) : 0);
+    } catch {
+      // اعلان حیاتی نیست؛ خطای موقت نادیده گرفته می‌شود
+    }
+    try {
+      const r = await fetch("/api/admin/messages");
+      if (!r.ok) return;
+      const d = (await r.json()) as { unreadInbox?: number };
+      setMsgUnread(Number.isFinite(d.unreadInbox) ? Number(d.unreadInbox) : 0);
     } catch {
       // اعلان حیاتی نیست؛ خطای موقت نادیده گرفته می‌شود
     }
@@ -199,14 +210,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           <Link
             href="/admin"
             onClick={() => setMenuOpen(false)}
-            className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+            title="خانه"
+            aria-label="خانه"
+            className={`flex shrink-0 items-center gap-1.5 rounded-full text-xs font-bold transition-all ${
               pathname === "/admin"
-                ? "bg-white text-primary-800 shadow-md shadow-black/20"
-                : "border border-white/25 bg-white/15 text-white hover:bg-white/25"
+                ? "bg-white px-4 py-2 text-primary-800 shadow-md shadow-black/20"
+                : "border border-white/25 bg-white/15 p-2 text-white hover:bg-white/25"
             }`}
           >
             <ClayIcon name="home" size={20} ghost ghostColor={pathname === "/admin" ? "currentColor" : "#fff"} />
-            خانه
+            {/* جلسه ۴۹: در بخش‌های دیگر فقط آیکون خانه دیده می‌شود؛ کلمه «خانه"
+                فقط روی خود صفحهٔ خانه نمایش داده می‌شود (به درخواست کاربر) */}
+            {pathname === "/admin" ? "خانه" : null}
           </Link>
           <button
             type="button"
@@ -254,7 +269,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                       ghostColor={active ? "#fff" : "currentColor"}
                     />
                     <span className="flex-1">{item.label}</span>
-                    {item.badge && <UnreadBadge count={unread} />}
+                    {item.badgeKind === "requests" && <UnreadBadge count={unread} />}
+                    {item.badgeKind === "messages" && <UnreadBadge count={msgUnread} />}
                   </Link>
                 );
               })}
@@ -286,7 +302,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                     <ClayIcon name={item.icon} size={30} ghost ghostColor="currentColor" />
                   )}
                   <span className="flex-1">{item.label}</span>
-                  {item.badge && <UnreadBadge count={unread} />}
+                  {item.badgeKind === "requests" && <UnreadBadge count={unread} />}
+                  {item.badgeKind === "messages" && <UnreadBadge count={msgUnread} />}
                 </Link>
               );
             })}

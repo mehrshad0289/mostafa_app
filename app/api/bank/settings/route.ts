@@ -7,10 +7,11 @@ export async function GET() {
   const guard = await requireUser();
   if ("error" in guard) return guard.error;
   const bank = await getBank();
-  // نشانگر زنگوله اعلان‌ها (memberNotifCursors) داخلی است — به هیچ کلاینتی
-  // برگردانده نمی‌شود (جلسه سی‌وهفتم).
-  const { memberNotifCursors: _hidden, ...settings } = bank.settings;
+  // نشانگر زنگوله اعلان‌ها (memberNotifCursors) و پیام‌رسان (messages) داخلی‌اند
+  // — به هیچ کلاینتی برگردانده نمی‌شوند (جلسه سی‌وهفتم و چهل‌ونهم).
+  const { memberNotifCursors: _hidden, messages: _messages, ...settings } = bank.settings;
   void _hidden;
+  void _messages;
   // حساب‌های واریز تسهیلات اعضا (شبا/کارت) اطلاعات شخصی است — ادمین همه را
   // می‌بیند، ولی عضو فقط ارسال‌های خودش (جلسه سی‌وششم).
   if (guard.user.role === "admin") {

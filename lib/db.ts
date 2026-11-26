@@ -66,6 +66,38 @@ export type BankSettings = {
   loanPayoutAccounts: Record<string, LoanPayoutAccount>;
   /** آخرین زمان بازدید هر عضو از زنگوله اعلان‌هایش — کلید = شناسه کاربر (جلسه ۳۷) */
   memberNotifCursors: Record<string, string>;
+  /** پیام‌رسان دوطرفه مدیر ↔ اعضا (جلسه ۴۹) */
+  messages: BankMessages;
+};
+
+/** پیام مدیر به اعضا — «همه اعضا» یا گیرنده‌های مشخص (شناسه کاربر) */
+export type AdminMessage = {
+  id: string;
+  text: string;
+  createdAt: string;
+  /** "all" = همهٔ اعضا؛ وگرنه فهرست شناسهٔ کاربرهای گیرنده */
+  recipients: "all" | string[];
+  /** زمان بازدید هر گیرنده — کلید = شناسهٔ کاربر */
+  readBy: Record<string, string>;
+};
+
+/** پیام عضو به مدیر */
+export type MemberMessage = {
+  id: string;
+  userId: string;
+  username: string;
+  fullName: string;
+  text: string;
+  createdAt: string;
+  /** خوانده‌شده توسط مدیر */
+  read: boolean;
+};
+
+export type BankMessages = {
+  /** پیام‌هایی که مدیر به اعضا فرستاده */
+  fromAdmin: AdminMessage[];
+  /** پیام‌هایی که اعضا به مدیر فرستاده‌اند */
+  fromMembers: MemberMessage[];
 };
 
 export type BankMember = {
@@ -154,6 +186,7 @@ export const DEFAULT_BANK: BankDatabase = {
     },
     loanPayoutAccounts: {},
     memberNotifCursors: {},
+    messages: { fromAdmin: [], fromMembers: [] },
   },
   members: [],
   deposits: [],
@@ -185,12 +218,62 @@ function normalizeDepositAccounts(value: unknown): {
   };
 }
 
+/** پاک‌سازی پیام‌های دوطرفه — فیلدهای نامعتبر نادیده گرفته می‌شوند (جلسه ۴۹) */
+function normalizeBankMessages(value: unknown): BankMessages {
+  const raw = value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+  const fromAdmin: AdminMessage[] = [];
+  if (Array.isArray(raw.fromAdmin)) {
+    for (const m of raw.fromAdmin) {
+      if (!m || typeof m !== "object") continue;
+      const msg = m as Record<string, unknown>;
+      const text = typeof msg.text === "string" ? msg.text : "";
+      if (!text) continue;
+      const recipients =
+        msg.recipients === "all" || Array.isArray(msg.recipients)
+          ? msg.recipients
+          : "all";
+      fromAdmin.push({
+        id: typeof msg.id === "string" ? msg.id : "",
+        text,
+        createdAt: typeof msg.createdAt === "string" ? msg.createdAt : "",
+        recipients,
+        readBy:
+          msg.readBy && typeof msg.readBy === "object" && !Array.isArray(msg.readBy)
+            ? (msg.readBy as Record<string, string>)
+            : {},
+      });
+    }
+  }
+  const fromMembers: MemberMessage[] = [];
+  if (Array.isArray(raw.fromMembers)) {
+    for (const m of raw.fromMembers) {
+      if (!m || typeof m !== "object") continue;
+      const msg = m as Record<string, unknown>;
+      const text = typeof msg.text === "string" ? msg.text : "";
+      if (!text) continue;
+      fromMembers.push({
+        id: typeof msg.id === "string" ? msg.id : "",
+        userId: typeof msg.userId === "string" ? msg.userId : "",
+        username: typeof msg.username === "string" ? msg.username : "",
+        fullName: typeof msg.fullName === "string" ? msg.fullName : "",
+        text,
+        createdAt: typeof msg.createdAt === "string" ? msg.createdAt : "",
+        read: msg.read === true,
+      });
+    }
+  }
+  return { fromAdmin, fromMembers };
+}
+
 function normalizeBank(bank: Partial<BankDatabase> | undefined): BankDatabase {
   const settings =
     bank && bank.settings && typeof bank.settings === "object"
       ? { ...DEFAULT_BANK.settings, ...bank.settings }
       : { ...DEFAULT_BANK.settings };
   settings.depositAccounts = normalizeDepositAccounts(settings.depositAccounts);
+  settings.messages = normalizeBankMessages(settings.messages);
   return {
     settings,
     members: bank && Array.isArray(bank.members) ? bank.members : [],
@@ -326,6 +409,8 @@ const ACCOUNTS_MARKER = "__deposit_accounts_v1";
 const PAYOUTS_MARKER = "__loan_payouts_v1";
 /** نشانهٔ نشانگر زنگوله اعلان‌های اعضا — در همان ستون jsonb (جلسه سی‌وهفتم) */
 const MEMBER_NOTIF_MARKER = "__member_notif_v1";
+/** نشانهٔ پیام‌های دوطرفهٔ مدیر و اعضا — در همان ستون jsonb (جلسه ۴۹) */
+const MESSAGES_MARKER = "__messages_v1";
 
 function packSettingsRow(s: BankSettings): Row {
   return {
@@ -336,6 +421,7 @@ function packSettingsRow(s: BankSettings): Row {
       { [ACCOUNTS_MARKER]: s.depositAccounts },
       { [PAYOUTS_MARKER]: s.loanPayoutAccounts ?? {} },
       { [MEMBER_NOTIF_MARKER]: s.memberNotifCursors ?? {} },
+      { [MESSAGES_MARKER]: s.messages ?? { fromAdmin: [], fromMembers: [] } },
     ],
     duplicate_warning: s.duplicateWarning === true,
   };
@@ -384,6 +470,7 @@ function unpackSettingsRow(r: Row): BankSettings {
   };
   let payouts: Record<string, LoanPayoutAccount> = {};
   let memberNotifCursors: Record<string, string> = {};
+  let messages: BankMessages = { fromAdmin: [], fromMembers: [] };
   for (const el of rawTitles) {
     if (
       el &&
@@ -410,6 +497,15 @@ function unpackSettingsRow(r: Row): BankSettings {
       memberNotifCursors = normalizeMemberNotifCursors(
         (el as Record<string, unknown>)[MEMBER_NOTIF_MARKER],
       );
+    } else if (
+      el &&
+      typeof el === "object" &&
+      !Array.isArray(el) &&
+      MESSAGES_MARKER in (el as Record<string, unknown>)
+    ) {
+      messages = normalizeBankMessages(
+        (el as Record<string, unknown>)[MESSAGES_MARKER],
+      );
     } else if (typeof el === "string" && el.trim().length > 0) {
       titles.push(el);
     }
@@ -421,6 +517,7 @@ function unpackSettingsRow(r: Row): BankSettings {
     depositAccounts: accounts,
     loanPayoutAccounts: payouts,
     memberNotifCursors,
+    messages,
   };
 }
 
@@ -2383,6 +2480,171 @@ export async function markMemberNotificationsSeen(user: Pick<User, "id">): Promi
   };
   await writeDb(db);
   return at;
+}
+
+// ---------- پیام‌رسان دوطرفهٔ مدیر ↔ اعضا (جلسه ۴۹) ----------
+//
+// به درخواست کاربر: «امکان انتخاب اطلاعات برای مدیر و ارسال به اعضا وجود داشته
+// باشد؛ برای یوزرها نیز چنین امکانی وجود داشته باشد». مدیر متن (یا اطلاعات
+// آماده مثل حساب واریز) را انتخاب می‌کند و به «همه اعضا» یا اعضای منتخب
+// می‌فرستد؛ عضو هم می‌تواند پیام به مدیر بفرستد. ذخیره‌سازی در همان ستون
+// jsonb bank_settings با نشانهٔ __messages_v1 — بدون مایگریشن، هم روی فایل
+// و هم روی Supabase کار می‌کند.
+
+/** سقف طول پیام */
+const MESSAGE_MAX_LEN = 2000;
+
+/** اطمینان از شکل درست messages در تنظیمات — پشتیبان‌های قدیمی این فیلد را ندارند */
+function ensureMessages(db: Database): BankMessages {
+  if (
+    !db.bank.settings.messages ||
+    typeof db.bank.settings.messages !== "object" ||
+    Array.isArray(db.bank.settings.messages)
+  ) {
+    db.bank.settings.messages = { fromAdmin: [], fromMembers: [] };
+  }
+  return db.bank.settings.messages;
+}
+
+export type AdminMessagesOverview = {
+  /** پیام‌های ارسال‌شدهٔ مدیر (جدیدترین اول) */
+  sent: AdminMessage[];
+  /** پیام‌های رسیده از اعضا (جدیدترین اول) */
+  inbox: MemberMessage[];
+  /** تعداد پیام خوانده‌نشده از اعضا */
+  unreadInbox: number;
+};
+
+/** نمای کلی پیام‌رسان برای مدیر */
+export async function getAdminMessagesOverview(): Promise<AdminMessagesOverview> {
+  const db = await readDb();
+  const messages = ensureMessages(db);
+  const sent = [...messages.fromAdmin].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const inbox = [...messages.fromMembers].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return {
+    sent,
+    inbox,
+    unreadInbox: messages.fromMembers.filter((m) => !m.read).length,
+  };
+}
+
+/** ارسال پیام مدیر به اعضا — recipients «all» یا فهرست شناسهٔ کاربرهای گیرنده */
+export async function sendAdminMessage(input: {
+  text: string;
+  recipients: "all" | string[];
+}): Promise<AdminMessage> {
+  const text = input.text.trim();
+  if (!text) throw new Error("متن پیام خالی است.");
+  if (text.length > MESSAGE_MAX_LEN) throw new Error("متن پیام بیش از حد مجاز است.");
+  let recipients: "all" | string[];
+  if (input.recipients === "all") {
+    recipients = "all";
+  } else {
+    const db = await readDb();
+    const validIds = new Set(
+      db.users.filter((u) => u.role === "member").map((u) => u.id),
+    );
+    const ids = Array.isArray(input.recipients)
+      ? Array.from(new Set(input.recipients.filter((id) => typeof id === "string" && validIds.has(id))))
+      : [];
+    if (ids.length === 0) throw new Error("حداقل یک گیرنده انتخاب کنید.");
+    recipients = ids;
+  }
+  const db = await readDb();
+  const messages = ensureMessages(db);
+  const message: AdminMessage = {
+    id: bankUid(),
+    text,
+    createdAt: new Date().toISOString(),
+    recipients,
+    readBy: {},
+  };
+  messages.fromAdmin.unshift(message);
+  await writeDb(db);
+  return message;
+}
+
+/** خواندن پیام‌های اعضا توسط مدیر — همه به‌عنوان خوانده‌شده ثبت می‌شوند */
+export async function markMemberInboxRead(): Promise<number> {
+  const db = await readDb();
+  const messages = ensureMessages(db);
+  let count = 0;
+  for (const m of messages.fromMembers) {
+    if (!m.read) {
+      m.read = true;
+      count++;
+    }
+  }
+  if (count > 0) await writeDb(db);
+  return count;
+}
+
+export type MemberMessagesView = {
+  /** پیام‌های مدیر خطاب به این عضو (جدیدترین اول) */
+  fromAdmin: AdminMessage[];
+  /** پیام‌های خود عضو به مدیر (جدیدترین اول) */
+  mySent: MemberMessage[];
+  /** تعداد پیام خوانده‌نشده از مدیر */
+  unreadCount: number;
+};
+
+/** پیام‌های یک عضو — فقط پیام‌های خطاب به خودش (همهٔ اعضا یا شناسهٔ او) */
+export async function getMemberMessages(
+  user: Pick<User, "id">,
+): Promise<MemberMessagesView> {
+  const db = await readDb();
+  const messages = ensureMessages(db);
+  const addressed = messages.fromAdmin.filter(
+    (m) => m.recipients === "all" || (Array.isArray(m.recipients) && m.recipients.includes(user.id)),
+  );
+  const fromAdmin = [...addressed].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const mySent = [...messages.fromMembers]
+    .filter((m) => m.userId === user.id)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const unreadCount = fromAdmin.filter((m) => !m.readBy[user.id]).length;
+  return { fromAdmin, mySent, unreadCount };
+}
+
+/** ثبت بازدید عضو از پیام‌های مدیر — همهٔ پیام‌های خطاب به او خوانده‌شده می‌شوند */
+export async function markMemberMessagesSeen(user: Pick<User, "id">): Promise<number> {
+  const db = await readDb();
+  const messages = ensureMessages(db);
+  const at = new Date().toISOString();
+  let count = 0;
+  for (const m of messages.fromAdmin) {
+    const mine =
+      m.recipients === "all" || (Array.isArray(m.recipients) && m.recipients.includes(user.id));
+    if (mine && !m.readBy[user.id]) {
+      m.readBy[user.id] = at;
+      count++;
+    }
+  }
+  if (count > 0) await writeDb(db);
+  return count;
+}
+
+/** ارسال پیام عضو به مدیر */
+export async function sendMemberMessage(
+  user: Pick<User, "id" | "username" | "fullName">,
+  text: string,
+): Promise<MemberMessage> {
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error("متن پیام خالی است.");
+  if (trimmed.length > MESSAGE_MAX_LEN) throw new Error("متن پیام بیش از حد مجاز است.");
+  const db = await readDb();
+  const messages = ensureMessages(db);
+  const message: MemberMessage = {
+    id: bankUid(),
+    userId: user.id,
+    username: user.username,
+    fullName: user.fullName,
+    text: trimmed,
+    createdAt: new Date().toISOString(),
+    read: false,
+  };
+  messages.fromMembers.unshift(message);
+  await writeDb(db);
+  return message;
 }
 
 /** بررسی درخواست پرداخت توسط ادمین؛ تأیید = ثبت رکورد واقعی در بانک (یک write) */

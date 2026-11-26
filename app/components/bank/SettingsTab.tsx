@@ -6,6 +6,7 @@ import { jalaliParts, parseAmount } from "@/lib/bank";
 import ClayIcon, { type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import type { BankSettings, DepositAccount } from "@/lib/db";
 import AppearanceSettings from "./AppearanceSettings";
+import AdminSelectiveBackup from "./AdminSelectiveBackup";
 
 /**
  * راهنمای سیستم ادمین (جلسه ۴۱ به درخواست کاربر) — همه راهنمایی نحوه کار پنل
@@ -20,6 +21,7 @@ const ADMIN_GUIDE_ITEMS: { icon: ClayIconName; title: string; body: string[] }[]
       "داده‌ها در دیتابیس Supabase PostgreSQL به‌صورت دائمی ذخیره می‌شود؛ با سرد شدن سرور یا Redeploy پاک نمی‌شود.",
       "اگر روزی داشبورد هشدار قرمز «ذخیره‌سازی دائمی فعال نیست» نشان داد یعنی داده در فایل موقت سرور است و با سرد شدن سرور پاک می‌شود؛ برای رفع، دو متغیر NEXT_PUBLIC_SUPABASE_URL و NEXT_PUBLIC_SUPABASE_ANON_KEY را در تنظیمات پروژه Vercel (تب Environment Variables) بگذارید و یک بار Redeploy بزنید.",
       "پشتیبان‌گیری و بازیابی کامل داده بانک (اعضا، تراکنش‌ها، وام‌ها و سوابق) از بخش «پشتیبان‌گیری و بازیابی» همین تنظیمات انجام می‌شود — قبل از بازیابی، همیشه اول پشتیبان بگیرید.",
+      "پشتیبان‌گیری انتخابی هم در همان بخش است: بخش‌های دلخواه (اعضا، واریزی‌ها، وام‌ها و اقساط، درخواست‌ها، تنظیمات، سوابق) را تیک بزنید و خروجی اکسل یا PDF بگیرید.",
     ],
   },
   {
@@ -82,6 +84,15 @@ const ADMIN_GUIDE_ITEMS: { icon: ClayIconName; title: string; body: string[] }[]
     body: [
       "زنگولهٔ هدر، تعداد درخواست‌های خوانده‌نشده (پرداخت سهام/قسط، درخواست تسهیلات و حساب واریز جدید) را نشان می‌دهد و هر ۳۰ ثانیه به‌روز می‌شود.",
       "بج قرمز روی آیتم «درخواست‌های اعضا» منو هم همین تعداد را نشان می‌دهد.",
+    ],
+  },
+  {
+    icon: "note",
+    title: "پیام‌ها (ارسال اطلاعات به اعضا)",
+    body: [
+      "از بخش «پیام‌ها» می‌توانید متن یا اطلاعات دلخواه را برای همهٔ اعضا یا اعضای منتخب بفرستید؛ با دکمهٔ «درج حساب واریز اعضا» اطلاعات حساب‌های واریز به‌طور خودکار در متن پیام گذاشته می‌شود.",
+      "پیام‌های اعضا به مدیر هم در همان بخش می‌آید؛ بج قرمز روی آیتم «پیام‌ها» تعداد پیام خوانده‌نشدهٔ اعضا را نشان می‌دهد و باز شدن صفحه همه را خوانده‌شده می‌کند.",
+      "اعضا پیام شما را در زنگولهٔ پنل خود می‌بینند و می‌توانند از همان‌جا پاسخ بدهند؛ تعداد دیده‌شدن هر پیام کنار تاریخ آن نوشته شده است.",
     ],
   },
   {
@@ -153,7 +164,7 @@ const SETTINGS_SECTIONS: {
   { key: "depositAccounts", title: "حساب‌های واریز اعضا", subtitle: "کارت و شبا اصلی و جایگزین برای واریز اعضا", icon: "wallet" },
   { key: "depositTitles", title: "عنوان‌های آماده واریز", subtitle: "پیشنهاد فرم ثبت واریزی — عنوان آزاد هم ممکن است", icon: "receipt" },
   { key: "duplicateWarning", title: "هشدار تراکنش مشابه", subtitle: "تأیید پیش از ثبت واریزی مشابه", icon: "bell" },
-  { key: "backup", title: "پشتیبان‌گیری و بازیابی", subtitle: "دانلود JSON پشتیبان و بازیابی کامل داده بانک", icon: "download" },
+  { key: "backup", title: "پشتیبان‌گیری و بازیابی", subtitle: "خروجی انتخابی اکسل/PDF + دانلود JSON و بازیابی کامل داده بانک", icon: "download" },
   { key: "appearance", title: "ظاهر اپلیکیشن", subtitle: "تم رنگی، فونت و حالت نمایش", icon: "palette" },
 ];
 
@@ -602,6 +613,9 @@ export default function SettingsTab({ settings, onRefresh }: SettingsTabProps) {
             onChange={onFilePicked}
           />
         </div>
+        {/* جلسه ۴۹ — پشتیبان‌گیری انتخابی اکسل/PDF به درخواست کاربر:
+            «امکان انتخاب داده پشتیبان‌گیری هم وجود داشته باشد» */}
+        <AdminSelectiveBackup />
         {pendingRestore && (
           <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
             <p>
