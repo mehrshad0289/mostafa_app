@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
 import ClayIcon, { toneForIcon, type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
+import { useAlertDismissed, useAlertSetVisible } from "@/app/components/useAlertDismiss";
 import { jalaliParts } from "@/lib/bank";
 import type { PublicUser } from "@/lib/db";
 
@@ -38,7 +39,7 @@ type DashboardData = {
     details: { memberId: string; name: string; shares: number; monthlyDue: number; left: number }[];
   };
   // جلسه ۳۸: مهلت پرداخت سهام = روز ۵ هر ماه شمسی
-  shareDeadline: { day: number; daysLeft: number; past: boolean };
+  shareDeadline: { day: number; daysLeft: number; past: boolean; ym: string };
   loanMonthlyDue: { amount: number; count: number; paid: number; unpaid: number };
   loanOverdue: {
     amount: number;
@@ -194,6 +195,7 @@ function DeadlineBanner({
   more,
   href,
   hrefLabel,
+  onClose,
 }: {
   variant: "danger" | "warning";
   title: string;
@@ -202,6 +204,8 @@ function DeadlineBanner({
   more?: number;
   href?: string;
   hrefLabel?: string;
+  /** جلسه ۴۰: اگر داده شود دکمهٔ × در گوشهٔ بنر می‌آید و اعلان بسته می‌شود */
+  onClose?: () => void;
 }) {
   const tone =
     variant === "danger"
@@ -216,7 +220,18 @@ function DeadlineBanner({
       ? "bg-red-100/80 text-red-900 dark:bg-red-950/70 dark:text-red-200"
       : "bg-amber-100/80 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200";
   return (
-    <div className={`max-w-2xl rounded-3xl border p-4 shadow-sm ${tone}`}>
+    <div className={`relative max-w-2xl rounded-3xl border p-4 shadow-sm ${tone}`}>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="بستن این اعلان"
+          title="بستن — تا دورهٔ بعد نشان داده نمی‌شود"
+          className={`absolute left-3 top-3 grid size-7 place-items-center rounded-full text-base leading-none opacity-60 transition hover:bg-black/10 hover:opacity-100 ${textTone}`}
+        >
+          ×
+        </button>
+      )}
       <div className="flex items-start gap-3">
         <ClayIcon
           name="bell"
@@ -277,6 +292,20 @@ export default function AdminDashboardPage() {
   const [storage, setStorage] = useState<"supabase" | "file" | "unknown">("unknown");
   /** مربع لمس‌شده — جزئیاتش در کارت زیر شبکه مربع‌ها دیده می‌شود */
   const [openTile, setOpenTile] = useState<TileKey | null>(null);
+
+  /**
+   * جلسه ۴۰ — بستن اعلان‌های سررسید داشبورد (ذخیره در localStorage همین دستگاه؛
+   * ماه شمسی از سرور در shareDeadline.ym می‌آید تا prerender به تاریخ نیفتد).
+   * سهام: کلید ماهانه — با ماه جدید دوباره باز می‌شود. اقساط معوق: مجموعه‌ای —
+   * قسط معوقِ جدید بنر را دوباره باز می‌کند، پرداخت بخشی بازنمایی نمی‌کند.
+   */
+  const shareBannerDismiss = useAlertDismissed(data ? `admin-share-${data.shareDeadline.ym}` : null);
+  const loanOverdueDismiss = useAlertSetVisible(
+    "admin-loanoverdue",
+    data && data.loanOverdue.count > 0
+      ? data.loanOverdue.details.map((d) => `${d.loanId}-${d.number}`)
+      : null,
+  );
 
   const load = useCallback(async () => {
     try {
@@ -487,8 +516,9 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* اعلان‌های مهلت — جلسه ۳۸: سهام تا روز ۵ ماه؛ اقساط معوق همیشه قرمز */}
-        {data && data.shareUnpaid.members > 0 && (
+        {/* اعلان‌های مهلت — جلسه ۳۸: سهام تا روز ۵ ماه؛ اقساط معوق همیشه قرمز؛
+            جلسه ۴۰: هر دو قابل بسته شدن (تا دورهٔ بعد) */}
+        {data && data.shareUnpaid.members > 0 && !shareBannerDismiss.dismissed && (
           <DeadlineBanner
             variant={data.shareDeadline.past ? "danger" : "warning"}
             title={
@@ -505,9 +535,10 @@ export default function AdminDashboardPage() {
             more={Math.max(0, data.shareUnpaid.details.length - 6)}
             href="/bank"
             hrefLabel="مدیریت سهام اعضا"
+            onClose={shareBannerDismiss.close}
           />
         )}
-        {data && data.loanOverdue.count > 0 && (
+        {data && loanOverdueDismiss.visible && (
           <DeadlineBanner
             variant="danger"
             title="اقساط سررسیدشده و پرداخت‌نشده — تعهدات باقی‌مانده وام"
@@ -518,6 +549,7 @@ export default function AdminDashboardPage() {
             more={Math.max(0, data.loanOverdue.details.length - 6)}
             href="/bank"
             hrefLabel="مدیریت وام‌ها"
+            onClose={loanOverdueDismiss.close}
           />
         )}
 

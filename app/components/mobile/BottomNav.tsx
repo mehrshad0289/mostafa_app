@@ -27,7 +27,7 @@ export default function BottomNav({ active, onChange }: BottomNavProps) {
       aria-label="ناوبری اصلی"
     >
       {/* نوار باریک برند آبی آسمانی — هماهنگ با لوگو و هدر (جلسه ۳۷) */}
-      <div aria-hidden className="h-[2px] w-full bg-gradient-to-l from-sky-300 via-sky-400 to-primary-500" />
+      <div aria-hidden className="h-[2px] w-full bg-gradient-to-l from-sky-200 via-sky-300 to-primary-500" />
       <div className="mx-auto flex max-w-md items-stretch justify-around gap-1 px-2 py-1.5">
         {NAV.map((item) => {
           const isActive = active === item.key;

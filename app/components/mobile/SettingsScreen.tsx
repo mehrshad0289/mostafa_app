@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import ClayIcon, { NAVY_TONE, type ClayIconName } from "./ClayIcon";
+import ClayIcon, { type ClayIconName } from "./ClayIcon";
 import HouseLogo from "./HouseLogo";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type { SettingsSection } from "./nav";
@@ -172,13 +172,14 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
         {section === "profile" && (
           <div className="space-y-3">
             <div className="flex items-center gap-3 rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              {/* جلسه ۳۷: آواتار پروفایل هم‌رنگ آیکون سورمه‌ای (به درخواست کاربر) */}
+              {/* جلسه ۳۷: آواتار پروفایل هم‌رنگ آیکون سورمه‌ای؛ جلسه ۴۰: گرادیان
+                  تیره‌تر برای سورمه‌ای واضح (هم‌خانوادهٔ NAVY_TONE) */}
               <span
                 className="clay"
                 style={{
                   width: 52,
                   height: 52,
-                  background: `linear-gradient(140deg, ${NAVY_TONE[0]}, ${NAVY_TONE[1]})`,
+                  background: "linear-gradient(140deg, #7C97E4 0%, #2B4EA6 78%)",
                 }}
               >
                 <span className="relative z-10 text-base font-bold text-white">

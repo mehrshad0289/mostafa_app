@@ -200,7 +200,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             );
           })}
         </nav>
-        <div className="relative h-[3px] bg-gradient-to-l from-sky-300 via-sky-400 to-primary-500" />
+        <div className="relative h-[3px] bg-gradient-to-l from-sky-200 via-sky-300 to-primary-500" />
       </header>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-6">

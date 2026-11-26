@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import ClayIcon, { NAVY_TONE } from "@/app/components/mobile/ClayIcon";
+import ClayIcon from "@/app/components/mobile/ClayIcon";
 import HouseLogo from "@/app/components/mobile/HouseLogo";
 import LiveClock from "@/app/components/mobile/LiveClock";
 import MemberBell from "@/app/components/mobile/MemberBell";
@@ -149,10 +149,12 @@ export default function MobileAppPage() {
                 مدیر
               </span>
             )}
-            {/* جلسه ۳۷: آواتار پروفایل هم‌رنگ آیکون سورمه‌ای (به درخواست کاربر) */}
+            {/* جلسه ۳۷: آواتار پروفایل هم‌رنگ آیکون سورمه‌ای؛ جلسه ۴۰: گرادیان
+                تیره‌تر شد تا چیپ واضحاً سورمه‌ای دیده شود (پایان گرادیان همان
+                سرمه‌ای NAVY_TONE آیکون است) — به درخواست کاربر */}
             <span
               className="clay"
-              style={{ width: 38, height: 38, background: `linear-gradient(140deg, ${NAVY_TONE[0]}, ${NAVY_TONE[1]})` }}
+              style={{ width: 38, height: 38, background: "linear-gradient(140deg, #7C97E4 0%, #2B4EA6 78%)" }}
             >
               <span className="relative z-10 text-xs font-bold text-white">{(me.fullName || me.username).trim().charAt(0)}</span>
             </span>
@@ -162,7 +164,7 @@ export default function MobileAppPage() {
         <div className="relative mx-auto flex max-w-md justify-center px-4 pb-2">
           <LiveClock light />
         </div>
-        <div className="relative h-[3px] bg-gradient-to-l from-sky-300 via-sky-400 to-primary-500" />
+        <div className="relative h-[3px] bg-gradient-to-l from-sky-200 via-sky-300 to-primary-500" />
       </header>
 
       {/* محتوای تب فعال — سوایپ افقی هم تب‌ها را عوض می‌کند (جلسه ۳۹)؛ هر تب با

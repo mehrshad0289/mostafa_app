@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/auth";
 import {
   installmentStatuses,
   jalaliMonthSerial,
+  jalaliParts,
   loanRemaining,
   memberShareDue,
   monthKey,
@@ -68,6 +69,10 @@ export async function GET() {
 
   // مهلت پرداخت سهام: تا روز ۵ هر ماه شمسی (جلسه ۳۸)
   const shareDeadline = shareDeadlineState(now);
+  // جلسه ۴۰: ماه شمسی جاری برای شناسهٔ بستن اعلان‌ها (کلید ماهانه) —
+  // سمت کلاینت new Date() در prerender خطا می‌دهد؛ اینجا سمت سرور حساب می‌شود
+  const nowJalali = jalaliParts(now);
+  const shareDeadlineYm = `${nowJalali.year}-${String(nowJalali.month).padStart(2, "0")}`;
 
   // اقساط وام: کل سررسید ماه جاری، معوق (سررسیدش روزش گذشته و پرداخت‌نشده) و مانده کل
   const currentKey = monthKey(now);
@@ -160,6 +165,7 @@ export async function GET() {
       day: shareDeadline.day,
       daysLeft: shareDeadline.daysLeft,
       past: shareDeadline.past,
+      ym: shareDeadlineYm,
     },
     loanMonthlyDue: {
       amount: loanMonthlyDue,

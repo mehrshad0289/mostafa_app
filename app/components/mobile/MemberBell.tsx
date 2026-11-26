@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import ClayIcon from "./ClayIcon";
+import ClayIcon, { type ClayTone } from "./ClayIcon";
 import { jalaliParts } from "@/lib/bank";
 import type { MemberNotification } from "@/lib/db";
+
+/** جلسه ۴۰ — تِم طلایی زنگوله (هم‌خانوادهٔ رنگ طلایی آیکون‌های اپ) به درخواست کاربر */
+const GOLD_TONE: ClayTone = ["#FFD98E", "#F0A32B"];
 
 /** تاریخ شمسی کوتاه */
 function faDate(iso: string): string {
@@ -31,8 +34,10 @@ function notifTitle(n: MemberNotification): string {
  * قرمز تعداد پیام‌های خوانده‌نشده؛ با لمس، پنل اعلان‌ها باز می‌شود (نتیجهٔ
  * بررسی درخواست‌ها + پیام مدیر) و همه به‌عنوان خوانده‌شده ثبت می‌شوند.
  * شمارش هر ۳۰ ثانیه به‌روز می‌شود تا پیام تازه مشخص شود.
+ * جلسه ۴۰: زنگوله طلایی و متمایز شد (به درخواست کاربر) — یک ظاهر در هر دو
+ * هدر (تیرهٔ پوسته موبایل و روشن /dashboard).
  */
-export default function MemberBell({ variant = "brand" }: { variant?: "brand" | "light" }) {
+export default function MemberBell() {
   const [count, setCount] = useState(0);
   const [items, setItems] = useState<MemberNotification[]>([]);
   const [open, setOpen] = useState(false);
@@ -90,13 +95,11 @@ export default function MemberBell({ variant = "brand" }: { variant?: "brand" | 
         onClick={() => void openPanel()}
         title="اعلان‌ها و پیام‌های مدیر"
         aria-label={`اعلان‌های خوانده‌نشده: ${count}`}
-        className={`clay-press relative grid size-9 place-items-center rounded-full ring-1 ring-inset transition ${
-          variant === "brand"
-            ? "bg-white/12 text-white/85 ring-white/20 hover:bg-white/20 hover:text-white"
-            : "bg-zinc-100 text-zinc-600 ring-zinc-200 hover:bg-zinc-200 hover:text-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:ring-zinc-800 dark:hover:bg-zinc-800"
-        }`}
+        className="clay-press relative grid size-9 place-items-center rounded-full transition"
       >
-        <ClayIcon name="bell" size={26} ghost />
+        {/* جلسه ۴۰: زنگوله طلایی و متمایز (به درخواست کاربر) — در هر دو واریانت
+            هدر تیرهٔ پوسته موبایل و هدر روشن /dashboard */}
+        <ClayIcon name="bell" size={30} tone={GOLD_TONE} />
         {count > 0 && (
           <>
             <span className="absolute -left-1 -top-1 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
@@ -113,7 +116,7 @@ export default function MemberBell({ variant = "brand" }: { variant?: "brand" | 
           <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <ClayIcon name="bell" size={34} />
+                <ClayIcon name="bell" size={34} tone={GOLD_TONE} />
                 <h3 className="text-sm font-bold">اعلان‌ها و پیام‌های مدیر</h3>
               </div>
               <button

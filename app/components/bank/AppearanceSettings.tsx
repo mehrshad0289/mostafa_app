@@ -8,13 +8,14 @@ import { useHydrated } from "./useHydrated";
  *  «رنگ‌های بیشتر» اضافه شد — مجموع ۸ تم
  *  جلسه ۳۵: تم پیش‌فرض به «فیروزه‌ای برند» تغییر کرد.
  *  جلسه ۳۷: تم پیش‌فرض به «آبی آسمانی» تغییر کرد (به درخواست کاربر)؛ کلید
- *  قبلی sky به «آبی بانکی» (آبی عمیق‌تر) تغییر مقدار داد — پالت پیش‌فرض در globals.css */
+ *  قبلی sky به «آبی بانکی» (آبی عمیق‌تر) تغییر مقدار داد — پالت پیش‌فرض در globals.css
+ *  جلسه ۴۰: تم پیش‌فرض روشن‌تر شد و برچسبش «آبی روشن» است (به درخواست کاربر) */
 const THEMES: {
   key: string;
   label: string;
   swatches: [string, string, string];
 }[] = [
-  { key: "default", label: "آبی آسمانی", swatches: ["#0369a1", "#38bdf8", "#7dd3fc"] },
+  { key: "default", label: "آبی روشن", swatches: ["#0284c7", "#38bdf8", "#bae6fd"] },
   { key: "sky", label: "آبی بانکی", swatches: ["#1d4ed8", "#3b82f6", "#93c5fd"] },
   { key: "emerald", label: "زمردی", swatches: ["#059669", "#10b981", "#6ee7b7"] },
   { key: "teal", label: "فیروزه‌ای", swatches: ["#0d9488", "#14b8a6", "#5eead4"] },

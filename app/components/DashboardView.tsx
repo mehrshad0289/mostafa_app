@@ -7,6 +7,7 @@ import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MemberBell from "@/app/components/mobile/MemberBell";
 import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
+import { jalaliMonthKey, useAlertDismissed } from "@/app/components/useAlertDismiss";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type {
   BankDeposit,
@@ -490,6 +491,20 @@ export default function DashboardView({
     return { level, left, daysLeft: deadline.daysLeft, past: deadline.past, pendingShare };
   }, [shareInfo, member, paymentRequests, nowTick]);
 
+  /** جلسه ۴۰ — ماه شمسیِ جاری برای شناسهٔ بستن اعلان‌ها؛ با عوض شدن ماه، اعلان‌ها دوباره باز می‌شوند */
+  const alertMonth = nowTick === null ? null : jalaliMonthKey(new Date(nowTick));
+
+  /**
+   * جلسه ۴۰ — کارت یادآوری خانهٔ سهام: فقط در پنجرهٔ ۵ روز قبل از مهلت
+   * (روزهای ۱ تا ۵ ماه شمسی با تعهد پرداخت‌نشده)؛ بعد از بستن، یادآوری فقط
+   * داخل بخش سهام دیده می‌شود — دیگر هر روز در صفحهٔ اصلی نیست.
+   */
+  const homeShareReminder = shareAlert && shareAlert.level === "grace" ? shareAlert : null;
+
+  /** جلسه ۴۰ — کارت یادآوری خانهٔ اقساط: فقط اقساطی که تا ۵ روز دیگر سررسید
+   *  می‌شوند؛ معوق‌ها و «در انتظار تأیید» فقط داخل بخش تسهیلات نشان داده می‌شوند */
+  const homeInstallmentReminder = installmentAlert.soon;
+
   /** نقطهٔ هشدار روی مربع‌های خانه — قرمز = معوق، کهربایی = یادآوری (جلسه ۳۸) */
   function tileDot(key: TabKey): "danger" | "warning" | null {
     if (key === "shares") {
@@ -734,7 +749,12 @@ export default function DashboardView({
         <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary-600 text-base font-bold text-white shadow-sm dark:bg-primary-500">
+              {/* جلسه ۴۰: آواتار پروفایل سورمه‌ای — هم‌رنگ زمینه آیکون پروفایل
+                  (پایان گرادیان همان سرمه‌ای NAVY_TONE آیکون است)، به درخواست کاربر */}
+              <span
+                className="clay grid size-9 shrink-0 place-items-center text-xs font-bold text-white"
+                style={{ background: "linear-gradient(140deg, #7C97E4 0%, #2B4EA6 78%)" }}
+              >
                 م
               </span>
               <div className="min-w-0">
@@ -743,7 +763,7 @@ export default function DashboardView({
               </div>
               {/* جلسه ۳۷: زنگوله اعلان‌ها در هدر پنل عضو */}
               <span className="mr-1">
-                <MemberBell variant="light" />
+                <MemberBell />
               </span>
             </div>
             <button
@@ -818,6 +838,35 @@ export default function DashboardView({
                 );
               })}
             </div>
+            {/* جلسه ۴۰ — کارت‌های یادآوری صفحهٔ اصلی: فقط ۵ روز قبل از سررسید؛
+                با دکمهٔ بستن — بعد از بستن، یادآوری فقط در بخش مربوطه دیده می‌شود */}
+            {homeShareReminder && (
+              <HomeReminderCard
+                icon="coins"
+                title={
+                  homeShareReminder.daysLeft === 0
+                    ? "امروز روز ۵ ماه است — آخرین مهلت پرداخت سهام این ماه"
+                    : `مهلت پرداخت سهام این ماه تا روز ۵ — ${faMoney(homeShareReminder.daysLeft)} روز مانده`
+                }
+                subtitle={`مانده تعهد سهام شما ${faMoney(homeShareReminder.left)} تومان است — برای پرداخت، بخش سهام را باز کنید.`}
+                dismissKey={alertMonth ? `home-share-${alertMonth}` : null}
+                onOpen={() => changeTab("shares")}
+                openLabel="رفتن به بخش سهام"
+              />
+            )}
+            {homeInstallmentReminder.length > 0 && (
+              <HomeReminderCard
+                icon="calendar"
+                title={`یادآوری سررسید اقساط — ${faMoney(homeInstallmentReminder.length)} قسط تا ۵ روز دیگر سررسید می‌شود`}
+                subtitle={homeInstallmentReminder
+                  .slice(0, 2)
+                  .map((r) => `${r.loanLabel} — قسط ${faMoney(r.number)} — سررسید ${faDate(r.dueAt)}`)
+                  .join(" · ")}
+                dismissKey={alertMonth ? `home-installments-${alertMonth}` : null}
+                onOpen={() => changeTab("loans")}
+                openLabel="رفتن به بخش تسهیلات"
+              />
+            )}
             <p className="text-center text-[11px] leading-6 text-zinc-400">
               برای هر بخش فقط مربع آن را لمس کنید تا مستقیم وارد همان بخش شوید.
             </p>
@@ -849,6 +898,7 @@ export default function DashboardView({
                   title="مهلت پرداخت سهام این ماه (روز ۵ ماه) گذشته است"
                   subtitle={`مانده تعهد سهام شما ${faMoney(shareAlert.left)} تومان است (تعهد ماهانه: ${shareInfo ? faMoney(shareInfo.monthlyDue) : "…"} تومان) — پرداخت را با دکمهٔ «پرداخت سهام» در همین بخش ثبت کنید.`}
                   rows={shareAlert.pendingShare ? ["پرداختی هم ثبت کرده‌اید که در انتظار تأیید مدیر است؛ پس از تأیید، مانده به‌روز می‌شود."] : undefined}
+                  dismissKey={alertMonth ? `share-${alertMonth}-late` : null}
                 />
               ) : shareAlert.level === "grace" ? (
                 <ReminderBanner
@@ -859,12 +909,14 @@ export default function DashboardView({
                       : `مهلت پرداخت سهام این ماه تا روز ۵ است — ${faMoney(shareAlert.daysLeft)} روز مانده`
                   }
                   subtitle={`مانده تعهد سهام شما ${faMoney(shareAlert.left)} تومان است (تعهد ماهانه: ${shareInfo ? faMoney(shareInfo.monthlyDue) : "…"} تومان).`}
+                  dismissKey={alertMonth ? `share-${alertMonth}-grace` : null}
                 />
               ) : (
                 <ReminderBanner
                   tone="warning"
                   title="پرداخت سهام شما ثبت شده و در انتظار تأیید مدیر است"
                   subtitle={`مانده تعهد فعلی ${faMoney(shareAlert.left)} تومان است و پس از تأیید مدیر به‌روز می‌شود.`}
+                  dismissKey={alertMonth ? `share-${alertMonth}-pending` : null}
                 />
               )
             )}
@@ -931,6 +983,7 @@ export default function DashboardView({
                   (r) => `${r.loanLabel} — قسط ${faMoney(r.number)} — ${faMoney(r.amount)} تومان — سررسید ${faDate(r.dueAt)} (${faMoney(r.days ?? 0)} روز گذشته)`,
                 )}
                 more={Math.max(0, installmentAlert.overdue.length - 4)}
+                dismissKey={alertMonth ? `installments-${alertMonth}-overdue` : null}
               />
             )}
             {installmentAlert.awaiting.length > 0 && (
@@ -941,6 +994,7 @@ export default function DashboardView({
                 rows={installmentAlert.awaiting.slice(0, 4).map(
                   (r) => `${r.loanLabel} — قسط ${faMoney(r.number)} — ${faMoney(r.amount)} تومان${r.days !== null && r.days > 0 ? ` — سررسید ${faDate(r.dueAt)}` : ""}`,
                 )}
+                dismissKey={alertMonth ? `installments-${alertMonth}-awaiting` : null}
               />
             )}
             {installmentAlert.soon.length > 0 && (
@@ -951,6 +1005,7 @@ export default function DashboardView({
                   (r) => `${r.loanLabel} — قسط ${faMoney(r.number)} — ${faMoney(r.amount)} تومان — سررسید ${faDate(r.dueAt)}${r.days === 0 ? " (امروز)" : ` (${faMoney(r.days ?? 0)} روز دیگر)`}`,
                 )}
                 more={Math.max(0, installmentAlert.soon.length - 4)}
+                dismissKey={alertMonth ? `installments-${alertMonth}-soon` : null}
               />
             )}
 
@@ -1486,9 +1541,64 @@ function SubTab({ active, onClick, label, count }: { active: boolean; onClick: (
 }
 
 /**
+ * جلسه ۴۰ — کارت یادآوری صفحهٔ اصلی (نمای مربع‌های خانه): فقط در پنجرهٔ
+ * ۵ روز قبل از سررسید نشان داده می‌شود و دکمهٔ بستن دارد. بعد از بستن، روی
+ * همین دستگاه تا ماه شمسی بعد در خانه پنهان است و یادآوری فقط داخل بخش
+ * مربوطه (سهام/تسهیلات) می‌ماند. دکمهٔ میانی مستقیم همان بخش را باز می‌کند.
+ */
+function HomeReminderCard({
+  icon,
+  title,
+  subtitle,
+  dismissKey,
+  onOpen,
+  openLabel,
+}: {
+  icon: "coins" | "calendar";
+  title: string;
+  subtitle: string;
+  dismissKey: string | null;
+  onOpen: () => void;
+  openLabel: string;
+}) {
+  const { dismissed, close } = useAlertDismissed(dismissKey);
+  if (dismissed || !dismissKey) return null;
+  return (
+    <div className="relative rounded-2xl border border-amber-300 bg-amber-50 p-3.5 shadow-sm dark:border-amber-900 dark:bg-amber-950/50">
+      <button
+        type="button"
+        onClick={close}
+        aria-label="بستن این یادآوری"
+        title="بستن — تا دورهٔ بعد در خانه نشان داده نمی‌شود (یادآوری در بخش مربوطه می‌ماند)"
+        className="absolute left-3 top-3 grid size-7 place-items-center rounded-full text-base leading-none text-amber-800 opacity-60 transition hover:bg-amber-500/15 hover:opacity-100 dark:text-amber-300"
+      >
+        ×
+      </button>
+      <div className="flex items-start gap-3">
+        <ClayIcon name={icon} size={40} tone={["#FFE08E", "#E8A62B"]} className="shrink-0" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-6 text-amber-800 dark:text-amber-300">{title}</p>
+          <p className="mt-0.5 text-xs leading-5 text-amber-900/80 dark:text-amber-200/80">{subtitle}</p>
+          <button
+            type="button"
+            onClick={onOpen}
+            className="mt-2 rounded-xl bg-amber-500/15 px-3 py-1.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-500/25 dark:text-amber-300"
+          >
+            {openLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * جلسه ۳۸ — بنر یادآوری/اعلان پنل عضو:
  * danger (قرمز) = از مهلت/سررسید گذشته؛ warning (کهربایی) = یادآوری قبل از
  * مهلت یا وضعیت «در انتظار تأیید». مشخصات هر مورد در ردیف‌های داخل بنر است.
+ * جلسه ۴۰ — قابلیت بسته شدن: اگر dismissKey داده شود دکمهٔ × دارد و بنرِ
+ * بسته‌شده روی همین دستگاه تا دورهٔ بعد (ماه شمسی جدید) دیگر نشان داده نمی‌شود؛
+ * اعلان همچنان از دادهٔ بانک محاسبه می‌شود و با تسویه خودبه‌خود پاک می‌شود.
  */
 function ReminderBanner({
   tone,
@@ -1496,13 +1606,18 @@ function ReminderBanner({
   subtitle,
   rows,
   more,
+  dismissKey,
 }: {
   tone: "danger" | "warning";
   title: string;
   subtitle?: string;
   rows?: string[];
   more?: number;
+  /** شناسهٔ بستن — اگر داده شود بنر دکمهٔ × می‌گیرد */
+  dismissKey?: string | null;
 }) {
+  const { dismissed, close } = useAlertDismissed(dismissKey ?? null);
+  if (dismissed) return null;
   const boxCls =
     tone === "danger"
       ? "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300"
@@ -1512,7 +1627,18 @@ function ReminderBanner({
       ? "bg-red-100/80 text-red-900 dark:bg-red-950/70 dark:text-red-200"
       : "bg-amber-100/80 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200";
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${boxCls}`}>
+    <div className={`relative rounded-2xl border p-4 shadow-sm ${boxCls}`}>
+      {dismissKey && (
+        <button
+          type="button"
+          onClick={close}
+          aria-label="بستن این اعلان"
+          title="بستن — تا دورهٔ بعد نشان داده نمی‌شود"
+          className="absolute left-3 top-3 grid size-7 place-items-center rounded-full text-base leading-none opacity-60 transition hover:bg-black/10 hover:opacity-100"
+        >
+          ×
+        </button>
+      )}
       <p className="text-sm font-bold leading-6">{title}</p>
       {subtitle && <p className="mt-1 text-xs leading-5 opacity-90">{subtitle}</p>}
       {rows && rows.length > 0 && (
