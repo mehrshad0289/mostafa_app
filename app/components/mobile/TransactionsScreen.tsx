@@ -62,6 +62,25 @@ function faDateTime(iso: string): { date: string; time: string } {
   }
 }
 
+/** جلسه ۵۱ — شرح ساده هر تراکنش برای مودال جزئیات (توضیحات بعد از لمس، به درخواست کاربر) */
+function txDescription(row: TxRow, isAdmin: boolean): string {
+  if (row.kind === "pending-share")
+    return "درخواست واریز سهام هنوز بررسی نشده است؛ پس از تأیید مدیر به تراکنش تبدیل می‌شود.";
+  if (row.kind === "pending-installment")
+    return isAdmin
+      ? "درخواست پرداخت قسط هنوز بررسی نشده است؛ پس از تأیید، واریز قسط در بانک ثبت می‌شود."
+      : "درخواست پرداخت قسط هنوز بررسی نشده است؛ پس از تأیید مدیر از حساب شما برداشت می‌شود.";
+  if (row.kind === "loan")
+    return isAdmin
+      ? "برداشت مبلغ تسهیلات پرداخت‌شده به عضو از موجودی بانک."
+      : "واریز مبلغ تسهیلات به حساب شما.";
+  if (row.kind === "installment")
+    return isAdmin
+      ? "واریز بابت پرداخت قسط تسهیلات توسط عضو."
+      : "برداشت بابت پرداخت قسط تسهیلات از حساب شما.";
+  return isAdmin ? "واریز عضو به حساب بانک." : "واریز به حساب شما.";
+}
+
 function rowVisual(row: TxRow): { icon: ClayIconName; tone: ClayTone } {
   switch (row.kind) {
     case "installment":
@@ -80,11 +99,22 @@ function rowVisual(row: TxRow): { icon: ClayIconName; tone: ClayTone } {
   }
 }
 
-/** جلسه ۵۰ — خط‌های مودال جزئیات کامل هر تراکنش */
+/** جلسه ۵۰ + ۵۱ — خط‌های مودال جزئیات کامل هر تراکنش */
 function detailLines(row: TxRow, isAdmin: boolean): { label: string; value: string; tone?: "green" | "red" | "amber" }[] {
   const lines: { label: string; value: string; tone?: "green" | "red" | "amber" }[] = [];
   const dt = faDateTime(row.at);
-  lines.push({ label: "نوع تراکنش", value: row.title });
+  const typeLabel =
+    row.kind === "loan"
+      ? "تسهیلات"
+      : row.kind === "installment"
+        ? "قسط تسهیلات"
+        : row.kind === "pending-share"
+          ? "درخواست پرداخت سهام"
+          : row.kind === "pending-installment"
+            ? "درخواست پرداخت قسط"
+            : DEPOSIT_KIND_LABEL[row.kind];
+  lines.push({ label: "نوع تراکنش", value: typeLabel });
+  lines.push({ label: "شرح", value: txDescription(row, isAdmin) });
   if (row.kind === "pending-share" || row.kind === "pending-installment") {
     if (row.subtitleName) lines.push({ label: "کاربر", value: row.subtitleName });
   } else if (isAdmin && row.memberName) {
@@ -95,23 +125,24 @@ function detailLines(row: TxRow, isAdmin: boolean): { label: string; value: stri
     value: `${fa(row.amount)} تومان`,
     tone: row.direction === "in" ? "green" : row.direction === "out" ? "red" : "amber",
   });
+  // جلسه ۵۱ — اثر روی موجودی، نسبت به حساب عضو (پنل یوزر) یا موجودی بانک (پنل ادمین)
   if (row.direction === "in") {
     lines.push({
       label: "اثر روی حساب",
-      value: isAdmin ? "واریز به بانک" : "واریز به حساب شما",
+      value: isAdmin ? "افزایش موجودی بانک" : "افزایش موجودی حساب شما",
       tone: "green",
     });
   } else if (row.direction === "out") {
     lines.push({
       label: "اثر روی حساب",
-      value: isAdmin ? "برداشت از بانک" : "برداشت از حساب شما",
+      value: isAdmin ? "کاهش موجودی بانک" : "کاهش موجودی حساب شما",
       tone: "red",
     });
   } else {
     lines.push({ label: "وضعیت", value: "در انتظار تأیید مدیر", tone: "amber" });
   }
   if (row.deposit) {
-    if (row.deposit.title && row.deposit.title !== row.title) {
+    if (row.deposit.title && row.deposit.title !== typeLabel) {
       lines.push({ label: "عنوان ثبت‌شده", value: row.deposit.title });
     }
     if (row.deposit.type === "share" && row.deposit.periodKey) {
@@ -198,17 +229,21 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
 
   const rows = useMemo<TxRow[]>(() => {
     const out: TxRow[] = [];
+    // جلسه ۵۱ — عنوان همهٔ ردیف‌ها فقط «واریز» و «برداشت» است (به درخواست کاربر)؛
+    // نوع/عنوان/دوره و بقیهٔ توضیحات در مودال جزئیاتِ بعد از لمس دیده می‌شود
     deposits.forEach((d) => {
       const kindLabel = DEPOSIT_KIND_LABEL[d.type || "share"];
-      const extra = [isAdmin ? d.memberName : undefined, d.title && d.title !== kindLabel ? d.title : undefined]
-        .filter(Boolean)
-        .join(" · ");
+      const extra = isAdmin
+        ? d.memberName || undefined
+        : d.title && d.title !== kindLabel
+          ? d.title
+          : undefined;
       out.push({
         id: `d-${d.id}`,
         kind: d.type,
         direction: "in",
-        title: kindLabel,
-        subtitleName: extra || undefined,
+        title: "واریز",
+        subtitleName: extra,
         amount: d.amount,
         at: d.createdAt,
         deposit: d,
@@ -216,12 +251,14 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
       });
     });
     loans.forEach((loan) => {
+      // جلسه ۵۱ — دریافت تسهیلات برای عضو «واریز» سبز است (پول به حساب او
+      // می‌آید)، نه «برداشت از بانک»؛ برای مدیر همان «برداشت» قرمز
       if (isAdmin && loan.disbursedAmount > 0) {
         out.push({
           id: `w-${loan.id}`,
           kind: "loan",
           direction: "out",
-          title: "برداشت از بانک",
+          title: "برداشت",
           subtitleName: loan.memberName,
           amount: loan.disbursedAmount,
           at: loan.createdAt,
@@ -234,7 +271,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           id: `l-${loan.id}`,
           kind: "loan",
           direction: "in",
-          title: "برداشت از بانک",
+          title: "واریز",
           amount: loan.disbursedAmount,
           at: loan.createdAt,
           loan,
@@ -244,10 +281,10 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         out.push({
           id: `p-${p.id}-${i}`,
           kind: "installment",
-          // جلسه ۵۰ — پرداخت قسط برای عضو برداشت از حساب اوست (قرمز)،
+          // پرداخت قسط برای عضو برداشت از حساب اوست (قرمز)،
           // اما برای مدیر ورود پول به بانک است (واریز سبز)
           direction: isAdmin ? "in" : "out",
-          title: "پرداخت اقساط تسهیلات",
+          title: isAdmin ? "واریز" : "برداشت",
           subtitleName: isAdmin ? loan.memberName : undefined,
           amount: p.amount,
           at: p.paidAt,
@@ -258,13 +295,15 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         });
       });
     });
+    // جلسه ۵۱ — درخواست‌های در انتظار هم با همان عنوان واریز/برداشت (کهربایی)؛
+    // قسطِ در انتظار از نگاه عضو برداشت است و از نگاه مدیر واریزِ آیندهٔ بانک
     requests.forEach((r) => {
       out.push({
         id: `r-${r.id}`,
         kind: r.kind === "share" ? "pending-share" : "pending-installment",
         direction: "pending",
-        title: r.kind === "share" ? "درخواست پرداخت سهام" : "درخواست پرداخت قسط",
-        subtitleName: r.username,
+        title: r.kind === "share" || isAdmin ? "واریز" : "برداشت",
+        subtitleName: isAdmin ? r.username : undefined,
         amount: r.amount,
         at: r.createdAt,
         memberName: r.username,
