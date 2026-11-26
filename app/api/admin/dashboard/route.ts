@@ -7,6 +7,7 @@ import {
   memberShareDue,
   monthKey,
   recalcFund,
+  shareDeadlineState,
 } from "@/lib/bank";
 import { getBank, getUnreadRequests } from "@/lib/db";
 
@@ -15,9 +16,11 @@ import { getBank, getUnreadRequests } from "@/lib/db";
  * - موجودی کلی بانک (واریزی‌ها + بازپرداخت‌ها − پرداختی وام)
  * - تعهد ماهانه سهام (جمع سهم اعضا × مبلغ هر سهم)
  * - تعهدات پرداخت‌نشده سهام (مانده تعهد ماه جاری اعضا با احتساب carry)
+ *   + جزئیات هر عضو پرداخت‌نکرده (جلسه ۳۸) + وضعیت مهلت روز ۵ ماه
  * - تعهدات ماهانه وام (مبلغ کل اقساط با سررسید ماه شمسی جاری — پرداخت‌شده +
  *   پرداخت‌نشده؛ سهم هر کدام جداگانه هم برگردانده می‌شود)
  * - تعهدات باقی‌مانده وام (اقساط سررسیدشدهٔ ماه‌های قبل که پرداخت نشده‌اند)
+ *   + جزئیات تک‌تک اقساط معوق (جلسه ۳۸)
  * - سود وام (جمع سود ثبت‌شدهٔ همه وام‌ها با تفکیک در جریان/تسویه‌شده)
  * - مانده کل اقساط همه وام‌ها (برای نمایش کمکی زیر کارت معوق)
  * - درخواست‌های خوانده‌نشده اعضا
@@ -39,23 +42,56 @@ export async function GET() {
   );
   let shareUnpaid = 0;
   let membersWithShareDebt = 0;
+  // جلسه ۳۸: مشخصات تک‌تک اعضایی که تعهد سهام این ماه را کامل نپرداخته‌اند
+  const shareUnpaidDetails: {
+    memberId: string;
+    name: string;
+    shares: number;
+    monthlyDue: number;
+    left: number;
+  }[] = [];
   for (const m of bank.members) {
     const due = memberShareDue(m, bank.deposits, amountPerShare, now);
     if (due.left > 0) {
       shareUnpaid += due.left;
       membersWithShareDebt += 1;
+      shareUnpaidDetails.push({
+        memberId: m.id,
+        name: m.name,
+        shares: Math.max(0, Number(m.shares || 0)),
+        monthlyDue: due.monthlyDue,
+        left: due.left,
+      });
     }
   }
+  shareUnpaidDetails.sort((a, b) => b.left - a.left);
 
-  // اقساط وام: کل سررسید ماه جاری، معوق پرداخت‌نشدهٔ ماه‌های قبل و مانده کل
+  // مهلت پرداخت سهام: تا روز ۵ هر ماه شمسی (جلسه ۳۸)
+  const shareDeadline = shareDeadlineState(now);
+
+  // اقساط وام: کل سررسید ماه جاری، معوق (سررسیدش روزش گذشته و پرداخت‌نشده) و مانده کل
   const currentKey = monthKey(now);
   const currentSerial = jalaliMonthSerial(currentKey);
+  // جلسه ۳۸: معوق از نظر روز شمرده می‌شود، نه فقط ماه‌های قبل — قسطی که
+  // سررسیدش (مثلاً دوم همین ماه) گذشته و پرداخت نشده هم معوق است.
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartMs = todayStart.getTime();
   let loanMonthlyDue = 0;
   let loanMonthlyCount = 0;
   let loanMonthlyPaid = 0;
   let loanOverdue = 0;
   let loanOverdueCount = 0;
   let loanOverdueLoans = 0;
+  // جلسه ۳۸: مشخصات تک‌تک اقساط سررسیدشده و پرداخت‌نشده
+  const loanOverdueDetails: {
+    loanId: string;
+    memberName: string;
+    principal: number;
+    number: number;
+    amount: number;
+    dueAt: string;
+  }[] = [];
   let loanRemainingTotal = 0;
   let activeLoanCount = 0;
   for (const loan of bank.loans) {
@@ -71,15 +107,25 @@ export async function GET() {
         loanMonthlyDue += row.amount;
         loanMonthlyCount += 1;
         if (row.paid) loanMonthlyPaid += row.amount;
-      } else if (serial < currentSerial && !row.paid) {
-        // سررسیدشدهٔ ماه‌های قبل که هنوز پرداخت نشده است
+      }
+      // معوق: سررسیدش گذشته و پرداخت‌نشده است (هر ماهی — جلسه ۳۸)
+      if (!row.paid && new Date(row.dueAt).getTime() < todayStartMs) {
         loanOverdue += row.amount;
         loanOverdueCount += 1;
         loanHasOverdue = true;
+        loanOverdueDetails.push({
+          loanId: loan.id,
+          memberName: loan.memberName,
+          principal: loan.principal,
+          number: row.number,
+          amount: row.amount,
+          dueAt: row.dueAt,
+        });
       }
     }
     if (loanHasOverdue) loanOverdueLoans += 1;
   }
+  loanOverdueDetails.sort((a, b) => a.dueAt.localeCompare(b.dueAt));
 
   // سود وام: جمع سود ثبت‌شدهٔ همه وام‌ها با تفکیک در جریان/تسویه‌شده
   let loanInterestTotal = 0;
@@ -105,7 +151,16 @@ export async function GET() {
       amountPerShare,
     },
     shareMonthlyDue,
-    shareUnpaid: { amount: shareUnpaid, members: membersWithShareDebt },
+    shareUnpaid: {
+      amount: shareUnpaid,
+      members: membersWithShareDebt,
+      details: shareUnpaidDetails,
+    },
+    shareDeadline: {
+      day: shareDeadline.day,
+      daysLeft: shareDeadline.daysLeft,
+      past: shareDeadline.past,
+    },
     loanMonthlyDue: {
       amount: loanMonthlyDue,
       count: loanMonthlyCount,
@@ -116,6 +171,7 @@ export async function GET() {
       amount: loanOverdue,
       count: loanOverdueCount,
       loans: loanOverdueLoans,
+      details: loanOverdueDetails,
     },
     loanRemaining: { amount: loanRemainingTotal, loans: activeLoanCount },
     loanInterest: {

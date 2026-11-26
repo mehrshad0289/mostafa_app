@@ -179,6 +179,30 @@ export function parseSharePeriod(value: unknown, fallbackDate?: Date | string | 
   return monthKey(fallbackDate ?? new Date());
 }
 
+// ---------- مهلت پرداخت سهام و یادآوری سررسید (جلسه ۳۸) ----------
+
+/** مهلت پرداخت سهام ماهانه: تا روز ۵ هر ماه شمسی */
+export const SHARE_DEADLINE_DAY = 5;
+
+export type ShareDeadlineState = {
+  /** روز جاری از ماه شمسی */
+  day: number;
+  /** روزهای باقی‌مانده تا مهلت (۰ = امروز روز ۵ است)؛ اگر گذشته باشد ۰ */
+  daysLeft: number;
+  /** true = از روز ۵ ماه گذشته و پرداخت‌نشده معوق حساب می‌شود */
+  past: boolean;
+};
+
+/** وضعیت مهلت پرداخت سهام نسبت به روز ۵ ماه شمسی — خالص و بدون I/O */
+export function shareDeadlineState(now: Date = new Date()): ShareDeadlineState {
+  const day = jalaliParts(now).day;
+  return {
+    day,
+    daysLeft: Math.max(0, SHARE_DEADLINE_DAY - day),
+    past: day > SHARE_DEADLINE_DAY,
+  };
+}
+
 // ---------- وام ----------
 
 export function loanPaid(loan: Pick<BankLoan, "payments">): number {

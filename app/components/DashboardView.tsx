@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES } from "@/lib/bank";
+import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES, shareDeadlineState } from "@/lib/bank";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MemberBell from "@/app/components/mobile/MemberBell";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
@@ -173,6 +173,28 @@ async function readReceipt(file: File): Promise<string> {
   throw new Error("حجم عکس رسید باید کمتر از حدود ۲ مگابایت باشد؛ عکس کوچک‌تری انتخاب کنید.");
 }
 
+/**
+ * جلسه ۳۸ — وضعیت یادآوری هر قسط برای پنل عضو:
+ * overdue = از سررسید گذشته و پرداخت نشده (قرمز)؛ awaiting = پرداخت ثبت شده
+ * و در انتظار تأیید مدیر؛ soon = تا ۵ روز به سررسید مانده (کهربایی)؛
+ * future = سررسید دورتر.
+ */
+type InstallmentAlertState = "overdue" | "awaiting" | "soon" | "future";
+
+/** وضعیت محاسبه‌شدهٔ هر قسط برای نشان دادن رنگ و برچسب درست (جلسه ۳۸) */
+type InstallmentRowMeta = {
+  state: InstallmentAlertState;
+  days: number | null;
+};
+
+/**
+ * جلسه ۳۸ — وضعیت یادآوری سهام عضو:
+ * ok = تعهد این ماه پرداخت شده؛ grace = تا روز ۵ ماه فرصت هست (کهربایی)؛
+ * late = از روز ۵ گذشته و پرداخت نشده (قرمز)؛ pending = پرداخت ثبت شده و
+ * منتظر تأیید مدیر است (کهربایی).
+ */
+type ShareAlertLevel = "ok" | "grace" | "late" | "pending";
+
 type DashboardViewProps = {
   /** حالت تعبیه‌شده داخل پوسته موبایل (/mobile): بدون هدر و نوار پایین داخلی */
   embedded?: boolean;
@@ -232,6 +254,22 @@ export default function DashboardView({
   const [notice, setNotice] = useState("");
   const [installmentSub, setInstallmentSub] = useState<"unpaid" | "paid">("unpaid");
   const [copiedKey, setCopiedKey] = useState("");
+  /**
+   * جلسه ۳۸: ساعت مرجع برای محاسبهٔ یادآوری‌ها — بعد از mount تنظیم می‌شود تا
+   * prerender سرور به `new Date()` نیفتد (خطای build Next.js 16) و HTML اولیه
+   * با کلاینت اختلاف hydration نداشته باشد؛ هر ۶۰ ثانیه هم به‌روز می‌شود تا
+   * اگر صفحه باز مانده، گذشتن مهلت/سررسید همان‌جا دیده شود.
+   */
+  const [nowTick, setNowTick] = useState<number | null>(null);
+  useEffect(() => {
+    // setTimeout صفر برای رعایت قانون react-hooks/set-state-in-effect (مثل load)
+    const t0 = setTimeout(() => setNowTick(Date.now()), 0);
+    const timer = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => {
+      clearTimeout(t0);
+      clearInterval(timer);
+    };
+  }, []);
 
   const [shareModal, setShareModal] = useState(false);
   const [shareAmount, setShareAmount] = useState("");
@@ -339,6 +377,98 @@ export default function DashboardView({
     rows.sort((a, b) => a.dueAt.localeCompare(b.dueAt) || a.number - b.number);
     return rows;
   }, [loans]);
+
+  /**
+   * جلسه ۳۸ — یادآوری سررسید اقساط: هر قسط پرداخت‌نشدهٔ وام‌های در جریان
+   * بر اساس فاصلهٔ سررسیدش دسته‌بندی می‌شود. قسطی که پرداختش (رسیدش) ثبت
+   * شده اما مدیر هنوز تأیید نکرده «awaiting» می‌شود و قرمز نشان داده نمی‌شود.
+   * بعد از تأیید مدیر، قسط پرداخت‌شده حساب می‌شود و یادآوری خودبه‌خود پاک
+   * می‌شود (چون همه‌چیز از دادهٔ واقعی بانک محاسبه می‌شود، نه انبار اعلان).
+   */
+  const installmentAlert = useMemo(() => {
+    if (nowTick === null) {
+      return { meta: new Map<string, InstallmentRowMeta>(), overdue: [], awaiting: [], soon: [] };
+    }
+    const today = new Date(nowTick);
+    today.setHours(0, 0, 0, 0);
+    const meta = new Map<string, InstallmentRowMeta>();
+    type Row = (typeof installmentRows)[number] & { days: number | null };
+    const overdue: Row[] = [];
+    const awaiting: Row[] = [];
+    const soon: Row[] = [];
+    for (const r of installmentRows) {
+      if (r.paid || r.loanStatus === "cancelled") continue;
+      const key = `${r.loanId}-${r.number}`;
+      const pending = paymentRequests.some(
+        (p) =>
+          p.kind === "installment" &&
+          p.loanId === r.loanId &&
+          p.installmentNumber === r.number &&
+          p.status === "pending",
+      );
+      if (!r.dueAt) {
+        meta.set(key, { state: pending ? "awaiting" : "future", days: null });
+        if (pending) awaiting.push({ ...r, days: null });
+        continue;
+      }
+      const diff = (new Date(r.dueAt).getTime() - today.getTime()) / 86400000;
+      if (diff < 0) {
+        const days = Math.ceil(-diff);
+        meta.set(key, { state: pending ? "awaiting" : "overdue", days });
+        if (pending) awaiting.push({ ...r, days });
+        else overdue.push({ ...r, days });
+      } else {
+        const days = Math.floor(diff);
+        if (days <= 5) {
+          meta.set(key, { state: pending ? "awaiting" : "soon", days });
+          if (pending) awaiting.push({ ...r, days });
+          else soon.push({ ...r, days });
+        } else {
+          meta.set(key, { state: "future", days });
+        }
+      }
+    }
+    const byDue = (a: Row, b: Row) => (a.dueAt || "").localeCompare(b.dueAt || "");
+    overdue.sort(byDue);
+    soon.sort(byDue);
+    return { meta, overdue, awaiting, soon };
+  }, [installmentRows, paymentRequests, nowTick]);
+
+  /**
+   * جلسه ۳۸ — یادآوری مهلت سهام: مهلت تا روز ۵ هر ماه شمسی است؛ تا آن روز
+   * کهربایی («X روز مانده»)، بعد از آن قرمز. اگر پرداخت ثبت شده و منتظر
+   * تأیید مدیر است، به‌جای قرمز «در انتظار تأیید» کهربایی نشان داده می‌شود
+   * و بعد از تأیید مدیر (ثبت واریزی در بانک) کل اعلان پاک می‌شود.
+   */
+  const shareAlert = useMemo(() => {
+    if (!shareInfo || !member || nowTick === null) return null;
+    const left = shareInfo.left;
+    if (left <= 0) {
+      return { level: "ok" as ShareAlertLevel, left: 0, daysLeft: 0, past: false, pendingShare: false };
+    }
+    const deadline = shareDeadlineState(new Date(nowTick));
+    const pendingShare = paymentRequests.some((r) => r.kind === "share" && r.status === "pending");
+    const level: ShareAlertLevel = pendingShare
+      ? "pending"
+      : deadline.past
+        ? "late"
+        : "grace";
+    return { level, left, daysLeft: deadline.daysLeft, past: deadline.past, pendingShare };
+  }, [shareInfo, member, paymentRequests, nowTick]);
+
+  /** نقطهٔ هشدار روی مربع‌های خانه — قرمز = معوق، کهربایی = یادآوری (جلسه ۳۸) */
+  function tileDot(key: TabKey): "danger" | "warning" | null {
+    if (key === "shares") {
+      if (!shareAlert || shareAlert.level === "ok") return null;
+      return shareAlert.level === "late" ? "danger" : "warning";
+    }
+    if (key === "loans") {
+      if (installmentAlert.overdue.length > 0) return "danger";
+      if (installmentAlert.awaiting.length > 0 || installmentAlert.soon.length > 0) return "warning";
+      return null;
+    }
+    return null;
+  }
 
   async function submitSharePayment(event: React.FormEvent) {
     event.preventDefault();
@@ -625,14 +755,24 @@ export default function DashboardView({
             <div className="grid grid-cols-3 gap-3">
               {HOME_TILES.map((t) => {
                 const [toneA, toneB] = toneForIcon(t.icon);
+                // جلسه ۳۸: نقطهٔ هشدار روی مربع سهام/تسهیلات وقتی یادآوری فعال است
+                const dot = tileDot(t.key);
                 return (
                   <button
                     key={t.key}
                     type="button"
                     onClick={() => changeTab(t.key)}
                     style={{ backgroundImage: `linear-gradient(145deg, ${toneA}33 0%, ${toneB}1a 55%, transparent 100%)` }}
-                    className="clay-press flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-zinc-200/70 bg-white shadow-md shadow-primary-900/5 transition hover:border-primary-300 hover:shadow-lg hover:shadow-primary-900/10 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-primary-700"
+                    className="clay-press relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-zinc-200/70 bg-white shadow-md shadow-primary-900/5 transition hover:border-primary-300 hover:shadow-lg hover:shadow-primary-900/10 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-primary-700"
                   >
+                    {dot && (
+                      <span
+                        aria-label="یادآوری فعال"
+                        className={`absolute left-3 top-3 size-2.5 rounded-full ring-2 ring-white dark:ring-zinc-950 ${
+                          dot === "danger" ? "animate-pulse bg-red-500" : "bg-amber-400"
+                        }`}
+                      />
+                    )}
                     <ClayIcon name={t.icon} size={54} />
                     <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{t.label}</span>
                   </button>
@@ -661,6 +801,39 @@ export default function DashboardView({
 
         {tab === "shares" && (
           <section className="space-y-4">
+            {/* جلسه ۳۸: یادآوری مهلت سهام — تا روز ۵ هر ماه کهربایی، بعد از آن قرمز؛
+                با تأیید مدیر پرداخت، خودبه‌خود پاک می‌شود */}
+            {shareAlert && shareAlert.level !== "ok" && (
+              shareAlert.level === "late" ? (
+                <ReminderBanner
+                  tone="danger"
+                  title="مهلت پرداخت سهام این ماه (روز ۵ ماه) گذشته است"
+                  subtitle={`مانده تعهد سهام شما ${faMoney(shareAlert.left)} تومان است (تعهد ماهانه: ${shareInfo ? faMoney(shareInfo.monthlyDue) : "…"} تومان) — پرداخت را با دکمهٔ «پرداخت سهام» در همین بخش ثبت کنید.`}
+                  rows={shareAlert.pendingShare ? ["پرداختی هم ثبت کرده‌اید که در انتظار تأیید مدیر است؛ پس از تأیید، مانده به‌روز می‌شود."] : undefined}
+                />
+              ) : shareAlert.level === "grace" ? (
+                <ReminderBanner
+                  tone="warning"
+                  title={
+                    shareAlert.daysLeft === 0
+                      ? "امروز روز ۵ ماه است — آخرین مهلت پرداخت سهام این ماه"
+                      : `مهلت پرداخت سهام این ماه تا روز ۵ است — ${faMoney(shareAlert.daysLeft)} روز مانده`
+                  }
+                  subtitle={`مانده تعهد سهام شما ${faMoney(shareAlert.left)} تومان است (تعهد ماهانه: ${shareInfo ? faMoney(shareInfo.monthlyDue) : "…"} تومان).`}
+                />
+              ) : (
+                <ReminderBanner
+                  tone="warning"
+                  title="پرداخت سهام شما ثبت شده و در انتظار تأیید مدیر است"
+                  subtitle={`مانده تعهد فعلی ${faMoney(shareAlert.left)} تومان است و پس از تأیید مدیر به‌روز می‌شود.`}
+                />
+              )
+            )}
+            {shareAlert?.level === "ok" && (
+              <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">
+                تعهد سهام این ماه شما کامل پرداخت شده است ✓
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <StatCard label="مبلغ سهام ماهانه" value={settings ? `${faMoney(settings.amountPerShare)} تومان` : "…"} />
               <StatCard label="تعداد سهم من" value={member ? member.shares.toLocaleString("fa-IR") : "…"} />
@@ -708,6 +881,40 @@ export default function DashboardView({
 
         {tab === "loans" && (
           <section className="space-y-4">
+            {/* جلسه ۳۸: یادآوری سررسید اقساط بالای بخش تسهیلات — اقساط معوق قرمز،
+                ۵ روز قبل از سررسید کهربایی؛ با تأیید مدیر پاک می‌شود */}
+            {installmentAlert.overdue.length > 0 && (
+              <ReminderBanner
+                tone="danger"
+                title={`${faMoney(installmentAlert.overdue.length)} قسط از تاریخ سررسید گذشته و پرداخت نشده است`}
+                subtitle={`جمع اقساط معوق: ${faMoney(installmentAlert.overdue.reduce((s, r) => s + r.amount, 0))} تومان — از دکمهٔ «پرداخت» همان قسط در گزینهٔ «اقساط» رسید را ثبت کنید یا با مدیر هماهنگ کنید.`}
+                rows={installmentAlert.overdue.slice(0, 4).map(
+                  (r) => `${r.loanLabel} — قسط ${faMoney(r.number)} — ${faMoney(r.amount)} تومان — سررسید ${faDate(r.dueAt)} (${faMoney(r.days ?? 0)} روز گذشته)`,
+                )}
+                more={Math.max(0, installmentAlert.overdue.length - 4)}
+              />
+            )}
+            {installmentAlert.awaiting.length > 0 && (
+              <ReminderBanner
+                tone="warning"
+                title={`${faMoney(installmentAlert.awaiting.length)} پرداخت قسط ثبت شده و در انتظار تأیید مدیر است`}
+                subtitle="پس از تأیید مدیر، قسط «پرداخت‌شده» می‌شود و یادآوری‌اش پاک می‌گردد."
+                rows={installmentAlert.awaiting.slice(0, 4).map(
+                  (r) => `${r.loanLabel} — قسط ${faMoney(r.number)} — ${faMoney(r.amount)} تومان${r.days !== null && r.days > 0 ? ` — سررسید ${faDate(r.dueAt)}` : ""}`,
+                )}
+              />
+            )}
+            {installmentAlert.soon.length > 0 && (
+              <ReminderBanner
+                tone="warning"
+                title="یادآوری سررسید اقساط — ۵ روز قبل از سررسید"
+                rows={installmentAlert.soon.slice(0, 4).map(
+                  (r) => `${r.loanLabel} — قسط ${faMoney(r.number)} — ${faMoney(r.amount)} تومان — سررسید ${faDate(r.dueAt)}${r.days === 0 ? " (امروز)" : ` (${faMoney(r.days ?? 0)} روز دیگر)`}`,
+                )}
+                more={Math.max(0, installmentAlert.soon.length - 4)}
+              />
+            )}
+
             {/* جلسه ۳۶: بخش «تسهیلات» دو گزینه دارد — درخواست تسهیلات و اقساط */}
             <div className="flex gap-2">
               <SubTab active={loansSub === "request"} onClick={() => setLoansSub("request")} label="درخواست تسهیلات" />
@@ -728,10 +935,17 @@ export default function DashboardView({
                   )}
                   {installmentRows
                     .filter((r) => r.paid === (installmentSub === "paid"))
-                    .map((row) => (
+                    .map((row) => {
+                      // جلسه ۳۸: وضعیت یادآوری هر قسط — قرمز برای معوق، کهربایی برای نزدیکِ سررسید
+                      const meta = installmentAlert.meta.get(`${row.loanId}-${row.number}`);
+                      return (
                       <div
                         key={`${row.loanId}-${row.number}`}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
+                        className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 shadow-sm ${
+                          meta?.state === "overdue"
+                            ? "border-red-300 bg-red-50/60 dark:border-red-900 dark:bg-red-950/40"
+                            : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+                        }`}
                       >
                         <div className="min-w-0 space-y-1">
                           <p className="text-sm font-medium">
@@ -742,9 +956,27 @@ export default function DashboardView({
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className={`rounded-lg px-2 py-1 text-xs ${row.paid ? STATUS_CLASS.approved : STATUS_CLASS.pending}`}>
-                            {row.paid ? "پرداخت‌شده" : "پرداخت‌نشده"}
-                          </span>
+                          {row.paid ? (
+                            <span className={`rounded-lg px-2 py-1 text-xs ${STATUS_CLASS.approved}`}>
+                              پرداخت‌شده
+                            </span>
+                          ) : meta?.state === "overdue" ? (
+                            <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${STATUS_CLASS.rejected}`}>
+                              {faMoney(meta.days ?? 0)} روز از سررسید گذشته
+                            </span>
+                          ) : meta?.state === "awaiting" ? (
+                            <span className={`rounded-lg px-2 py-1 text-xs ${STATUS_CLASS.pending}`}>
+                              در انتظار تأیید مدیر
+                            </span>
+                          ) : meta?.state === "soon" ? (
+                            <span className={`rounded-lg px-2 py-1 text-xs ${STATUS_CLASS.pending}`}>
+                              {meta.days === 0 ? "سررسید امروز" : `${faMoney(meta.days ?? 0)} روز تا سررسید`}
+                            </span>
+                          ) : (
+                            <span className={`rounded-lg px-2 py-1 text-xs ${STATUS_CLASS.pending}`}>
+                              پرداخت‌نشده
+                            </span>
+                          )}
                           {!row.paid && row.loanStatus !== "cancelled" && (
                             <button
                               type="button"
@@ -761,7 +993,8 @@ export default function DashboardView({
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                 </div>
               </div>
             )}
@@ -1210,6 +1443,52 @@ function SubTab({ active, onClick, label, count }: { active: boolean; onClick: (
       {label}
       {count !== undefined && ` (${count.toLocaleString("fa-IR")})`}
     </button>
+  );
+}
+
+/**
+ * جلسه ۳۸ — بنر یادآوری/اعلان پنل عضو:
+ * danger (قرمز) = از مهلت/سررسید گذشته؛ warning (کهربایی) = یادآوری قبل از
+ * مهلت یا وضعیت «در انتظار تأیید». مشخصات هر مورد در ردیف‌های داخل بنر است.
+ */
+function ReminderBanner({
+  tone,
+  title,
+  subtitle,
+  rows,
+  more,
+}: {
+  tone: "danger" | "warning";
+  title: string;
+  subtitle?: string;
+  rows?: string[];
+  more?: number;
+}) {
+  const boxCls =
+    tone === "danger"
+      ? "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300"
+      : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300";
+  const rowCls =
+    tone === "danger"
+      ? "bg-red-100/80 text-red-900 dark:bg-red-950/70 dark:text-red-200"
+      : "bg-amber-100/80 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200";
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${boxCls}`}>
+      <p className="text-sm font-bold leading-6">{title}</p>
+      {subtitle && <p className="mt-1 text-xs leading-5 opacity-90">{subtitle}</p>}
+      {rows && rows.length > 0 && (
+        <div className="mt-2.5 space-y-1.5">
+          {rows.map((row, i) => (
+            <p key={i} className={`rounded-xl px-3 py-1.5 text-[11px] leading-5 ${rowCls}`}>
+              {row}
+            </p>
+          ))}
+          {more !== undefined && more > 0 && (
+            <p className="text-[11px] font-medium opacity-75">و {faMoney(more)} مورد دیگر…</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

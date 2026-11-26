@@ -4,11 +4,22 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
 import ClayIcon, { toneForIcon, type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
+import { jalaliParts } from "@/lib/bank";
 import type { PublicUser } from "@/lib/db";
 
 /** نمایش اعداد به فارسی با جداکننده هزارگان */
 function faMoney(value: number): string {
   return Number(value || 0).toLocaleString("fa-IR");
+}
+
+/** تاریخ شمسی کوتاه برای نمایش سررسید اقساط (جلسه ۳۸) */
+function faDate(iso: string): string {
+  try {
+    const p = jalaliParts(new Date(iso));
+    return `${p.year}/${String(p.month).padStart(2, "0")}/${String(p.day).padStart(2, "0")}`;
+  } catch {
+    return "—";
+  }
 }
 
 type DashboardData = {
@@ -20,9 +31,22 @@ type DashboardData = {
     amountPerShare: number;
   };
   shareMonthlyDue: number;
-  shareUnpaid: { amount: number; members: number };
+  shareUnpaid: {
+    amount: number;
+    members: number;
+    // جلسه ۳۸: مشخصات هر عضو پرداخت‌نکرده برای نمایش در اعلان و کارت جزئیات
+    details: { memberId: string; name: string; shares: number; monthlyDue: number; left: number }[];
+  };
+  // جلسه ۳۸: مهلت پرداخت سهام = روز ۵ هر ماه شمسی
+  shareDeadline: { day: number; daysLeft: number; past: boolean };
   loanMonthlyDue: { amount: number; count: number; paid: number; unpaid: number };
-  loanOverdue: { amount: number; count: number; loans: number };
+  loanOverdue: {
+    amount: number;
+    count: number;
+    loans: number;
+    // جلسه ۳۸: مشخصات تک‌تک اقساط سررسیدشده و پرداخت‌نشده
+    details: { loanId: string; memberName: string; principal: number; number: number; amount: number; dueAt: string }[];
+  };
   loanRemaining: { amount: number; loans: number };
   loanInterest: { total: number; active: number; settled: number };
   unread: {
@@ -134,7 +158,7 @@ function StatTile({
   );
 }
 
-/** جزئیات لمس‌شده هر مربع — مقدار، توضیح و (برای درخواست‌ها) لیست آخرین موارد */
+/** جزئیات لمس‌شده هر مربع — مقدار، توضیح و لیست ردیف‌های متنی (اعلان‌ها/معوق‌ها) */
 type DetailSpec = {
   title: string;
   icon: ClayIconName;
@@ -142,7 +166,7 @@ type DetailSpec = {
   value: number | null;
   suffix: string;
   subtitle?: string;
-  list?: { id: string; text: string }[];
+  list?: string[];
   href?: string;
   hrefLabel?: string;
 };
@@ -154,6 +178,83 @@ function detailTone(variant: TileVariant): string {
     : variant === "warning"
       ? "border-amber-200/80 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/60"
       : "border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-950";
+}
+
+/**
+ * جلسه ۳۸ — بنر اعلان مهلت‌ها در داشبورد ادمین:
+ * - سهام: مهلت تا روز ۵ هر ماه؛ اگر گذشت و اعضایی پرداخت نکرده باشند قرمز می‌شود
+ * - وام: اقساط سررسیدشدهٔ پرداخت‌نشده همیشه قرمز است
+ * مشخصات هر مورد در ردیف‌های زیر بنر نمایش داده می‌شود (حداکثر ۶ ردیف + شمارنده).
+ */
+function DeadlineBanner({
+  variant,
+  title,
+  subtitle,
+  rows,
+  more,
+  href,
+  hrefLabel,
+}: {
+  variant: "danger" | "warning";
+  title: string;
+  subtitle: string;
+  rows?: string[];
+  more?: number;
+  href?: string;
+  hrefLabel?: string;
+}) {
+  const tone =
+    variant === "danger"
+      ? "border-red-300/80 bg-red-50/90 dark:border-red-900 dark:bg-red-950/50"
+      : "border-amber-300/80 bg-amber-50/90 dark:border-amber-900 dark:bg-amber-950/50";
+  const textTone =
+    variant === "danger"
+      ? "text-red-800 dark:text-red-300"
+      : "text-amber-800 dark:text-amber-300";
+  const rowTone =
+    variant === "danger"
+      ? "bg-red-100/80 text-red-900 dark:bg-red-950/70 dark:text-red-200"
+      : "bg-amber-100/80 text-amber-900 dark:bg-amber-950/70 dark:text-amber-200";
+  return (
+    <div className={`max-w-2xl rounded-3xl border p-4 shadow-sm ${tone}`}>
+      <div className="flex items-start gap-3">
+        <ClayIcon
+          name="bell"
+          size={38}
+          tone={variant === "danger" ? ["#FCA9A9", "#D95050"] : ["#FFE08E", "#E8A62B"]}
+        />
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-bold leading-6 ${textTone}`}>{title}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-600 dark:text-zinc-300">{subtitle}</p>
+          {rows && rows.length > 0 && (
+            <div className="mt-2.5 space-y-1.5">
+              {rows.map((row, i) => (
+                <p
+                  key={i}
+                  className={`rounded-2xl px-3 py-1.5 text-[11px] leading-5 ${rowTone}`}
+                >
+                  {row}
+                </p>
+              ))}
+              {more && more > 0 && (
+                <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">
+                  و {faMoney(more)} مورد دیگر…
+                </p>
+              )}
+            </div>
+          )}
+          {href && hrefLabel && (
+            <Link
+              href={href}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-2xl bg-primary-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-primary-700"
+            >
+              {hrefLabel}
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function detailValueTone(variant: TileVariant): string {
@@ -228,14 +329,14 @@ export default function AdminDashboardPage() {
             ? undefined
             : "درخواست جدیدی برای بررسی وجود ندارد؛ درخواست‌های جدید اعضا با اعلان همین مربع مشخص می‌شوند.",
           list: has
-            ? unread!.latest.map((item) => ({
-                id: item.id,
-                text: `${KIND_LABEL[item.kind]}${
-                  item.kind === "installment" && item.installmentNumber
-                    ? ` ${faMoney(item.installmentNumber)}`
-                    : ""
-                } — ${faMoney(item.amount)} تومان — ${item.username}`,
-              }))
+            ? unread!.latest.map(
+                (item) =>
+                  `${KIND_LABEL[item.kind]}${
+                    item.kind === "installment" && item.installmentNumber
+                      ? ` ${faMoney(item.installmentNumber)}`
+                      : ""
+                  } — ${faMoney(item.amount)} تومان — ${item.username}`,
+              )
             : undefined,
           href: has ? "/admin/requests" : undefined,
           hrefLabel: "بررسی درخواست‌ها",
@@ -253,7 +354,9 @@ export default function AdminDashboardPage() {
               ? `جمع سهم ${faMoney(fund.members)} عضو × مبلغ هر سهم ${faMoney(fund.amountPerShare)} تومان`
               : "جمع سهم اعضا × مبلغ هر سهم",
         };
-      case "shareUnpaid":
+      case "shareUnpaid": {
+        const has = !!data && data.shareUnpaid.members > 0;
+        const past = !!data && data.shareDeadline.past;
         return {
           title: "تعهدات پرداخت‌نشده سهام",
           icon: "clock",
@@ -261,10 +364,18 @@ export default function AdminDashboardPage() {
           value: loaded && data ? data.shareUnpaid.amount : null,
           suffix: "تومان",
           subtitle:
-            data && data.shareUnpaid.members > 0
-              ? `${faMoney(data.shareUnpaid.members)} عضو تعهد این ماه را کامل نپرداخته‌اند`
+            data && has
+              ? `${faMoney(data.shareUnpaid.members)} عضو تعهد این ماه را کامل نپرداخته‌اند — مهلت تا روز ۵ ماه${past ? " (گذشته است)" : data.shareDeadline.daysLeft === 0 ? " — امروز آخرین روز" : ` — ${faMoney(data.shareDeadline.daysLeft)} روز مانده`}`
               : "همه اعضا تعهد سهام این ماه را پرداخته‌اند",
+          list: has
+            ? data!.shareUnpaid.details.slice(0, 8).map((d) =>
+                `${d.name} — ${faMoney(d.shares)} سهم — مانده ${faMoney(d.left)} تومان`,
+              )
+            : undefined,
+          href: has ? "/bank" : undefined,
+          hrefLabel: "مدیریت سهام اعضا",
         };
+      }
       case "loanMonthlyDue":
         return {
           title: "تعهدات ماهانه وام",
@@ -277,7 +388,8 @@ export default function AdminDashboardPage() {
               ? `${faMoney(data.loanMonthlyDue.count)} قسط سررسید این ماه دارد — پرداخت‌شده: ${faMoney(data.loanMonthlyDue.paid)} تومان، پرداخت‌نشده: ${faMoney(data.loanMonthlyDue.unpaid)} تومان`
               : "هیچ قسطی سررسید این ماه ندارد",
         };
-      case "loanOverdue":
+      case "loanOverdue": {
+        const has = !!data && data.loanOverdue.count > 0;
         return {
           title: "تعهدات باقی‌مانده وام",
           icon: "history",
@@ -285,11 +397,19 @@ export default function AdminDashboardPage() {
           value: loaded && data ? data.loanOverdue.amount : null,
           suffix: "تومان",
           subtitle: data
-            ? data.loanOverdue.count > 0
-              ? `${faMoney(data.loanOverdue.count)} قسط از ${faMoney(data.loanOverdue.loans)} وام سررسیدشده و پرداخت‌نشده است`
+            ? has
+              ? `${faMoney(data.loanOverdue.count)} قسط از ${faMoney(data.loanOverdue.loans)} وام سررسیدشده و پرداخت‌نشده است — مشخصات هر قسط در ادامه`
               : "هیچ قسط سررسیدشده پرداخت‌نشده‌ای وجود ندارد"
             : undefined,
+          list: has
+            ? data!.loanOverdue.details.slice(0, 8).map((d) =>
+                `${d.memberName} — وام ${faMoney(d.principal)} تومانی — قسط ${faMoney(d.number)} — ${faMoney(d.amount)} تومان — سررسید ${faDate(d.dueAt)}`,
+              )
+            : undefined,
+          href: has ? "/bank" : undefined,
+          hrefLabel: "مدیریت وام‌ها",
         };
+      }
       case "loanRemaining":
         return {
           title: "مانده اقساط وام‌ها",
@@ -367,6 +487,40 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
+        {/* اعلان‌های مهلت — جلسه ۳۸: سهام تا روز ۵ ماه؛ اقساط معوق همیشه قرمز */}
+        {data && data.shareUnpaid.members > 0 && (
+          <DeadlineBanner
+            variant={data.shareDeadline.past ? "danger" : "warning"}
+            title={
+              data.shareDeadline.past
+                ? "مهلت پرداخت سهام (تا روز ۵ ماه) گذشته است"
+                : data.shareDeadline.daysLeft === 0
+                  ? "امروز روز ۵ ماه است — آخرین مهلت پرداخت سهام"
+                  : `مهلت پرداخت سهام تا روز ۵ ماه — ${faMoney(data.shareDeadline.daysLeft)} روز مانده`
+            }
+            subtitle={`${faMoney(data.shareUnpaid.members)} عضو تعهد سهام این ماه را کامل نپرداخته‌اند — جمع مانده: ${faMoney(data.shareUnpaid.amount)} تومان`}
+            rows={data.shareUnpaid.details.slice(0, 6).map(
+              (d) => `${d.name} — ${faMoney(d.shares)} سهم — مانده ${faMoney(d.left)} تومان`,
+            )}
+            more={Math.max(0, data.shareUnpaid.details.length - 6)}
+            href="/bank"
+            hrefLabel="مدیریت سهام اعضا"
+          />
+        )}
+        {data && data.loanOverdue.count > 0 && (
+          <DeadlineBanner
+            variant="danger"
+            title="اقساط سررسیدشده و پرداخت‌نشده — تعهدات باقی‌مانده وام"
+            subtitle={`${faMoney(data.loanOverdue.count)} قسط از ${faMoney(data.loanOverdue.loans)} وام سررسیدشده و پرداخت‌نشده است — جمع: ${faMoney(data.loanOverdue.amount)} تومان`}
+            rows={data.loanOverdue.details.slice(0, 6).map(
+              (d) => `${d.memberName} — وام ${faMoney(d.principal)} تومانی — قسط ${faMoney(d.number)} — ${faMoney(d.amount)} تومان — سررسید ${faDate(d.dueAt)}`,
+            )}
+            more={Math.max(0, data.loanOverdue.details.length - 6)}
+            href="/bank"
+            hrefLabel="مدیریت وام‌ها"
+          />
+        )}
+
         {storage === "file" && (
           <div className="max-w-3xl rounded-3xl border border-red-200/80 bg-red-50/80 p-4 text-sm leading-7 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
             <strong>هشدار مهم: ذخیره‌سازی دائمی فعال نیست.</strong> داده‌ها الان در
@@ -395,7 +549,12 @@ export default function AdminDashboardPage() {
                 icon={t.icon}
                 variant={t.variant}
                 active={openTile === t.key}
-                pulse={t.key === "unread" && !!unread && unread.count > 0}
+                pulse={
+                  (t.key === "unread" && !!unread && unread.count > 0) ||
+                  // جلسه ۳۸: اعلان پالس روی مربع معوق‌ها — سهام تا روز ۵ / اقساط سررسیدشده
+                  (t.key === "shareUnpaid" && !!data && data.shareUnpaid.members > 0) ||
+                  (t.key === "loanOverdue" && !!data && data.loanOverdue.count > 0)
+                }
                 onClick={() => toggleTile(t.key)}
               />
             ))}
@@ -434,12 +593,12 @@ export default function AdminDashboardPage() {
             )}
             {detail.list && detail.list.length > 0 && (
               <div className="mt-3 space-y-1.5">
-                {detail.list.map((row) => (
+                {detail.list.map((row, i) => (
                   <p
-                    key={row.id}
+                    key={i}
                     className="truncate rounded-2xl bg-amber-100/70 px-3 py-1.5 text-[11px] text-amber-900 dark:bg-amber-950/60 dark:text-amber-200"
                   >
-                    {row.text}
+                    {row}
                   </p>
                 ))}
               </div>
