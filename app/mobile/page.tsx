@@ -11,18 +11,19 @@ import BottomNav, { type MobileTab } from "@/app/components/mobile/BottomNav";
 import DashboardView, { type DashboardTab } from "@/app/components/DashboardView";
 import ServicesScreen from "@/app/components/mobile/ServicesScreen";
 import TransactionsScreen from "@/app/components/mobile/TransactionsScreen";
-import SettingsScreen from "@/app/components/mobile/SettingsScreen";
 import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
 import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
 import type { PublicUser } from "@/lib/db";
 
-/** ترتیب تب‌های پوسته برای ناوبری کشویی و جهت انیمیشن — RTL: راست = بعدی (جلسه ۳۹) */
-const TAB_ORDER: MobileTab[] = ["home", "services", "transactions", "settings"];
+/** ترتیب تب‌های پوسته برای ناوبری کشویی و جهت انیمیشن — RTL: راست = بعدی (جلسه ۳۹)
+ *  جلسه ۵۲: ۳ تب به ترتیب درخواست کاربر — خانه، تراکنش‌ها، خدمات (تنظیمات حذف شد) */
+const TAB_ORDER: MobileTab[] = ["home", "transactions", "services"];
 
 /**
  * پوسته موبایل فَم بانک — هدر برند (لوگوی خانه سه‌بعدی + فَم بانک + Fam Bank
- * + روز/تاریخ/ساعت زنده) + نوار ناوبری پایین با ۴ آیتم
- * (خانه، خدمات، تراکنش‌ها، تنظیمات) — «مدیریت کاربران» از لایه یوزر حذف شد
+ * + روز/تاریخ/ساعت زنده) + نوار ناوبری پایین با ۳ آیتم به ترتیب
+ * (خانه، تراکنش‌ها، خدمات) — جلسه ۵۲: تب «تنظیمات» حذف شد و همهٔ آیتم‌هایش
+ * مربع‌های گرید «خدمات» شدند؛ «مدیریت کاربران» از لایه یوزر حذف شد
  * (جلسه ۲۷) و مدیریت کاربران فقط در پنل ادمین است.
  * تب «خانه» برای عضو = شبکه مربع‌های سر فصل‌ها؛ هر سر فصل «یک‌تیکه» و لمسش
  * مستقیم همان بخش را باز می‌کند (بدون واسط داشبورد کلی) — جلسه ۲۶ مرحله ۲.
@@ -38,8 +39,8 @@ export default function MobileAppPage() {
   const [dashView, setDashView] = useState<DashboardTab>("tiles");
   /** کلید remount داشبورد برای refresh داده بعد از پرش از خدمات/تراکنش‌ها */
   const [homeKey, setHomeKey] = useState(0);
-  /** بخش باز تنظیمات (وقتی از خدمات به تنظیمات پرش می‌شود) */
-  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
+  /** بخش باز خدمات (وقتی از پرش ناوبری یا مربع خدمات به جزئیات می‌رویم) */
+  const [serviceSection, setServiceSection] = useState<SettingsSection | null>(null);
   /** جهت آخرین جابه‌جایی صفحه برای انیمیشن ورود کشویی (جلسه ۳۹) */
   const [navDir, setNavDir] = useState<"next" | "prev">("next");
 
@@ -101,8 +102,8 @@ export default function MobileAppPage() {
       goHomeTab(target.dashboardTab ?? "tiles");
       return;
     }
-    if (target.tab === "settings") {
-      setSettingsSection(target.section ?? null);
+    if (target.tab === "services") {
+      setServiceSection(target.section ?? null);
     }
     setActive(target.tab);
   }
@@ -186,13 +187,12 @@ export default function MobileAppPage() {
               />
             ))}
 
-          {active === "services" && <ServicesScreen me={me} onNavigate={navigate} />}
           {active === "transactions" && <TransactionsScreen me={me} onNavigate={navigate} />}
-          {active === "settings" && (
-            <SettingsScreen
+          {active === "services" && (
+            <ServicesScreen
               me={me}
-              section={settingsSection}
-              onSectionChange={(s: SettingsSection | null) => setSettingsSection(s)}
+              section={serviceSection}
+              onSectionChange={(s: SettingsSection | null) => setServiceSection(s)}
             />
           )}
         </div>

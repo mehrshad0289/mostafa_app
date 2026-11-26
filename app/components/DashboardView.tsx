@@ -6,10 +6,9 @@ import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES, shareDeadlineState } from "@/lib/bank";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MemberBell from "@/app/components/mobile/MemberBell";
-import MemberGuide from "@/app/components/mobile/SystemGuide";
+// جلسه ۵۲: راهنما دیگر در خانه رندر نمی‌شود؛ مربع «راهنما» در خدمات است.
 import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
 import { jalaliMonthKey, useAlertDismissed } from "@/app/components/useAlertDismiss";
-import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type {
   BankDeposit,
   BankLoan,
@@ -21,8 +20,10 @@ import type {
 } from "@/lib/db";
 
 /** جلسه ۳۶: «اقساط» و «تسهیلات» دو بخش جدا نبودند — حالا فقط یک بخش «تسهیلات»
- *  با دو گزینهٔ داخلی (درخواست تسهیلات / اقساط) وجود دارد. */
-export type TabKey = "shares" | "loans" | "deposit" | "profile" | "settings";
+ *  با دو گزینهٔ داخلی (درخواست تسهیلات / اقساط) وجود دارد.
+ *  جلسه ۵۲: تب «تنظیمات» از خانه حذف شد — همهٔ آیتم‌هایش مربع‌های گرید
+ *  «خدمات» در نوار پایین پوسته موبایل هستند و «راهنما» هم آن‌جاست. */
+export type TabKey = "shares" | "loans" | "deposit" | "profile";
 
 /**
  * حالت خانه پوسته موبایل: "tiles" = شبکه مربع‌های سر فصل‌ها؛ بقیه = همان بخش؛
@@ -35,14 +36,13 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "loans", label: "تسهیلات" },
   { key: "deposit", label: "واریز" },
   { key: "profile", label: "پروفایل" },
-  { key: "settings", label: "تنظیمات" },
 ];
 
 /** جلسه ۳۹ — ترتیب بخش‌ها برای ناوبری کشویی (swipe): حالت تعبیه‌شده از خانهٔ
- *  مربع‌ها شروع می‌شود و بخش‌ها بعد از آن؛ حالت مستقل فقط ۵ تب را دارد.
- *  RTL: کشیدن انگشت به راست = بخش بعدی، به چپ = قبلی. */
-const SWIPE_ORDER_EMBEDDED: DashboardTab[] = ["tiles", "shares", "loans", "deposit", "profile", "settings"];
-const SWIPE_ORDER_STANDALONE: DashboardTab[] = ["shares", "loans", "deposit", "profile", "settings"];
+ *  مربع‌ها شروع می‌شود و بخش‌ها بعد از آن؛ حالت مستقل فقط ۴ تب را دارد
+ *  (جلسه ۵۲: تنظیمات حذف شد). RTL: کشیدن انگشت به راست = بخش بعدی، به چپ = قبلی. */
+const SWIPE_ORDER_EMBEDDED: DashboardTab[] = ["tiles", "shares", "loans", "deposit", "profile"];
+const SWIPE_ORDER_STANDALONE: DashboardTab[] = ["shares", "loans", "deposit", "profile"];
 
 /** کلید یکسان‌شدهٔ بخش برای ناوبری کشویی (پرش عمیق loans-installments = loans) */
 function swipeKey(tab: DashboardTab): Exclude<DashboardTab, "loans-installments"> {
@@ -58,7 +58,6 @@ const HOME_TILES: { key: TabKey; label: string; icon: ClayIconName }[] = [
   { key: "loans", label: "تسهیلات", icon: "banknote" },
   { key: "deposit", label: "واریز", icon: "wallet" },
   { key: "profile", label: "پروفایل", icon: "user" },
-  { key: "settings", label: "تنظیمات", icon: "settings" },
 ];
 
 const STATUS_LABEL: Record<PaymentRequest["status"], string> = {
@@ -1247,19 +1246,6 @@ export default function DashboardView({
           </section>
         )}
 
-        {tab === "settings" && (
-          <section className="space-y-4">
-            <AppearanceSettings />
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 text-sm leading-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              تنظیمات دیگر حساب (نام، رمز عبور و اطلاعات عضویت) در تب
-              <strong> پروفایل </strong>
-              است. تم و فونت انتخابی شما فقط روی همین دستگاه اعمال می‌شود و به
-              اعضای دیگر منتقل نمی‌شود.
-            </div>
-            {/* جلسه ۴۱: راهنمای سیستم — همه توضیح نحوه کار فَم بانک این‌جاست */}
-            <MemberGuide />
-          </section>
-        )}
       </main>
 
       {!embedded && (

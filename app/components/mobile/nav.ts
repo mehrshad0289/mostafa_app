@@ -1,8 +1,9 @@
 import type { DashboardTab } from "@/app/components/DashboardView";
 
-/** بخش‌های صفحه تنظیمات پوسته موبایل — جلسه ۴۱: بخش «راهنما» افزوده شد؛
- *  جلسه ۴۸: بخش «پشتیبان‌گیری» برای خروجی اکسل/PDF افزوده شد؛
- *  جلسه ۵۰: بخش «پیام‌ها» برای پیام‌رسان عضو ↔ مدیر افزوده شد */
+/** بخش‌های جزئیاتی که از گرید «خدمات» باز می‌شوند — قبل از جلسه ۵۲ ردیف‌های
+ *  صفحه «تنظیمات» بودند؛ حالا هر کدام یک مربع در خدمات است
+ *  (جلسه ۴۱: بخش «راهنما»؛ جلسه ۴۸: «پشتیبان‌گیری»؛ جلسه ۵۰: «پیام‌ها»؛
+ *  جلسه ۵۲: «حساب‌های واریز» به «اطلاعات واریز» تغییر نام داد) */
 export type SettingsSection =
   | "profile"
   | "security"
@@ -16,9 +17,11 @@ export type SettingsSection =
 
 /** مقصد ناوبری داخل پوسته موبایل — همه صفحه‌ها با همین قرارداد به هم می‌روند
  *  (تب «مدیریت کاربران» از جلسه ۲۷ حذف شد؛ مدیریت کاربران فقط در پنل ادمین است)
- *  جلسه ۳۶: dashboardTab از DashboardView است (شامل "loans-installments") */
+ *  جلسه ۳۶: dashboardTab از DashboardView است (شامل "loans-installments")
+ *  جلسه ۵۲: تب «تنظیمات» حذف شد؛ پرش به بخش‌های جزئیاتی حالا با
+ *  { tab: "services", section } است — نوار پایین ۳ آیتمی است:
+ *  خانه، تراکنش‌ها، خدمات. */
 export type NavTarget =
   | { tab: "home"; dashboardTab?: DashboardTab }
-  | { tab: "services" }
-  | { tab: "transactions" }
-  | { tab: "settings"; section?: SettingsSection };
+  | { tab: "services"; section?: SettingsSection }
+  | { tab: "transactions" };

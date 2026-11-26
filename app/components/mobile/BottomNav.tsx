@@ -2,13 +2,14 @@
 
 import ClayIcon, { type ClayIconName, toneForSeed } from "./ClayIcon";
 
-export type MobileTab = "home" | "services" | "transactions" | "settings";
+/** جلسه ۵۲: نوار پایین ۳ آیتمی به ترتیب درخواست کاربر — خانه، تراکنش‌ها،
+ *  خدمات؛ «تنظیمات» حذف شد و همهٔ آیتم‌هایش به‌صورت مربع در «خدمات» آمد */
+export type MobileTab = "home" | "transactions" | "services";
 
 const NAV: { key: MobileTab; label: string; icon: ClayIconName }[] = [
   { key: "home", label: "خانه", icon: "home" },
-  { key: "services", label: "خدمات", icon: "grid" },
   { key: "transactions", label: "تراکنش‌ها", icon: "swap" },
-  { key: "settings", label: "تنظیمات", icon: "settings" },
+  { key: "services", label: "خدمات", icon: "grid" },
 ];
 
 type BottomNavProps = {
@@ -18,7 +19,8 @@ type BottomNavProps = {
 
 /** نوار ناوبری پایین ثابت — جلسه ۳۶: فوتر سفید به درخواست کاربر (جلوهٔ زیباتر)
  *  با قرص فعال تینت برند، آیکون فعال رنگی و آیکون/برچسب غیرفعال خاکستری؛
- *  نوار باریک برند بالای نوار حفظ شد تا هویت برند بماند (جلسه ۳۷: آبی آسمانی). */
+ *  نوار باریک برند بالای نوار حفظ شد تا هویت برند بماند (جلسه ۳۷: آبی آسمانی).
+ *  جلسه ۵۲: ترتیب جدید خانه ← تراکنش‌ها ← خدمات (بدون تنظیمات). */
 export default function BottomNav({ active, onChange }: BottomNavProps) {
   return (
     <nav
