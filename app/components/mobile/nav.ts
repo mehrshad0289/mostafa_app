@@ -1,12 +1,13 @@
 import type { DashboardTab } from "@/app/components/DashboardView";
 
-/** بخش‌های صفحه تنظیمات پوسته موبایل */
+/** بخش‌های صفحه تنظیمات پوسته موبایل — جلسه ۴۱: بخش «راهنما» افزوده شد */
 export type SettingsSection =
   | "profile"
   | "security"
   | "appearance"
   | "deposits"
   | "fund"
+  | "guide"
   | "about";
 
 /** مقصد ناوبری داخل پوسته موبایل — همه صفحه‌ها با همین قرارداد به هم می‌روند

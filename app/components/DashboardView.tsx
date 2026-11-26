@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES, shareDeadlineState } from "@/lib/bank";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MemberBell from "@/app/components/mobile/MemberBell";
+import MemberGuide from "@/app/components/mobile/SystemGuide";
 import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
 import { jalaliMonthKey, useAlertDismissed } from "@/app/components/useAlertDismiss";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
@@ -749,11 +750,11 @@ export default function DashboardView({
         <header className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              {/* جلسه ۴۰: آواتار پروفایل سورمه‌ای — هم‌رنگ زمینه آیکون پروفایل
-                  (پایان گرادیان همان سرمه‌ای NAVY_TONE آیکون است)، به درخواست کاربر */}
+              {/* جلسه ۴۱: آواتار پروفایل دقیقاً هم‌رنگ زمینهٔ لوگو شد — همان
+                  گرادیان سرمه‌ایِ پس‌زمینهٔ HouseLogo (#212F5A→#0F1B3D) */}
               <span
                 className="clay grid size-9 shrink-0 place-items-center text-xs font-bold text-white"
-                style={{ background: "linear-gradient(140deg, #7C97E4 0%, #2B4EA6 78%)" }}
+                style={{ background: "linear-gradient(140deg, #212F5A 0%, #0F1B3D 78%)" }}
               >
                 م
               </span>
@@ -1251,6 +1252,8 @@ export default function DashboardView({
               است. تم و فونت انتخابی شما فقط روی همین دستگاه اعمال می‌شود و به
               اعضای دیگر منتقل نمی‌شود.
             </div>
+            {/* جلسه ۴۱: راهنمای سیستم — همه توضیح نحوه کار فم بانک این‌جاست */}
+            <MemberGuide />
           </section>
         )}
       </main>

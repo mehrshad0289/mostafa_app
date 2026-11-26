@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import ClayIcon, { toneForSeed, type ClayIconName } from "@/app/components/mobile/ClayIcon";
+import ClayIcon, { toneForSeed, type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
 import HouseLogo from "@/app/components/mobile/HouseLogo";
 import LiveClock from "@/app/components/mobile/LiveClock";
 import type { PublicUser } from "@/lib/db";
+
+/** جلسه ۴۱ — تم طلایی زنگولهٔ ادمین (هم‌رنگ زنگولهٔ عضو) به درخواست کاربر */
+const GOLD_TONE: ClayTone = ["#FFD98E", "#F0A32B"];
 
 const MENU: { href: string; label: string; icon: ClayIconName; badge?: boolean }[] = [
   { href: "/admin", label: "داشبورد", icon: "home" },
@@ -125,7 +128,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
         <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 items-center gap-2.5">
-            <HouseLogo size={44} />
+            {/* جلسه ۴۱: آیکون‌های ردیف بالای هدر یک پله کوچکتر شدند (به درخواست
+                کاربر برای کمتر شدن فشردگی فضای بالای صفحه) */}
+            <HouseLogo size={40} />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h1 className="truncate text-[15px] font-bold leading-5">فم بانک</h1>
@@ -143,9 +148,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               href="/admin/requests"
               title="درخواست‌ها و حساب‌های واریز جدید اعضا"
               aria-label={`درخواست‌ها و حساب‌های واریز خوانده‌نشده: ${unread}`}
-              className="clay-press relative grid size-9 place-items-center rounded-full bg-white/12 text-white/85 ring-1 ring-inset ring-white/20 transition hover:bg-white/20 hover:text-white"
+              className="clay-press relative grid size-8 place-items-center rounded-full transition"
             >
-              <ClayIcon name="bell" size={26} ghost />
+              {/* جلسه ۴۱: زنگولهٔ ادمین طلایی و کوچکتر شد (پیش‌تر گلیف سفید
+                  ۲۶px داخل قرص شیشه‌ای بود — حالا لُه سفالی طلایی ۲۴px) */}
+              <ClayIcon name="bell" size={24} tone={GOLD_TONE} />
               {unread > 0 && (
                 <>
                   <span className="absolute -left-1 -top-1 grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
@@ -158,29 +165,32 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             <span className="max-w-[9rem] truncate text-xs text-white/80">{displayName}</span>
             <span
               className="clay"
-              style={{ width: 38, height: 38, background: `linear-gradient(140deg, ${avatarTone[0]}, ${avatarTone[1]})` }}
+              style={{ width: 34, height: 34, background: `linear-gradient(140deg, ${avatarTone[0]}, ${avatarTone[1]})` }}
             >
               <span className="relative z-10 text-xs font-bold text-white">{displayName.trim().charAt(0)}</span>
             </span>
             <button
               type="button"
               onClick={handleLogout}
-              className="clay-press grid size-9 place-items-center rounded-full bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-400/30 transition hover:bg-red-500/25 hover:text-red-200"
+              className="clay-press grid size-8 place-items-center rounded-full bg-red-500/15 text-red-300 ring-1 ring-inset ring-red-400/30 transition hover:bg-red-500/25 hover:text-red-200"
               title="خروج"
               aria-label="خروج"
             >
-              <ClayIcon name="logout" size={22} ghost ghostColor="currentColor" />
+              <ClayIcon name="logout" size={19} ghost ghostColor="currentColor" />
             </button>
           </div>
         </div>
 
-        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) — روی زمینه آبی آسمانی با نسخه روشن */}
-        <div className="relative mx-auto flex max-w-6xl justify-center px-4 pb-1.5" data-noprint>
+        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) — روی زمینه آبی آسمانی با نسخه روشن؛
+            جلسه ۴۱: فاصلهٔ پایینی بیشتر تا خط جداکننده یک پله پایین‌تر بنشیند */}
+        <div className="relative mx-auto flex max-w-6xl justify-center px-4 pb-2.5" data-noprint>
           <LiveClock light />
         </div>
 
-        {/* نوار افقی منو در موبایل — قرص‌های شیشه‌ای سفید روی زمینه آبی آسمانی */}
-        <nav className="relative mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-2.5 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* نوار افقی منو در موبایل — قرص‌های شیشه‌ای سفید روی زمینه آبی آسمانی؛
+            جلسه ۴۱: آیکون‌های قرص‌ها کوچکتر (۱۹px) و فاصلهٔ پایینی بیشتر تا
+            خط جداکننده پایین‌تر بیاید و فضای بالای صفحه فشرده‌تر نباشد */}
+        <nav className="relative mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-3.5 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {MENU.map((item) => {
             const active = pathname === item.href;
             return (
@@ -193,7 +203,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
                     : "border border-white/20 bg-white/10 text-white/75 hover:bg-white/20 hover:text-white"
                 }`}
               >
-                <ClayIcon name={item.icon} size={22} ghost ghostColor={active ? "currentColor" : "#fff"} />
+                <ClayIcon name={item.icon} size={19} ghost ghostColor={active ? "currentColor" : "#fff"} />
                 {item.label}
                 {item.badge && <UnreadBadge count={unread} />}
               </Link>

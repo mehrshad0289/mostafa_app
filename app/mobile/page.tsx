@@ -149,12 +149,12 @@ export default function MobileAppPage() {
                 مدیر
               </span>
             )}
-            {/* جلسه ۳۷: آواتار پروفایل هم‌رنگ آیکون سورمه‌ای؛ جلسه ۴۰: گرادیان
-                تیره‌تر شد تا چیپ واضحاً سورمه‌ای دیده شود (پایان گرادیان همان
-                سرمه‌ای NAVY_TONE آیکون است) — به درخواست کاربر */}
+            {/* جلسه ۴۱: آواتار پروفایل دقیقاً هم‌رنگ زمینهٔ لوگو شد (سمت راست
+                هدر) — همان گرادیان سرمه‌ایِ پس‌زمینهٔ HouseLogo
+                (#212F5A→#0F1B3D) — به درخواست کاربر */}
             <span
               className="clay"
-              style={{ width: 38, height: 38, background: "linear-gradient(140deg, #7C97E4 0%, #2B4EA6 78%)" }}
+              style={{ width: 38, height: 38, background: "linear-gradient(140deg, #212F5A 0%, #0F1B3D 78%)" }}
             >
               <span className="relative z-10 text-xs font-bold text-white">{(me.fullName || me.username).trim().charAt(0)}</span>
             </span>

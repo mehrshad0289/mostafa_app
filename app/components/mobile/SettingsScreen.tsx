@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName } from "./ClayIcon";
 import HouseLogo from "./HouseLogo";
+import MemberGuide from "./SystemGuide";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type { SettingsSection } from "./nav";
 import type { BankSettings, PublicUser } from "@/lib/db";
@@ -34,6 +35,7 @@ const ROWS: RowDef[] = [
   { key: "appearance", title: "ظاهر اپلیکیشن", subtitle: "تم رنگی، فونت و حالت نمایش", icon: "palette" },
   { key: "deposits", title: "حساب‌های واریز", subtitle: "شماره کارت و شبا برای واریز به بانک", icon: "wallet" },
   { key: "fund", title: "تنظیمات بانک", subtitle: "سقف سهام، عنوان‌های واریز و پنل مدیریت", icon: "building", adminOnly: true },
+  { key: "guide", title: "راهنمای سیستم", subtitle: "نحوه کار با فم بانک — از سهام تا تسهیلات", icon: "info" },
   { key: "about", title: "درباره فم بانک", subtitle: "نسخه اپ و معرفی", icon: "info" },
 ];
 
@@ -172,14 +174,14 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
         {section === "profile" && (
           <div className="space-y-3">
             <div className="flex items-center gap-3 rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              {/* جلسه ۳۷: آواتار پروفایل هم‌رنگ آیکون سورمه‌ای؛ جلسه ۴۰: گرادیان
-                  تیره‌تر برای سورمه‌ای واضح (هم‌خانوادهٔ NAVY_TONE) */}
+              {/* جلسه ۴۱: آواتار پروفایل دقیقاً هم‌رنگ زمینهٔ لوگو شد — همان
+                  گرادیان سرمه‌ایِ پس‌زمینهٔ HouseLogo (#212F5A→#0F1B3D) */}
               <span
                 className="clay"
                 style={{
                   width: 52,
                   height: 52,
-                  background: "linear-gradient(140deg, #7C97E4 0%, #2B4EA6 78%)",
+                  background: "linear-gradient(140deg, #212F5A 0%, #0F1B3D 78%)",
                 }}
               >
                 <span className="relative z-10 text-base font-bold text-white">
@@ -365,6 +367,10 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
               <ClayIcon name="chevron-left" size={22} ghost ghostColor="#94a3b8" />
             </a>
           </div>
+        )}
+
+        {section === "guide" && (
+          <MemberGuide />
         )}
 
         {section === "about" && (

@@ -564,12 +564,10 @@ export default function AdminDashboardPage() {
             <strong> Redeploy </strong>بزنید.
           </div>
         )}
-        {storage === "supabase" && (
-          <div className="flex max-w-3xl items-center gap-2.5 rounded-3xl border border-emerald-200/80 bg-emerald-50/80 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-            <ClayIcon name="check" size={30} ghost ghostColor="currentColor" />
-            ذخیره‌سازی دائمی (Supabase) فعال است؛ داده‌ها با سرد شدن سرور و Redeploy پاک نمی‌شوند.
-          </div>
-        )}
+        {/* جلسه ۴۱: جعبه سبز «ذخیره‌سازی دائمی فعال است» حذف شد — توضیح
+            ذخیره‌سازی داده به بخش «راهنمای سیستم» در تنظیمات منتقل شد
+            (به درخواست کاربر: توضیح‌ها یک‌جا در راهنما باشند). هشدار قرمزِ
+            فعال‌نبودن ذخیره‌سازی دائمی باقی می‌ماند چون هشدار است نه توضیح. */}
 
         {/* مربع‌های سه‌بعدی آماری — بدون عدد؛ اطلاعات هر مربع فقط با لمس آن */}
         <section className="max-w-2xl space-y-3">
