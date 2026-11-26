@@ -286,7 +286,6 @@ function detailValueTone(variant: TileVariant): string {
  */
 export default function AdminDashboardPage() {
   const [me, setMe] = useState<PublicUser | null>(null);
-  const [users, setUsers] = useState<PublicUser[]>([]);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState<"supabase" | "file" | "unknown">("unknown");
@@ -309,15 +308,13 @@ export default function AdminDashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [u, d, s, m] = await Promise.all([
-        fetch("/api/admin/users").then((r) => (r.ok ? r.json() : { users: [] })),
+      const [d, s, m] = await Promise.all([
         fetch("/api/admin/dashboard").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/admin/storage-status").then((r) =>
           r.ok ? r.json() : { mode: "unknown" },
         ),
         fetch("/api/auth/me").then((r) => (r.ok ? r.json() : { user: null })),
       ]);
-      setUsers(Array.isArray(u.users) ? u.users : []);
       if (d) setData(d as DashboardData);
       const mode = (s as { mode?: string }).mode;
       setStorage(mode === "supabase" || mode === "file" ? mode : "unknown");
@@ -644,31 +641,9 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        <div className="flex max-w-3xl items-start gap-3 rounded-3xl border border-zinc-200/80 bg-white p-4 text-sm leading-7 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <ClayIcon name="info" size={40} className="mt-0.5 shrink-0" />
-          <div className="min-w-0">
-            <p>
-              برای اینکه عضو بتواند وارد شود: عضو مالی را در
-              <strong> فم بانک ← تب اعضا </strong>
-              ثبت کنید، بعد روی کارت او دکمه
-              <strong> «حساب ورود» </strong>
-              را بزنید و نام کاربری و رمز بسازید؛ همان نام کاربری و رمز را برای عضو
-              بفرستید تا از صفحه ورود داخل شود. (یا از بخش
-              <strong> مدیریت کاربران </strong>
-              با «اتصال به عضو بانک» حساب بسازید.)
-            </p>
-            <p className="mt-2 text-xs text-zinc-500">
-              یادآوری: اگر هنوز رمز پیش‌فرض ادمین را عوض نکرده‌اید، از صفحه پروفایل
-              خودتان (بخش مدیریت کاربران → تغییر رمز) آن را تغییر دهید.
-            </p>
-            {users.length > 0 && (
-              <p className="mt-2 text-xs text-zinc-500">
-                کاربران فعلی: {faMoney(users.length)} — غیرفعال:{" "}
-                {faMoney(users.filter((u) => !u.active).length)}
-              </p>
-            )}
-          </div>
-        </div>
+        {/* جلسه ۴۸: جعبه توضیح «برای اینکه عضو بتواند وارد شود» حذف شد — توضیح
+            به بخش «راهنمای سیستم» در تنظیمات پنل مدیریت منتقل شد (به درخواست
+            کاربر: همه توضیحات کارکرد سیستم یک‌جا در راهنما باشد). */}
       </div>
     </AdminShell>
   );

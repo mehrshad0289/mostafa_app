@@ -1021,6 +1021,37 @@ function addAudit(
   }
 }
 
+/**
+ * جلسه ۴۸ — حذف رکوردهای سوابق به درخواست کاربر («در پارت سوابق بتوان سوابق
+ * را حذف کرد در صورت نیاز»). یا شناسه‌های مشخص یا همه رکوردها؛ خودِ حذف هم
+ * یک رکورد سابقه ثبت می‌کند تا ردیابی بماند.
+ */
+export async function deleteBankAuditEntries(
+  input: { ids?: string[]; all?: boolean },
+): Promise<number> {
+  const db = await readDb();
+  const before = db.bank.auditLog.length;
+  if (input.all) {
+    db.bank.auditLog = [];
+  } else if (input.ids && input.ids.length > 0) {
+    const wanted = new Set(input.ids);
+    db.bank.auditLog = db.bank.auditLog.filter((a) => !wanted.has(a.id));
+  }
+  const removed = before - db.bank.auditLog.length;
+  if (removed > 0) {
+    addAudit(
+      db.bank,
+      "حذف",
+      "سوابق",
+      input.all ? "*" : (input.ids ?? []).join(","),
+      `${removed.toLocaleString("fa-IR")} رکورد سابقه حذف شد.`,
+    );
+    await writeDb(db);
+  }
+  return removed;
+}
+
+
 export async function getBank(): Promise<BankDatabase> {
   const db = await readDb();
   return db.bank;

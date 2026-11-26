@@ -32,7 +32,7 @@ export default function HaqiqiPage() {
           href="/bank"
           className="text-sm font-medium text-primary-700 underline-offset-4 hover:underline dark:text-primary-300"
         >
-          → فم بانک
+          → فَم بانک
         </Link>
       </div>
 

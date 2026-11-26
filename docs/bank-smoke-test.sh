@@ -3,6 +3,8 @@
 # سناریو: ۲ عضو، ۵ واریزی، وام ۳ قسطی با پرداخت، تسویه + مسیرهای خطا
 # اجرا: سرور باید روی 3100 بالا باشد → bash /home/z/my-project/scripts/bank-smoke-test.sh
 BASE="http://localhost:3100"
+# ورود ادمین — کوکی نشست در /tmp/jar-reg.txt (فراخوانی‌های api و backup به آن نیاز دارند)
+curl -s -c /tmp/jar-reg.txt -H "Content-Type: application/json" -d '{"username":"admin","password":"Admin@12345"}' "$BASE/api/auth/login" > /dev/null
 PASS=0
 FAIL=0
 
@@ -12,9 +14,9 @@ bad() { FAIL=$((FAIL+1)); echo "FAIL: $1  →  $2"; }
 api() { # api METHOD PATH [DATA] → خروجی: body\nSTATUS
   local m=$1 p=$2 d=$3
   if [ -n "$d" ]; then
-    curl -s -w $'\n%{http_code}' -X "$m" "$BASE$p" -H "Content-Type: application/json" -d "$d"
+    curl -s -b /tmp/jar-reg.txt -w $'\n%{http_code}' -X "$m" "$BASE$p" -H "Content-Type: application/json" -d "$d"
   else
-    curl -s -w $'\n%{http_code}' -X "$m" "$BASE$p"
+    curl -s -b /tmp/jar-reg.txt -w $'\n%{http_code}' -X "$m" "$BASE$p"
   fi
 }
 body_of() { sed '$d' <<< "$1"; }
@@ -118,7 +120,7 @@ CNT=$(jf "$R" "len(d)")
 [ "$CNT" -ge 12 ] 2>/dev/null && ok "تعداد سوابق≥12 (فعلی: $CNT)" || bad "تعداد سوابق" "$CNT"
 HAS=$(jf "$R" "any('بازیابی پشتیبان' in x['action'] or 'تسویه' in x['action'] for x in d)")
 [ "$HAS" = "True" ] && ok "سابقه تسویه/بازیابی موجود" || bad "سابقه تسویه/بازیابی" "$HAS"
-curl -s "$BASE/api/bank/backup" -o /tmp/smoke-backup.json
+curl -s -b /tmp/jar-reg.txt "$BASE/api/bank/backup" -o /tmp/smoke-backup.json
 python3 -c "import json; b=json.load(open('/tmp/smoke-backup.json')); assert len(b['members'])==2 and len(b['loans'])==1" && ok "backup GET محتوای درست" || bad "backup GET" "محتوا"
 R=$(api POST /api/bank/backup @/tmp/smoke-backup.json)
 [ "$(code_of "$R")" = "200" ] && ok "backup POST بازیابی 200" || bad "backup POST" "$(code_of "$R")"

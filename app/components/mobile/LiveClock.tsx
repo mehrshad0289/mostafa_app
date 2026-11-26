@@ -45,8 +45,10 @@ export default function LiveClock({ className = "", light = false }: LiveClockPr
 
   return (
     <span
-      className={`inline-flex items-center justify-center gap-1.5 text-[10.5px] leading-4 ${
-        light ? "text-white/70" : "text-zinc-500 dark:text-zinc-400"
+      // جلسه ۴۸: حالت روشن پررنگ‌تر شد (سفید ۹۰٪ + نیمه‌ضخیم + یک پله بزرگتر)
+      // تا روز/تاریخ روی زمینه آبی بهتر دیده شود (درخواست کاربر)
+      className={`inline-flex items-center justify-center gap-1.5 text-[11.5px] leading-4 ${
+        light ? "font-semibold text-white/90" : "font-medium text-zinc-600 dark:text-zinc-300"
       } ${className}`}
       role="timer"
       aria-label="روز، تاریخ و ساعت به‌صورت زنده"

@@ -31,7 +31,7 @@ const lalezar = Lalezar({
 
 export const metadata: Metadata = {
   title: "Mostafa App",
-  description: "یادداشت‌ها و فم بانک",
+  description: "یادداشت‌ها و فَم بانک",
 };
 
 /**

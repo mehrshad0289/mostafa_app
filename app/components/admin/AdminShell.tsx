@@ -12,7 +12,7 @@ import type { PublicUser } from "@/lib/db";
 const GOLD_TONE: ClayTone = ["#FFD98E", "#F0A32B"];
 
 const MENU: { href: string; label: string; icon: ClayIconName; badge?: boolean }[] = [
-  { href: "/admin", label: "داشبورد", icon: "home" },
+  { href: "/admin", label: "خانه", icon: "home" },
   { href: "/admin/users", label: "مدیریت کاربران", icon: "users" },
   { href: "/admin/requests", label: "درخواست‌های اعضا", icon: "bell", badge: true },
   { href: "/bank/members", label: "اعضا", icon: "user" },
@@ -38,8 +38,8 @@ function UnreadBadge({ count }: { count: number }) {
 }
 
 /**
- * قاب پنل ادمین — هم‌سبک با پوسته «فم بانک» (پنل یوزر):
- * هدر برند با لوگوی خانه سه‌بعدی + «فم بانک» + زیرنویس انگلیسی Fam Bank +
+ * قاب پنل ادمین — هم‌سبک با پوسته «فَم بانک» (پنل یوزر):
+ * هدر برند با لوگوی خانه سه‌بعدی + «فَم بانک» + زیرنویس انگلیسی Fam Bank +
  * نوار روز/تاریخ/ساعت زنده + چیپ «مدیر» + آواتار سفالی، منوی کناری دسکتاپ
  * و نوار افقی موبایل با آیکون‌های سه‌بعدی پاستلی.
  * منطق قبلی دست‌نخورده: گارد دسترسی، زنگ درخواست‌های خوانده‌نشده (هر ۳۰ ثانیه)، خروج.
@@ -49,6 +49,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const pathname = usePathname();
   const [me, setMe] = useState<PublicUser | null | undefined>(undefined);
   const [unread, setUnread] = useState(0);
+  /** جلسه ۴۸ — منوی کشویی بخش‌ها در موبایل (سه خط هامبرگر) */
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const refreshUnread = useCallback(async () => {
     try {
@@ -92,6 +94,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     };
   }, [me, pathname, refreshUnread]);
 
+  // بستن منوی کشویی با هر لمس لینک (بدون setState در effect، طبق lint)
+
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/login");
@@ -116,24 +120,25 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      {/* هدر برند — هم‌سبک با هدر پوسته موبایل فم بانک؛ جلسه ۳۷: رنگ برند
+      {/* هدر برند — هم‌سبک با هدر پوسته موبایل فَم بانک؛ جلسه ۳۷: رنگ برند
           آبی آسمانی شد (به درخواست کاربر، هم لایه یوزر هم ادمین) */}
       <header
-        className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg shadow-primary-900/30"
+        className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-700 via-primary-600 to-primary-500 text-white shadow-lg shadow-primary-800/30"
         data-noprint
       >
         {/* درخشش‌های تزئینی — جلسه ۳۵: radial-gradient به‌جای blur زنده (سرعت اسکرول)؛ جلسه ۳۷: پالت آبی آسمانی */}
         <div aria-hidden className="pointer-events-none absolute -top-12 left-16 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.25), transparent)" }} />
         <div aria-hidden className="pointer-events-none absolute -bottom-16 right-24 size-40 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(125,211,252,0.25), transparent)" }} />
         <div aria-hidden className="pointer-events-none absolute -top-8 left-1/2 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
-        <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5">
+        {/* جلسه ۴۸: فاصلهٔ عمودی ردیف اصلی هدر بیشتر شد تا فشردگی کمتر باشد */}
+        <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3.5">
           <div className="flex min-w-0 items-center gap-2.5">
             {/* جلسه ۴۱: آیکون‌های ردیف بالای هدر یک پله کوچکتر شدند (به درخواست
                 کاربر برای کمتر شدن فشردگی فضای بالای صفحه) */}
             <HouseLogo size={40} />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="truncate text-[15px] font-bold leading-5">فم بانک</h1>
+                <h1 className="truncate text-[15px] font-bold leading-5">فَم بانک</h1>
                 <span className="hidden shrink-0 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-inset ring-white/25 sm:inline">
                   پنل مدیریت
                 </span>
@@ -181,35 +186,81 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </div>
 
-        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) — روی زمینه آبی آسمانی با نسخه روشن؛
-            جلسه ۴۱: فاصلهٔ پایینی بیشتر تا خط جداکننده یک پله پایین‌تر بنشیند */}
-        <div className="relative mx-auto flex max-w-6xl justify-center px-4 pb-2.5" data-noprint>
+        {/* نوار روز/تاریخ/ساعت زنده (جلسه ۲۷) — روی زمینه آبی روشن با نسخهٔ پررنگ؛
+            جلسه ۴۸: فاصلهٔ پایینی بیشتر تا خط جداکننده پایین‌تر بنشیند */}
+        <div className="relative mx-auto flex max-w-6xl justify-center px-4 pb-4" data-noprint>
           <LiveClock light />
         </div>
 
-        {/* نوار افقی منو در موبایل — قرص‌های شیشه‌ای سفید روی زمینه آبی آسمانی؛
-            جلسه ۴۱: آیکون‌های قرص‌ها کوچکتر (۱۹px) و فاصلهٔ پایینی بیشتر تا
-            خط جداکننده پایین‌تر بیاید و فضای بالای صفحه فشرده‌تر نباشد */}
-        <nav className="relative mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-3.5 md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {MENU.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all ${
-                  active
-                    ? "bg-white text-primary-800 shadow-md shadow-black/20"
-                    : "border border-white/20 bg-white/10 text-white/75 hover:bg-white/20 hover:text-white"
-                }`}
-              >
-                <ClayIcon name={item.icon} size={19} ghost ghostColor={active ? "currentColor" : "#fff"} />
-                {item.label}
-                {item.badge && <UnreadBadge count={unread} />}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* جلسه ۴۸ — منوی موبایل بازطراحی شد (به درخواست کاربر): به‌جای ردیف
+            افقی فشرده، «خانه» به‌صورت ثابت می‌ماند و بقیه سر فصل‌ها در یک
+            لیست کشویی هستند که با لمس دکمهٔ سه‌خط بالای صفحه باز می‌شود. */}
+        <div className="relative mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 pb-3.5 md:hidden" data-noprint>
+          <Link
+            href="/admin"
+            onClick={() => setMenuOpen(false)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+              pathname === "/admin"
+                ? "bg-white text-primary-800 shadow-md shadow-black/20"
+                : "border border-white/25 bg-white/15 text-white hover:bg-white/25"
+            }`}
+          >
+            <ClayIcon name="home" size={20} ghost ghostColor={pathname === "/admin" ? "currentColor" : "#fff"} />
+            خانه
+          </Link>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "بستن فهرست بخش‌ها" : "باز کردن فهرست بخش‌ها"}
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition-all ${
+              menuOpen
+                ? "bg-white text-primary-800 shadow-md shadow-black/20"
+                : "border border-white/25 bg-white/15 text-white hover:bg-white/25"
+            }`}
+          >
+            {/* سه خط هامبرگر — با لمس، لیست بخش‌ها باز/بسته می‌شود */}
+            <span className="flex flex-col gap-[3px]" aria-hidden>
+              <span className={`h-[2px] w-4 rounded-full ${menuOpen ? "bg-primary-700" : "bg-white"}`} />
+              <span className={`h-[2px] w-4 rounded-full ${menuOpen ? "bg-primary-700" : "bg-white"}`} />
+              <span className={`h-[2px] w-4 rounded-full ${menuOpen ? "bg-primary-700" : "bg-white"}`} />
+            </span>
+            {menuOpen ? "بستن فهرست" : "بخش‌ها"}
+          </button>
+        </div>
+
+        {/* لیست کشویی بخش‌ها — همه سر فصل‌ها به‌جز «خانه»؛ در جریان صفحه باز
+            می‌شود (نه absolute) تا با overflow هدر بریده نشود */}
+        {menuOpen && (
+          <nav className="relative mx-auto mb-3 max-w-6xl px-4 md:hidden" data-noprint aria-label="فهرست بخش‌های پنل مدیریت">
+            <div className="space-y-1 rounded-3xl border border-white/30 bg-white p-2 shadow-2xl shadow-black/30">
+              {MENU.filter((item) => item.href !== "/admin").map((item) => {
+                const active = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className={`clay-press flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm transition ${
+                      active
+                        ? "bg-gradient-to-l from-primary-700 to-primary-500 font-semibold text-white shadow-md shadow-primary-600/25"
+                        : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    <ClayIcon
+                      name={item.icon}
+                      size={30}
+                      ghost
+                      ghostColor={active ? "#fff" : "currentColor"}
+                    />
+                    <span className="flex-1">{item.label}</span>
+                    {item.badge && <UnreadBadge count={unread} />}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        )}
         <div className="relative h-[3px] bg-gradient-to-l from-sky-200 via-sky-300 to-primary-500" />
       </header>
 
@@ -240,7 +291,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               );
             })}
             <p className="px-3 pb-1 pt-2 text-[10px] leading-5 text-zinc-400">
-              پنل مدیریت فم بانک — نسخه وب
+              پنل مدیریت فَم بانک — نسخه وب
             </p>
           </nav>
         </aside>

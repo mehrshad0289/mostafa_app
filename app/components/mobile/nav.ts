@@ -1,9 +1,11 @@
 import type { DashboardTab } from "@/app/components/DashboardView";
 
-/** بخش‌های صفحه تنظیمات پوسته موبایل — جلسه ۴۱: بخش «راهنما» افزوده شد */
+/** بخش‌های صفحه تنظیمات پوسته موبایل — جلسه ۴۱: بخش «راهنما» افزوده شد؛
+ *  جلسه ۴۸: بخش «پشتیبان‌گیری» برای خروجی اکسل/PDF افزوده شد */
 export type SettingsSection =
   | "profile"
   | "security"
+  | "backup"
   | "appearance"
   | "deposits"
   | "fund"

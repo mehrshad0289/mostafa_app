@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName } from "./ClayIcon";
 import HouseLogo from "./HouseLogo";
 import MemberGuide from "./SystemGuide";
+import BackupSection from "./BackupSection";
 import AppearanceSettings from "@/app/components/bank/AppearanceSettings";
 import type { SettingsSection } from "./nav";
 import type { BankSettings, PublicUser } from "@/lib/db";
@@ -32,11 +33,12 @@ type RowDef = {
 const ROWS: RowDef[] = [
   { key: "profile", title: "پروفایل من", subtitle: "نام، نام کاربری و اطلاعات حساب", icon: "user" },
   { key: "security", title: "امنیت و رمز عبور", subtitle: "تغییر رمز ورود به اپ", icon: "shield" },
+  { key: "backup", title: "پشتیبان‌گیری اطلاعات", subtitle: "دریافت اطلاعات من در قالب اکسل و PDF", icon: "download" },
   { key: "appearance", title: "ظاهر اپلیکیشن", subtitle: "تم رنگی، فونت و حالت نمایش", icon: "palette" },
   { key: "deposits", title: "حساب‌های واریز", subtitle: "شماره کارت و شبا برای واریز به بانک", icon: "wallet" },
   { key: "fund", title: "تنظیمات بانک", subtitle: "سقف سهام، عنوان‌های واریز و پنل مدیریت", icon: "building", adminOnly: true },
-  { key: "guide", title: "راهنمای سیستم", subtitle: "نحوه کار با فم بانک — از سهام تا تسهیلات", icon: "info" },
-  { key: "about", title: "درباره فم بانک", subtitle: "نسخه اپ و معرفی", icon: "info" },
+  { key: "guide", title: "راهنمای سیستم", subtitle: "نحوه کار با فَم بانک — از سهام تا تسهیلات", icon: "info" },
+  { key: "about", title: "درباره فَم بانک", subtitle: "نسخه اپ و معرفی", icon: "info" },
 ];
 
 function fa(value: number): string {
@@ -265,6 +267,10 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
           </form>
         )}
 
+        {section === "backup" && (
+          <BackupSection />
+        )}
+
         {section === "appearance" && (
           <div className="rounded-3xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
             <AppearanceSettings />
@@ -379,7 +385,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
               <span className="mx-auto block w-fit">
                 <HouseLogo size={64} />
               </span>
-              <p className="mt-3 text-base font-black">فم بانک</p>
+              <p className="mt-3 text-base font-black">فَم بانک</p>
               <p dir="ltr" className="mt-0.5 text-[10px] font-medium tracking-wide text-zinc-400 dark:text-zinc-500">
                 Fam Bank
               </p>
@@ -436,7 +442,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
       </button>
 
       <p className="pb-2 text-center text-[10px] text-zinc-400">
-        فم بانک · نسخه ۱٫۰٫۰
+        فَم بانک · نسخه ۱٫۰٫۰
       </p>
 
       {/* مودال تأیید خروج */}
@@ -446,7 +452,7 @@ export default function SettingsScreen({ me, section, onSectionChange }: Props) 
             <ClayIcon name="logout" size={48} tone={["#FCA9A9", "#D95050"]} />
             <h3 className="mt-3 text-sm font-bold">خروج از حساب</h3>
             <p className="mt-1.5 text-xs leading-6 text-zinc-600 dark:text-zinc-400">
-              مطمئنید که می‌خواهید از فم بانک خارج شوید؟
+              مطمئنید که می‌خواهید از فَم بانک خارج شوید؟
             </p>
             <div className="mt-4 flex gap-2">
               <button

@@ -20,7 +20,7 @@ import type { PublicUser } from "@/lib/db";
 const TAB_ORDER: MobileTab[] = ["home", "services", "transactions", "settings"];
 
 /**
- * پوسته موبایل فم بانک — هدر برند (لوگوی خانه سه‌بعدی + فم بانک + Fam Bank
+ * پوسته موبایل فَم بانک — هدر برند (لوگوی خانه سه‌بعدی + فَم بانک + Fam Bank
  * + روز/تاریخ/ساعت زنده) + نوار ناوبری پایین با ۴ آیتم
  * (خانه، خدمات، تراکنش‌ها، تنظیمات) — «مدیریت کاربران» از لایه یوزر حذف شد
  * (جلسه ۲۷) و مدیریت کاربران فقط در پنل ادمین است.
@@ -113,7 +113,7 @@ export default function MobileAppPage() {
         <span className="animate-pulse">
           <HouseLogo size={56} />
         </span>
-        <p className="text-sm text-zinc-500">در حال باز کردن فم بانک…</p>
+        <p className="text-sm text-zinc-500">در حال باز کردن فَم بانک…</p>
       </main>
     );
   }
@@ -125,18 +125,19 @@ export default function MobileAppPage() {
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
       {/* هدر برند — آبی آسمانی برند (جلسه ۳۷ به درخواست کاربر: «رنگ آبی فیروزه‌ای رو
           به رنگ آبی آسمانی تغییر بده») با درخشش آبی هماهنگ با لوگو (جلسه ۳۲):
-          لوگوی خانه سه‌بعدی + فم بانک + Fam Bank + روز/تاریخ/ساعت زنده + زنگوله
+          لوگوی خانه سه‌بعدی + فَم بانک + Fam Bank + روز/تاریخ/ساعت زنده + زنگوله
           اعلان‌های عضو (جلسه ۳۷). نشان نقش فقط برای «مدیر» نمایش داده می‌شود. */}
-      <header className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-900 via-primary-800 to-primary-700 text-white shadow-lg shadow-primary-900/30">
+      <header className="sticky top-0 z-30 overflow-hidden bg-gradient-to-bl from-primary-700 via-primary-600 to-primary-500 text-white shadow-lg shadow-primary-800/30">
         {/* درخشش‌های تزئینی — جلسه ۳۵: radial-gradient به‌جای blur زنده؛ جلسه ۳۷: پالت آبی آسمانی */}
         <div aria-hidden className="pointer-events-none absolute -top-12 left-2 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.25), transparent)" }} />
         <div aria-hidden className="pointer-events-none absolute -bottom-16 right-8 size-40 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(125,211,252,0.25), transparent)" }} />
         <div aria-hidden className="pointer-events-none absolute -top-8 right-1/3 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
-        <div className="relative mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
+        {/* جلسه ۴۸: فاصله عمودی ردیف اصلی هدر بیشتر شد تا فشردگی کمتر باشد */}
+        <div className="relative mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-2.5">
             <HouseLogo size={44} />
             <div className="min-w-0">
-              <h1 className="text-[15px] font-bold leading-5">فم بانک</h1>
+              <h1 className="text-[15px] font-bold leading-5">فَم بانک</h1>
               <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-white/55">
                 Fam Bank
               </p>
@@ -160,8 +161,9 @@ export default function MobileAppPage() {
             </span>
           </div>
         </div>
-        {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) */}
-        <div className="relative mx-auto flex max-w-md justify-center px-4 pb-2">
+        {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) — جلسه ۴۸: فاصلهٔ پایینی بیشتر تا
+            خط جداکننده پایین‌تر بنشیند و بالای صفحه فشرده نباشد */}
+        <div className="relative mx-auto flex max-w-md justify-center px-4 pb-4">
           <LiveClock light />
         </div>
         <div className="relative h-[3px] bg-gradient-to-l from-sky-200 via-sky-300 to-primary-500" />

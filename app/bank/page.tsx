@@ -31,7 +31,7 @@ export default function BankIndexRedirect() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-zinc-50 dark:bg-black dark:text-zinc-50">
-      <p className="text-sm text-zinc-500">در حال باز کردن فم بانک…</p>
+      <p className="text-sm text-zinc-500">در حال باز کردن فَم بانک…</p>
     </main>
   );
 }
