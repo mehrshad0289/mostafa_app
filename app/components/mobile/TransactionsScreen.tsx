@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName, type ClayTone } from "./ClayIcon";
 import { jalaliParts } from "@/lib/bank";
 import type { NavTarget } from "./nav";
-import type { BankDeposit, BankLoan, PaymentRequest, PublicUser } from "@/lib/db";
+import type { BankDeposit, BankLoan, BankLoanPayment, PaymentRequest, PublicUser } from "@/lib/db";
 
 /**
  * اسلاید تراکنش‌ها — هدر سرمه‌ای با موجودی ریالی، دکمه چشم و سه اکشن سریع
@@ -23,6 +23,12 @@ type TxRow = {
   subtitleName?: string;
   amount: number; // تومان
   at: string;
+  /** جلسه ۵۰ — رکورد مبدأ برای مودال جزئیات لمس تراکنش */
+  deposit?: BankDeposit;
+  loan?: BankLoan;
+  payment?: BankLoanPayment;
+  paymentIndex?: number;
+  memberName?: string;
 };
 
 const DEPOSIT_META: Record<BankDeposit["type"], { icon: ClayIconName; tone: ClayTone }> = {
@@ -59,7 +65,11 @@ function faDateTime(iso: string): { date: string; time: string } {
 function rowVisual(row: TxRow): { icon: ClayIconName; tone: ClayTone } {
   switch (row.kind) {
     case "installment":
-      return { icon: "withdraw", tone: ["#FFB8A8", "#E06848"] };
+      // جلسه ۵۰ — پرداخت قسط از نگاه مدیر ورود پول به بانک است (واریز سبز)،
+      // از نگاه عضو برداشت از حساب اوست (قرمز)
+      return row.direction === "in"
+        ? { icon: "deposit", tone: ["#B5EBA5", "#54B854"] }
+        : { icon: "withdraw", tone: ["#FFB8A8", "#E06848"] };
     case "loan":
       return { icon: "banknote", tone: ["#9CC6FF", "#4C82E0"] };
     case "pending-share":
@@ -68,6 +78,68 @@ function rowVisual(row: TxRow): { icon: ClayIconName; tone: ClayTone } {
     default:
       return DEPOSIT_META[row.kind];
   }
+}
+
+/** جلسه ۵۰ — خط‌های مودال جزئیات کامل هر تراکنش */
+function detailLines(row: TxRow, isAdmin: boolean): { label: string; value: string; tone?: "green" | "red" | "amber" }[] {
+  const lines: { label: string; value: string; tone?: "green" | "red" | "amber" }[] = [];
+  const dt = faDateTime(row.at);
+  lines.push({ label: "نوع تراکنش", value: row.title });
+  if (row.kind === "pending-share" || row.kind === "pending-installment") {
+    if (row.subtitleName) lines.push({ label: "کاربر", value: row.subtitleName });
+  } else if (isAdmin && row.memberName) {
+    lines.push({ label: "عضو", value: row.memberName });
+  }
+  lines.push({
+    label: "مبلغ",
+    value: `${fa(row.amount)} تومان`,
+    tone: row.direction === "in" ? "green" : row.direction === "out" ? "red" : "amber",
+  });
+  if (row.direction === "in") {
+    lines.push({
+      label: "اثر روی حساب",
+      value: isAdmin ? "واریز به بانک" : "واریز به حساب شما",
+      tone: "green",
+    });
+  } else if (row.direction === "out") {
+    lines.push({
+      label: "اثر روی حساب",
+      value: isAdmin ? "برداشت از بانک" : "برداشت از حساب شما",
+      tone: "red",
+    });
+  } else {
+    lines.push({ label: "وضعیت", value: "در انتظار تأیید مدیر", tone: "amber" });
+  }
+  if (row.deposit) {
+    if (row.deposit.title && row.deposit.title !== row.title) {
+      lines.push({ label: "عنوان ثبت‌شده", value: row.deposit.title });
+    }
+    if (row.deposit.type === "share" && row.deposit.periodKey) {
+      lines.push({ label: "دوره", value: row.deposit.periodKey });
+    }
+    lines.push({ label: "وضعیت ثبت", value: "ثبت‌شده در بانک" });
+  }
+  if (row.loan && row.kind === "loan") {
+    lines.push({ label: "اصل وام", value: `${fa(row.loan.principal)} تومان` });
+    lines.push({
+      label: "تعداد اقساط",
+      value: `${row.loan.installmentCount.toLocaleString("fa-IR")} قسط`,
+    });
+    lines.push({
+      label: "وضعیت وام",
+      value: row.loan.status === "paid" ? "تسویه‌شده" : row.loan.status === "cancelled" ? "لغوشده" : "در جریان",
+    });
+  }
+  if (row.payment && row.loan) {
+    const total = (row.loan.payments || []).length;
+    lines.push({
+      label: "شماره پرداخت",
+      value: `پرداخت ${(row.paymentIndex || 0).toLocaleString("fa-IR")} از ${total.toLocaleString("fa-IR")}`,
+    });
+    if (row.payment.note) lines.push({ label: "توضیح پرداخت", value: row.payment.note });
+  }
+  lines.push({ label: "تاریخ", value: `${dt.date}${dt.time ? ` — ساعت ${dt.time}` : ""}` });
+  return lines;
 }
 
 type TransactionsScreenProps = {
@@ -87,6 +159,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [filter, setFilter] = useState<FilterKey>("all");
   const [limit, setLimit] = useState(12);
+  /** جلسه ۵۰ — تراکنش لمس‌شده؛ جزئیات کامل آن در مودال نمایش داده می‌شود */
+  const [detailRow, setDetailRow] = useState<TxRow | null>(null);
 
   const isAdmin = me.role === "admin";
 
@@ -137,6 +211,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         subtitleName: extra || undefined,
         amount: d.amount,
         at: d.createdAt,
+        deposit: d,
+        memberName: isAdmin ? d.memberName || undefined : undefined,
       });
     });
     loans.forEach((loan) => {
@@ -149,6 +225,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           subtitleName: loan.memberName,
           amount: loan.disbursedAmount,
           at: loan.createdAt,
+          loan,
+          memberName: loan.memberName || undefined,
         });
       }
       if (!isAdmin && loan.disbursedAmount > 0) {
@@ -159,17 +237,24 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           title: "برداشت از بانک",
           amount: loan.disbursedAmount,
           at: loan.createdAt,
+          loan,
         });
       }
       loan.payments.forEach((p, i) => {
         out.push({
           id: `p-${p.id}-${i}`,
           kind: "installment",
-          direction: "out",
+          // جلسه ۵۰ — پرداخت قسط برای عضو برداشت از حساب اوست (قرمز)،
+          // اما برای مدیر ورود پول به بانک است (واریز سبز)
+          direction: isAdmin ? "in" : "out",
           title: "پرداخت اقساط تسهیلات",
           subtitleName: isAdmin ? loan.memberName : undefined,
           amount: p.amount,
           at: p.paidAt,
+          loan,
+          payment: p,
+          paymentIndex: i + 1,
+          memberName: isAdmin ? loan.memberName || undefined : undefined,
         });
       });
     });
@@ -182,6 +267,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         subtitleName: r.username,
         amount: r.amount,
         at: r.createdAt,
+        memberName: r.username,
       });
     });
     out.sort((a, b) => (b.at || "").localeCompare(a.at || ""));
@@ -319,6 +405,9 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         </div>
 
         {/* لیست */}
+        <p className="mb-2 text-[10.5px] leading-5 text-zinc-400">
+          برای دیدن جزئیات کامل هر تراکنش، آن را لمس کنید.
+        </p>
         <div className="space-y-2">
           {loading && <p className="py-6 text-center text-xs text-zinc-500">در حال دریافت تراکنش‌ها…</p>}
           {!loading && visible.length === 0 && (
@@ -332,14 +421,19 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
             const dt = faDateTime(row.at);
             const isDeposit = row.direction === "in";
             return (
-              <div
+              // جلسه ۵۰ — با لمس هر تراکنش مودال جزئیات کامل آن باز می‌شود؛
+              // واریز سبز، برداشت قرمز، در انتظار تأیید کهربایی
+              <button
+                type="button"
                 key={row.id}
-                className={`flex items-center gap-3 rounded-2xl border p-3 shadow-sm ${
+                onClick={() => setDetailRow(row)}
+                aria-label={`جزئیات تراکنش ${row.title}`}
+                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-right shadow-sm transition active:scale-[0.99] ${
                   isDeposit
                     ? "border-emerald-200 bg-emerald-50/90 dark:border-emerald-900 dark:bg-emerald-950/30"
                     : row.direction === "pending"
                       ? "border-amber-200 bg-amber-50/90 dark:border-amber-900 dark:bg-amber-950/30"
-                      : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+                      : "border-red-200 bg-red-50/90 dark:border-red-900 dark:bg-red-950/30"
                 }`}
               >
                 <ClayIcon name={v.icon} tone={v.tone} size={42} />
@@ -353,7 +447,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
                   </p>
                 </div>
                 <div className="shrink-0 text-left">
-                  <p className={`text-[13px] font-black ${row.direction === "in" ? "text-emerald-700 dark:text-emerald-400" : row.direction === "pending" ? "text-amber-700 dark:text-amber-400" : "text-zinc-700 dark:text-zinc-300"}`}>
+                  <p className={`text-[13px] font-black ${row.direction === "in" ? "text-emerald-700 dark:text-emerald-400" : row.direction === "pending" ? "text-amber-700 dark:text-amber-400" : "text-red-700 dark:text-red-400"}`}>
                     {row.direction === "in" ? "+" : row.direction === "out" ? "−" : ""}
                     {fa(row.amount)}
                   </p>
@@ -361,7 +455,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
                     {row.direction === "pending" ? "در انتظار تأیید" : "تومان"}
                   </p>
                 </div>
-              </div>
+              </button>
             );
           })}
           {!loading && filtered.length > limit && (
@@ -375,6 +469,55 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           )}
         </div>
       </div>
+
+      {/* جلسه ۵۰ — مودال جزئیات کامل تراکنش لمس‌شده */}
+      {detailRow && (
+        <div data-swipe-ignore className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl border border-zinc-200 bg-white p-5 shadow-xl dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold">جزئیات تراکنش</h3>
+              <button
+                type="button"
+                onClick={() => setDetailRow(null)}
+                aria-label="بستن جزئیات"
+                className="grid size-8 place-items-center rounded-full text-lg leading-none text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-900"
+              >
+                ×
+              </button>
+            </div>
+            <div className="space-y-1.5">
+              {detailLines(detailRow, isAdmin).map((line, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-zinc-100 px-3 py-2 dark:border-zinc-900"
+                >
+                  <span className="shrink-0 text-xs text-zinc-500">{line.label}</span>
+                  <span
+                    className={`min-w-0 text-left text-xs font-medium leading-6 ${
+                      line.tone === "green"
+                        ? "text-emerald-700 dark:text-emerald-400"
+                        : line.tone === "red"
+                          ? "text-red-700 dark:text-red-400"
+                          : line.tone === "amber"
+                            ? "text-amber-700 dark:text-amber-400"
+                            : ""
+                    }`}
+                  >
+                    {line.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDetailRow(null)}
+              className="mt-4 w-full rounded-2xl bg-primary-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-primary-700 dark:bg-primary-500"
+            >
+              بستن
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
