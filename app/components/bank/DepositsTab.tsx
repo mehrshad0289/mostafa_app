@@ -29,10 +29,13 @@ type DepositsTabProps = {
  * جلسه ۵۱: عنوان هر ردیف فقط «واریز» و «برداشت» است (به درخواست کاربر) و
  * نوع/توضیحات در بج کوچک و مودال جزئیاتِ بعد از لمس دیده می‌شود.
  * جلسه ۵۸ (به درخواست کاربر): دکمه و فرم «ثبت واریزی» به «ثبت تراکنش» تغییر
- * کرد و حالا برداشت متفرقه هم ثبت می‌شود؛ انتخاب عضو «یک عضو» یا «همه اعضا»
- * (برای تقسیم سود و واریزی متفرقهٔ گروهی) با دو حالت مبلغ «برای هر عضو» یا
- * «مبلغ کل تقسیم مساوی». فقط رکوردهای این فرم (واریزی/برداشت متفرقه) قابل
- * حذف‌اند؛ اقساط/برداشت تسهیلات از تب وام‌ها مدیریت می‌شوند.
+ * کرد و حالا برداشت متفرقه هم ثبت می‌شود؛ انتخاب عضو با دو حالت مبلغ «برای هر
+ * عضو» یا «مبلغ کل تقسیم مساوی». فقط رکوردهای این فرم (واریزی/برداشت متفرقه)
+ * قابل حذف‌اند؛ اقساط/برداشت تسهیلات از تب وام‌ها مدیریت می‌شوند.
+ * جلسه ۶۱ (به درخواست کاربر): انتخاب عضو چندگانه شد — هر ترکیبی از اعضا
+ * (یک، دو، سه، کمتر یا بیشتر) با چک‌باکس، کلید «همه اعضا» برای انتخاب یک‌جای
+ * همه و گزینهٔ «بدون عضو» برای متفرقهٔ بانک؛ حالت مبلغ گروهی و پیش‌نمایش
+ * زنده برای هر گروه ۲ عضوه به بالا فعال است.
  */
 
 /** جلسه ۵۹ — برچسب فارسی همهٔ انواع تراکنش؛ در فرم و بج نوعِ فهرست استفاده می‌شود.
@@ -204,18 +207,21 @@ export default function DepositsTab({
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<TxGroupFilter>("all");
   const [formOpen, setFormOpen] = useState(false);
-  /** جلسه ۵۸ — فرم «ثبت تراکنش»: گروه (واریز/برداشت) + عضو (یکی/همه/بدون عضو)
-   *  + نوع واریزی + حالت مبلغ گروهی. memberId = "all" یعنی همهٔ اعضا،
-   *  "" یعنی بدون عضو (متفرقه)، وگرنه شناسهٔ عضو مشخص. */
+  /** جلسه ۵۸/۶۱ — فرم «ثبت تراکنش»: گروه (واریز/برداشت) + اعضای هدف (هر
+   *  ترکیبی: یک، دو، سه… یا همهٔ اعضا با memberIds؛ حالت بدون عضو با noMember)
+   *  + نوع تراکنش + حالت مبلغ گروهی. */
   const [form, setForm] = useState({
     direction: "deposit" as "deposit" | "withdraw",
-    memberId: "",
+    memberIds: [] as string[],
+    noMember: true,
     type: "misc" as BankDepositType,
     splitMode: "perMember" as "perMember" | "total",
     title: "",
     amount: "",
     period: "",
   });
+  /** جلسه ۶۱ — باز/بسته بودن فهرست انتخاب اعضا */
+  const [membersOpen, setMembersOpen] = useState(false);
   const [dateIso, setDateIso] = useState("");
   const [deleting, setDeleting] = useState<BankDeposit | null>(null);
   const [dupPending, setDupPending] = useState<BankDeposit | null>(null);
@@ -234,12 +240,24 @@ export default function DepositsTab({
     return parseSharePeriod(form.period, dateIso ? new Date(dateIso) : undefined);
   }, [hydrated, form.direction, form.type, form.period, dateIso]);
 
-  /** جلسه ۵۸ — اعضای هدف فرم: همهٔ اعضا / یک عضو / بدون عضو */
+  /** جلسه ۶۱ — اعضای هدف فرم: هر زیرمجموعه‌ای از اعضا (یک، دو، سه… یا همه)
+   *  یا بدون عضو. انتخاب مدیر در form.memberIds است؛ ترتیب با فهرست اعضا
+   *  یک‌دست می‌شود تا تقسیم مساوی همیشه به‌یک‌شکل و تکرارپذیر باشد. */
   const targetMemberIds = useMemo(() => {
-    if (form.memberId === "all") return members.map((m) => m.id);
-    if (form.memberId) return [form.memberId];
-    return [];
-  }, [form.memberId, members]);
+    if (form.noMember) return [];
+    const chosen = new Set(form.memberIds);
+    return members.filter((m) => chosen.has(m.id)).map((m) => m.id);
+  }, [form.noMember, form.memberIds, members]);
+
+  /** جلسه ۶۱ — متن خلاصهٔ انتخاب عضو روی دکمهٔ بازکنندهٔ فهرست */
+  const memberScopeLabel = useMemo(() => {
+    if (form.noMember) return "بدون عضو (متفرقه)";
+    const n = form.memberIds.length;
+    if (n === 0) return "انتخاب نشده";
+    if (members.length > 0 && n === members.length) return `همه اعضا (${faNum(n)} نفر)`;
+    if (n === 1) return members.find((m) => m.id === form.memberIds[0])?.name || "یک عضو";
+    return `${faNum(n)} عضو انتخاب شده`;
+  }, [form.noMember, form.memberIds, members]);
 
   /** مبلغ هر رکورد بعد از اعمال حالت گروهی (برای هشدار مشابه و پیش‌نمایش زنده) */
   const targetAmounts = useMemo(() => {
@@ -328,9 +346,11 @@ export default function DepositsTab({
     setFormOpen(true);
     setDupPending(null);
     setError("");
+    setMembersOpen(false);
     setForm({
       direction: "deposit",
-      memberId: "",
+      memberIds: [],
+      noMember: true,
       type: "misc",
       splitMode: "perMember",
       title: TYPE_LABELS.misc,
@@ -338,6 +358,47 @@ export default function DepositsTab({
       period: "",
     });
     setDateIso("");
+  }
+
+  /** جلسه ۶۱ — تغییر انتخاب اعضا؛ انواع نیازمند عضو (سهام/قسط و برداشت‌شان)
+   *  وقتی هیچ عضوی انتخاب نشود به نوع پیش‌فرض همان گروه برمی‌گردند */
+  function applyMemberScope(next: { memberIds: string[]; noMember: boolean }) {
+    setForm((prev) => ({
+      ...prev,
+      memberIds: next.memberIds,
+      noMember: next.noMember,
+      type:
+        (next.noMember || next.memberIds.length === 0) &&
+        MEMBER_REQUIRED_TYPES.includes(prev.type)
+          ? prev.direction === "withdraw"
+            ? ("withdraw_misc" as BankDepositType)
+            : ("misc" as BankDepositType)
+          : prev.type,
+    }));
+  }
+
+  /** جلسه ۶۱ — «بدون عضو» و انتخاب اعضا دو حالت متقابلاً انحصاری‌اند */
+  function toggleNoMember() {
+    applyMemberScope({ memberIds: [], noMember: !form.noMember });
+  }
+
+  /** جلسه ۶۱ — کلید «همه اعضا»: اگر همه انتخاب‌اند انتخاب را خالی می‌کند،
+   *  وگرنه همهٔ اعضا را یک‌جا برمی‌گزیند */
+  function toggleAllMembers() {
+    const allSelected =
+      !form.noMember && members.length > 0 && form.memberIds.length === members.length;
+    applyMemberScope({
+      memberIds: allSelected ? [] : members.map((m) => m.id),
+      noMember: false,
+    });
+  }
+
+  /** جلسه ۶۱ — تیک/عدم‌تیک یک عضو؛ انتخاب هر عضو حالت «بدون عضو» را خاموش می‌کند */
+  function toggleMember(id: string) {
+    const next = form.memberIds.includes(id)
+      ? form.memberIds.filter((x) => x !== id)
+      : [...form.memberIds, id];
+    applyMemberScope({ memberIds: next, noMember: false });
   }
 
   /** جلسه ۵۹ — عنوان پیش‌فرض هر نوع؛ اگر مدیر عنوان دیگری نوشته باشد دست نمی‌خورد */
@@ -400,21 +461,25 @@ export default function DepositsTab({
     if (!Number.isFinite(amount) || amount <= 0) {
       return "مبلغ تراکنش باید عددی بزرگ‌تر از صفر باشد.";
     }
-    if (form.memberId === "all" && members.length === 0) {
+    if (!form.noMember && members.length === 0) {
       return "هنوز عضوی در بانک ثبت نشده است.";
     }
-    if (form.memberId === "" && MEMBER_REQUIRED_TYPES.includes(form.type)) {
+    if (!form.noMember && targetMemberIds.length === 0) {
+      return "حداقل یک عضو را انتخاب کنید یا گزینهٔ «بدون عضو» را بزنید.";
+    }
+    if (form.noMember && MEMBER_REQUIRED_TYPES.includes(form.type)) {
       if (form.type === "share") return "برای واریز سهام باید عضو انتخاب شود.";
       if (form.type === "installment") return "برای ثبت پرداخت قسط باید عضو انتخاب شود.";
       if (form.type === "withdraw_share") return "برای برداشت سهام باید عضو انتخاب شود.";
       return "برای برداشت قسط باید عضو انتخاب شود.";
     }
     if (
-      form.memberId === "all" &&
+      !form.noMember &&
+      targetMemberIds.length >= 2 &&
       form.splitMode === "total" &&
-      amount < members.length
+      amount < targetMemberIds.length
     ) {
-      return "مبلغ کل برای تقسیم مساوی بین همهٔ اعضا کافی نیست.";
+      return "مبلغ کل برای تقسیم مساوی بین اعضای انتخاب‌شده کافی نیست.";
     }
     return "";
   }
@@ -443,12 +508,8 @@ export default function DepositsTab({
         body: JSON.stringify({
           // جلسه ۵۹ — خودِ نوع جهت را حمل می‌کند: انواع withdraw_* برداشت‌اند
           type: form.type,
-          memberIds:
-            form.memberId === "all"
-              ? members.map((m) => m.id)
-              : form.memberId
-                ? [form.memberId]
-                : null,
+          // جلسه ۶۱ — هر زیرمجموعه‌ای از اعضا یا بدون عضو؛ سرور خودش اعتبارسنجی می‌کند
+          memberIds: form.noMember ? null : targetMemberIds,
           splitMode: form.splitMode,
           title: form.title.trim(),
           amount: parseAmount(form.amount),
@@ -464,9 +525,11 @@ export default function DepositsTab({
         return;
       }
       setFormOpen(false);
+      setMembersOpen(false);
       setForm({
         direction: "deposit",
-        memberId: "",
+        memberIds: [],
+        noMember: true,
         type: "misc",
         splitMode: "perMember",
         title: TYPE_LABELS.misc,
@@ -676,39 +739,84 @@ export default function DepositsTab({
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1 text-xs text-zinc-500">
-              عضو
-              <select
-                value={form.memberId}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    memberId: e.target.value,
-                    // انواعی که عضو می‌خواهند (سهام، پرداخت قسط، برداشت سهام/قسط) با
-                    // انتخاب «بدون عضو» به نوع پیش‌فرض همان گروه برمی‌گردند
-                    type:
-                      e.target.value === "" && MEMBER_REQUIRED_TYPES.includes(prev.type)
-                        ? prev.direction === "withdraw"
-                          ? ("withdraw_misc" as BankDepositType)
-                          : ("misc" as BankDepositType)
-                        : prev.type,
-                  }))
-                }
-                className={`${inputClass} w-full`}
+            {/* جلسه ۶۱ — انتخاب هر تعداد عضو (به درخواست کاربر): هر ترکیبی از
+                یک، دو، سه یا بیشتر عضو با چک‌باکس؛ کلید «همه اعضا» همه را یک‌جا
+                برمی‌گزیند و «بدون عضو» برای متفرقهٔ بانک است (دو حالت
+                متقابلاً انحصاری) */}
+            <div className="space-y-1 text-xs text-zinc-500">
+              <span>عضو</span>
+              <button
+                type="button"
+                onClick={() => setMembersOpen((v) => !v)}
+                aria-expanded={membersOpen}
+                className={`flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm transition ${
+                  membersOpen
+                    ? "border-primary-400 bg-primary-50/60 dark:border-primary-700 dark:bg-primary-950/40"
+                    : "border-zinc-200 dark:border-zinc-800"
+                }`}
               >
-                <option value="all">همه اعضا ({faNum(members.length)} عضو)</option>
-                <option value="">
-                  {form.direction === "withdraw"
-                    ? "برداشت بدون عضو (از موجودی بانک)"
-                    : "واریزی متفرقه (بدون عضو)"}
-                </option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <span className="font-medium text-zinc-700 dark:text-zinc-200">
+                  {memberScopeLabel}
+                </span>
+                <span className="text-[11px] text-zinc-400">
+                  {membersOpen ? "بستن ▲" : "انتخاب ▼"}
+                </span>
+              </button>
+              {membersOpen && (
+                <div className="max-h-56 space-y-0.5 overflow-y-auto rounded-xl border border-zinc-200 p-1.5 dark:border-zinc-800">
+                  <label
+                    className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${
+                      form.noMember
+                        ? "bg-amber-50/80 dark:bg-amber-950/30"
+                        : "hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.noMember}
+                      onChange={toggleNoMember}
+                      className="size-4 accent-amber-600"
+                    />
+                    <span className="text-zinc-700 dark:text-zinc-200">
+                      بدون عضو —{" "}
+                      {form.direction === "withdraw"
+                        ? "برداشت از موجودی بانک"
+                        : "واریزی متفرقهٔ بانک"}
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900">
+                    <input
+                      type="checkbox"
+                      checked={
+                        !form.noMember &&
+                        members.length > 0 &&
+                        form.memberIds.length === members.length
+                      }
+                      onChange={toggleAllMembers}
+                      className="size-4 accent-primary-600"
+                    />
+                    <span className="text-zinc-700 dark:text-zinc-200">
+                      همه اعضا ({faNum(members.length)} نفر)
+                    </span>
+                  </label>
+                  <div className="mx-1 border-t border-dashed border-zinc-200 dark:border-zinc-800" />
+                  {members.map((m) => (
+                    <label
+                      key={m.id}
+                      className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 hover:bg-zinc-50 dark:hover:bg-zinc-900"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={!form.noMember && form.memberIds.includes(m.id)}
+                        onChange={() => toggleMember(m.id)}
+                        className="size-4 accent-primary-600"
+                      />
+                      <span className="text-zinc-700 dark:text-zinc-200">{m.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             {/* جلسه ۵۹ — «نوع تراکنش» در هر دو گروه همان دسته‌ها را دارد:
                 واریز: پرداخت قسط، پرداخت سهام، سود بانک، متفرقه —
                 برداشت: برداشت قسط، برداشت سهام، برداشت سود بانک، برداشت متفرقه */}
@@ -731,7 +839,7 @@ export default function DepositsTab({
                 {(form.direction === "deposit" ? FORM_DEPOSIT_TYPES : FORM_WITHDRAW_TYPES)
                   .filter(
                     (t) =>
-                      !MEMBER_REQUIRED_TYPES.includes(t) || form.memberId !== "",
+                      !MEMBER_REQUIRED_TYPES.includes(t) || targetMemberIds.length > 0,
                   )
                   .map((t) => (
                     <option key={t} value={t}>
@@ -740,7 +848,7 @@ export default function DepositsTab({
                   ))}
               </select>
             </label>
-            {form.memberId === "all" && (
+            {targetMemberIds.length >= 2 && (
               <label className="space-y-1 text-xs text-zinc-500">
                 حالت مبلغ گروهی
                 <select
@@ -801,14 +909,14 @@ export default function DepositsTab({
             )}
           </div>
 
-          {/* جلسه ۵۸ — پیش‌نمایش زندهٔ ثبت گروهی: هر عضو چه مبلغی می‌گیرد */}
-          {form.memberId === "all" && targetAmounts.length > 0 && (
+          {/* جلسه ۵۸/۶۱ — پیش‌نمایش زندهٔ ثبت گروهی: هر عضو چه مبلغی می‌گیرد */}
+          {targetMemberIds.length >= 2 && targetAmounts.length > 0 && (
             <p className="rounded-xl border border-primary-200 bg-primary-50/60 px-3 py-2 text-[11px] leading-5 text-primary-800 dark:border-primary-900 dark:bg-primary-950/40 dark:text-primary-200">
               {form.splitMode === "perMember"
-                ? `هر عضو ${faNum(targetAmounts[0])} تومان — جمع برای ${faNum(members.length)} عضو: ${faNum(targetAmounts[0] * members.length)} تومان`
-                : `مبلغ کل ${faNum(parseAmount(form.amount))} تومان بین ${faNum(members.length)} عضو تقسیم می‌شود — هر عضو حدود ${faNum(targetAmounts[0])} تومان`}
+                ? `هر عضو ${faNum(targetAmounts[0])} تومان — جمع برای ${faNum(targetMemberIds.length)} عضو انتخاب‌شده: ${faNum(targetAmounts[0] * targetMemberIds.length)} تومان`
+                : `مبلغ کل ${faNum(parseAmount(form.amount))} تومان بین ${faNum(targetMemberIds.length)} عضو انتخاب‌شده تقسیم می‌شود — هر عضو حدود ${faNum(targetAmounts[0])} تومان`}
               {" "}
-              (برای ثبت گروهی — تقسیم سود، برداشت یا واریزی متفرقهٔ همه اعضا)
+              (ثبت گروهی برای اعضای انتخاب‌شده — تقسیم سود، برداشت یا واریزی متفرقه)
             </p>
           )}
 
@@ -832,7 +940,7 @@ export default function DepositsTab({
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-900 dark:bg-amber-950/40">
               <p>
                 هشدار تراکنش مشابه:{" "}
-                {form.memberId === "all"
+                {targetMemberIds.length >= 2
                   ? "برای یکی از اعضای هدف، تراکنش مشابهی همین حالا ثبت شده است — "
                   : "تراکنش مشابهی همین حالا ثبت شده است — "}
                 {dupPending.memberName}، {toMoney(Number(dupPending.amount))}،{" "}
@@ -869,7 +977,7 @@ export default function DepositsTab({
             </button>
             <button
               type="button"
-              onClick={openAdd}
+              onClick={() => setFormOpen(false)}
               className="rounded-xl border border-zinc-200 px-4 py-2 text-sm text-zinc-700 dark:border-zinc-800 dark:text-zinc-300"
             >
               بستن فرم
