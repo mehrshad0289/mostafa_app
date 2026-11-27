@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -265,7 +266,7 @@ export default function MobileAppPage() {
         <div key={active} className={navDir === "prev" ? "page-in-prev" : "page-in-next"}>
           {active === "home" &&
             (isAdmin ? (
-              <AdminMobileHome name={me.fullName || me.username} />
+              <AdminMobileHome />
             ) : (
               <DashboardView
                 key={homeKey}
@@ -356,9 +357,30 @@ const ADMIN_MISC_TYPE_LABELS: Record<string, string> = {
   withdraw_share: "برداشت سهام",
   withdraw_installment: "برداشت قسط",
   withdraw_profit: "برداشت سود بانک",
+  share: "پرداخت سهام",
 };
 
-function AdminMobileHome({ name }: { name: string }) {
+/** جلسه ۶۰ — فلش ↑ سبز واریز و ↓ قرمز برداشت برای «آخرین تراکنش‌ها» خانهٔ مدیر
+ *  (طبق طراحی PDF کاربر) */
+function TxArrow({ up }: { up: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5"
+      aria-hidden
+    >
+      {up ? <path d="M12 19V5" /> : <path d="M12 5v14" />}
+      {up ? <path d="M5 12l7-7 7 7" /> : <path d="M19 12l-7 7-7-7" />}
+    </svg>
+  );
+}
+
+function AdminMobileHome() {
   const [summary, setSummary] = useState<{ depositsTotal: number; loansTotal: number; members: number } | null>(null);
   /** جلسه ۵۹ — همهٔ واریزی‌ها برای فهرست تراکنش‌های متفرقهٔ مربع ششم */
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
@@ -417,6 +439,21 @@ function AdminMobileHome({ name }: { name: string }) {
 
   const fa = (v: number) => Number(v || 0).toLocaleString("fa-IR");
   const cash = summary ? summary.depositsTotal - summary.loansTotal : null;
+  /** جلسه ۶۰ — کارت‌های آماری خانهٔ مدیر: کل واریزی‌ها = جمع مبلغ همهٔ رکوردها
+   *  (همه با مبلغ مثبت ذخیره می‌شوند؛ برداشت‌ها با نوع withdraw_* که در موجودی
+   *  منتفی حساب می‌شوند) */
+  const grossDeposits = useMemo(
+    () => deposits.reduce((s: number, d: { amount: number }) => s + (Number(d.amount) || 0), 0),
+    [deposits],
+  );
+  /** جلسه ۶۰ — آخرین تراکنش‌ها برای پنل خانهٔ مدیر (۴ مورد آخر، همهٔ انواع) */
+  const lastTx = useMemo(
+    () =>
+      [...deposits]
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+        .slice(0, 4),
+    [deposits],
+  );
 
   /** جلسه ۵۹ — ردیف‌های تراکنش متفرقهٔ بانک (همهٔ اعضا + بدون عضو) */
   const miscRows = useMemo(
@@ -476,14 +513,64 @@ function AdminMobileHome({ name }: { name: string }) {
 
   return (
     <div className="space-y-4 px-4 pt-4">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-600 via-primary-700 to-primary-900 p-5 text-white shadow-lg shadow-primary-800/30">
-        <div aria-hidden className="pointer-events-none absolute -left-8 -top-10 size-32 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.2), transparent)" }} />
-        <div aria-hidden className="pointer-events-none absolute -bottom-12 right-4 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
-        <p className="relative text-xs text-white/70">سلام، {name}</p>
-        <p className="relative mt-1 text-sm font-medium text-white/90">موجودی بانک</p>
-        <p className="relative mt-1 text-2xl font-black tracking-tight">
-          {cash === null ? "…" : `${fa(cash)} تومان`}
-        </p>
+      {/* جلسه ۶۰ — هیرو خوش‌آمدگویی مدیر با تصویر سه‌بعدی طبق طراحی PDF
+          («سلام مدیر عزیز / به سامانه صندوق خانوادگی خوش آمدید») + موجودی بانک */}
+      <div className="relative overflow-hidden rounded-3xl shadow-md shadow-primary-900/20">
+        <img src="/hero-banner.png" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-l from-primary-950/80 via-primary-900/35 to-transparent" />
+        <div className="relative px-4 py-6 text-white">
+          <p className="text-base font-bold drop-shadow-sm">سلام مدیر عزیز</p>
+          <p className="mt-1 text-[11px] text-white/85">به سامانه صندوق خانوادگی خوش آمدید</p>
+          <p className="mt-3 text-[11px] text-white/80">موجودی بانک</p>
+          <p className="mt-0.5 text-xl font-black tracking-tight drop-shadow-sm">
+            {cash === null ? "…" : `${fa(cash)} تومان`}
+          </p>
+        </div>
+      </div>
+
+      {/* جلسه ۶۰ — چهار کارت آماری خانهٔ مدیر طبق PDF: تعداد اعضا / موجودی کل
+          صندوق / کل واریزی‌ها / کل تسهیلات پرداختی، با آیکون رنگی */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-3xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex items-center gap-2">
+            <ClayIcon name="users" size={30} />
+            <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">تعداد اعضا</p>
+          </div>
+          <p className="mt-2 text-sm font-black text-zinc-800 dark:text-zinc-100">
+            {summary ? fa(summary.members) : "…"}
+            <span className="mr-1 text-[10px] font-normal text-zinc-400">نفر</span>
+          </p>
+        </div>
+        <div className="rounded-3xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex items-center gap-2">
+            <ClayIcon name="wallet" size={30} />
+            <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">موجودی کل صندوق</p>
+          </div>
+          <p className="mt-2 text-sm font-black text-zinc-800 dark:text-zinc-100">
+            {cash === null ? "…" : fa(cash)}
+            <span className="mr-1 text-[10px] font-normal text-zinc-400">تومان</span>
+          </p>
+        </div>
+        <div className="rounded-3xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex items-center gap-2">
+            <ClayIcon name="deposit" size={30} />
+            <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">کل واریزی‌ها</p>
+          </div>
+          <p className="mt-2 text-sm font-black text-zinc-800 dark:text-zinc-100">
+            {summary ? fa(grossDeposits) : "…"}
+            <span className="mr-1 text-[10px] font-normal text-zinc-400">تومان</span>
+          </p>
+        </div>
+        <div className="rounded-3xl border border-zinc-200/70 bg-white p-3 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex items-center gap-2">
+            <ClayIcon name="banknote" size={30} />
+            <p className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400">کل تسهیلات پرداختی</p>
+          </div>
+          <p className="mt-2 text-sm font-black text-zinc-800 dark:text-zinc-100">
+            {summary ? fa(summary.loansTotal) : "…"}
+            <span className="mr-1 text-[10px] font-normal text-zinc-400">تومان</span>
+          </p>
+        </div>
       </div>
 
       {/* مربع‌های سه‌بعدی خانه مدیر — بدون عدد؛ اطلاعات هر مربع فقط با لمس آن؛
@@ -680,6 +767,54 @@ function AdminMobileHome({ name }: { name: string }) {
           )}
         </div>
       )}
+
+      {/* جلسه ۶۰ — پنل «آخرین تراکنش‌ها» خانهٔ مدیر طبق طراحی PDF:
+          ۴ تراکنش آخر با فلش سبز/قرمز، نام عضو، تاریخ شمسی و ±مبلغ */}
+      <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="flex items-center gap-2">
+          <ClayIcon name="clock" size={26} />
+          <h3 className="text-sm font-bold">آخرین تراکنش‌ها</h3>
+        </div>
+        <div className="mt-3 space-y-2">
+          {lastTx.length === 0 && (
+            <p className="rounded-2xl border border-zinc-200 px-4 py-5 text-center text-xs leading-6 text-zinc-500 dark:border-zinc-800">
+              هنوز تراکنشی ثبت نشده است؛ از «ثبت تراکنش» در تب تراکنش‌ها شروع کنید.
+            </p>
+          )}
+          {lastTx.map((d) => {
+            const isUp = !isWithdrawType(d.type);
+            return (
+              <div key={d.id} className="flex items-center gap-2.5">
+                <span
+                  className={`grid size-7 shrink-0 place-items-center rounded-full ${
+                    isUp
+                      ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400"
+                      : "bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400"
+                  }`}
+                >
+                  <TxArrow up={isUp} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+                    {ADMIN_MISC_TYPE_LABELS[d.type] ?? "تراکنش"}
+                  </p>
+                  <p className="mt-0.5 truncate text-[10px] text-zinc-500 dark:text-zinc-400">
+                    {[d.memberName || "بدون عضو", faDate(d.createdAt)].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <p
+                  className={`shrink-0 text-[12.5px] font-black ${
+                    isUp ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
+                  }`}
+                >
+                  {isUp ? "+" : "−"}
+                  {fa(d.amount)}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <p className="text-center text-[11px] leading-6 text-zinc-400">
         مدیریت اعضا، وام‌ها و تنظیمات بانک در پنل مدیریت کامل انجام می‌شود؛

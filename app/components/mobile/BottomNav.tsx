@@ -1,6 +1,6 @@
 "use client";
 
-import ClayIcon, { type ClayIconName, toneForSeed } from "./ClayIcon";
+import ClayIcon, { type ClayIconName } from "./ClayIcon";
 
 /** جلسه ۵۲: نوار پایین ۳ آیتمی به ترتیب درخواست کاربر — خانه، تراکنش‌ها،
  *  خدمات؛ «تنظیمات» حذف شد و همهٔ آیتم‌هایش به‌صورت مربع در «خدمات» آمد */
@@ -21,6 +21,9 @@ type BottomNavProps = {
  *  با قرص فعال تینت برند، آیکون فعال رنگی و آیکون/برچسب غیرفعال خاکستری؛
  *  نوار باریک برند بالای نوار حفظ شد تا هویت برند بماند (جلسه ۳۷: آبی آسمانی).
  *  جلسه ۵۲: ترتیب جدید خانه ← تراکنش‌ها ← خدمات (بدون تنظیمات). */
+/** جلسه ۶۰ — نوار پایین طبق طراحی PDF کاربر: آیتم فعال = مربع گرد گرادیان آبی
+ *  با گلیف سفید + برچسب آبی پررنگ؛ غیرفعال = آیکون/برچسب خاکستری.
+ *  جلسه ۵۲: ترتیب خانه ← تراکنش‌ها ← خدمات حفظ شده (بدون تغییر ساختار). */
 export default function BottomNav({ active, onChange }: BottomNavProps) {
   return (
     <nav
@@ -40,25 +43,29 @@ export default function BottomNav({ active, onChange }: BottomNavProps) {
               onClick={() => onChange(item.key)}
               aria-current={isActive ? "page" : undefined}
               className={`clay-press flex flex-1 flex-col items-center gap-1 rounded-2xl px-1 py-1 transition-colors ${
-                isActive
-                  ? "bg-primary-50 ring-1 ring-inset ring-primary-200 dark:bg-primary-950/60 dark:ring-primary-800"
-                  : ""
+                isActive ? "" : "opacity-90"
               }`}
             >
               {isActive ? (
-                <ClayIcon name={item.icon} size={40} tone={toneForSeed(item.key)} />
+                <>
+                  <span
+                    aria-hidden
+                    className="grid size-10 place-items-center rounded-2xl bg-gradient-to-tl from-primary-700 to-primary-500 shadow-md shadow-primary-600/40"
+                  >
+                    <ClayIcon name={item.icon} size={22} ghost ghostColor="#fff" />
+                  </span>
+                  <span className="text-[10px] font-bold leading-3 text-primary-700 dark:text-primary-300">
+                    {item.label}
+                  </span>
+                </>
               ) : (
-                <ClayIcon name={item.icon} size={40} ghost ghostColor="#94a3b8" />
+                <>
+                  <span className="grid size-10 place-items-center">
+                    <ClayIcon name={item.icon} size={36} ghost ghostColor="#94a3b8" />
+                  </span>
+                  <span className="text-[10px] leading-3 text-zinc-500 dark:text-zinc-400">{item.label}</span>
+                </>
               )}
-              <span
-                className={`text-[10px] leading-3 transition-colors ${
-                  isActive
-                    ? "font-bold text-primary-700 dark:text-primary-300"
-                    : "text-zinc-500 dark:text-zinc-400"
-                }`}
-              >
-                {item.label}
-              </span>
             </button>
           );
         })}

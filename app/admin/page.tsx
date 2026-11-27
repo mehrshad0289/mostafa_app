@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -6,7 +7,6 @@ import AdminShell from "@/app/components/admin/AdminShell";
 import ClayIcon, { toneForIcon, type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
 import { useAlertDismissed, useAlertSetVisible } from "@/app/components/useAlertDismiss";
 import { jalaliParts } from "@/lib/bank";
-import type { PublicUser } from "@/lib/db";
 
 /** نمایش اعداد به فارسی با جداکننده هزارگان */
 function faMoney(value: number): string {
@@ -281,14 +281,16 @@ function detailValueTone(variant: TileVariant): string {
 }
 
 /**
- * داشبورد ادمین — هیرو گرادیان سرمه‌ای با موجودی بانک + مربع‌های سه‌بعدی
- * آماری که اعدادشان فقط بعد از لمس دیده می‌شود + اعلان درخواست‌های خوانده‌نشده.
+ * داشبورد ادمین — جلسه ۶۰: هیرو تصویری خوش‌آمدگویی طبق طراحی PDF + ۴ کارت آماری
+ * (اعضا / موجودی صندوق / واریزی‌ها / تسهیلات) + مربع‌های سه‌بعدی لمسی + اعلان‌ها.
  */
 export default function AdminDashboardPage() {
-  const [me, setMe] = useState<PublicUser | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [storage, setStorage] = useState<"supabase" | "file" | "unknown">("unknown");
+  /** جلسه ۶۰ — کارت‌های آماری خانهٔ مدیر: کل واریزی‌ها (جمع مبلغ همهٔ رکوردها)
+   *  و کل تسهیلات پرداختی (جمع مبلغ پرداخت‌شده وام‌ها) */
+  const [money, setMoney] = useState<{ deposits: number; loans: number } | null>(null);
   /** مربع لمس‌شده — جزئیاتش در کارت زیر شبکه مربع‌ها دیده می‌شود */
   const [openTile, setOpenTile] = useState<TileKey | null>(null);
 
@@ -308,17 +310,24 @@ export default function AdminDashboardPage() {
 
   const load = useCallback(async () => {
     try {
-      const [d, s, m] = await Promise.all([
+      const [d, s, dep, lo] = await Promise.all([
         fetch("/api/admin/dashboard").then((r) => (r.ok ? r.json() : null)),
         fetch("/api/admin/storage-status").then((r) =>
           r.ok ? r.json() : { mode: "unknown" },
         ),
-        fetch("/api/auth/me").then((r) => (r.ok ? r.json() : { user: null })),
+        // جلسه ۶۰ — واریزی‌ها و وام‌ها برای دو کارت «کل واریزی‌ها / کل تسهیلات»
+        fetch("/api/bank/deposits").then((r) => (r.ok ? r.json() : [])),
+        fetch("/api/bank/loans").then((r) => (r.ok ? r.json() : [])),
       ]);
       if (d) setData(d as DashboardData);
+      const deposits: { amount: number }[] = Array.isArray(dep) ? dep : [];
+      const loans: { disbursedAmount: number }[] = Array.isArray(lo) ? lo : [];
+      setMoney({
+        deposits: deposits.reduce((x, v) => x + (Number(v.amount) || 0), 0),
+        loans: loans.reduce((x, v) => x + (Number(v.disbursedAmount) || 0), 0),
+      });
       const mode = (s as { mode?: string }).mode;
       setStorage(mode === "supabase" || mode === "file" ? mode : "unknown");
-      setMe((m.user as PublicUser | null) ?? null);
     } catch {
       // نمایش داشبورد با مقادیر خالی بهتر از ریزش کامل است
     } finally {
@@ -333,7 +342,6 @@ export default function AdminDashboardPage() {
 
   const fund = data?.fund;
   const unread = data?.unread;
-  const name = me?.fullName || me?.username || "مدیر";
 
   function toggleTile(key: TileKey) {
     setOpenTile((cur) => (cur === key ? null : key));
@@ -491,17 +499,16 @@ export default function AdminDashboardPage() {
   return (
     <AdminShell>
       <div className="space-y-6">
-        {/* هیرو گرادیان موجودی بانک — هم‌سبک با هدر تراکنش‌ها و خانه مدیر در پوسته یوزر
-            (جلسه ۳۳: یک درجه روشن‌تر + درخشش‌های رنگی پالت لوگو) */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-bl from-primary-600 via-primary-700 to-primary-900 p-4 text-white shadow-lg shadow-primary-800/30 sm:p-5">
-          {/* درخشش‌های تزئینی — جلسه ۳۵: radial-gradient به‌جای blur زنده (سرعت اسکرول) */}
-          <div aria-hidden className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(56,189,248,0.2), transparent)" }} />
-          <div aria-hidden className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(125,211,252,0.2), transparent)" }} />
-          <div aria-hidden className="pointer-events-none absolute -top-10 right-1/4 size-28 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(186,230,253,0.15), transparent)" }} />
-          <div className="relative">
-            <p className="text-xs text-white/70">سلام، {name}</p>
-            <p className="mt-1 text-sm font-medium text-white/90">موجودی کلی بانک</p>
-            <p className="mt-1 text-2xl font-black leading-8 tracking-tight">
+        {/* جلسه ۶۰ — هیرو خوش‌آمدگویی با تصویر سه‌بعدی طبق طراحی PDF کاربر:
+            «سلام مدیر عزیز / به سامانه صندوق خانوادگی خوش آمدید» + موجودی بانک */}
+        <div className="relative overflow-hidden rounded-3xl shadow-lg shadow-primary-900/20">
+          <img src="/hero-banner.png" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-l from-primary-950/80 via-primary-900/35 to-transparent" />
+          <div className="relative px-5 py-7 text-white">
+            <p className="text-lg font-bold drop-shadow-sm">سلام مدیر عزیز</p>
+            <p className="mt-1 text-xs text-white/85">به سامانه صندوق خانوادگی خوش آمدید</p>
+            <p className="mt-4 text-[11px] text-white/80">موجودی کلی بانک</p>
+            <p className="mt-1 text-2xl font-black leading-8 tracking-tight drop-shadow-sm">
               {loaded && fund ? (
                 <>
                   {faMoney(fund.balance)} <span className="text-base font-bold text-white/80">تومان</span>
@@ -509,6 +516,51 @@ export default function AdminDashboardPage() {
               ) : (
                 "…"
               )}
+            </p>
+          </div>
+        </div>
+
+        {/* جلسه ۶۰ — چهار کارت آماری خانهٔ مدیر طبق PDF (رنگ‌های بنفش/سبز/آبی/نارنجی):
+            تعداد اعضا / موجودی کل صندوق / کل واریزی‌ها / کل تسهیلات پرداختی */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-3xl border border-zinc-200/70 bg-white p-4 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center gap-2">
+              <ClayIcon name="users" size={34} />
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">تعداد اعضا</p>
+            </div>
+            <p className="mt-2.5 text-lg font-black text-zinc-800 dark:text-zinc-100">
+              {loaded && fund ? faMoney(fund.members) : "…"}
+              <span className="mr-1 text-[11px] font-normal text-zinc-400">نفر</span>
+            </p>
+          </div>
+          <div className="rounded-3xl border border-zinc-200/70 bg-white p-4 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center gap-2">
+              <ClayIcon name="wallet" size={34} />
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">موجودی کل صندوق</p>
+            </div>
+            <p className="mt-2.5 text-lg font-black text-zinc-800 dark:text-zinc-100">
+              {loaded && fund ? faMoney(fund.balance) : "…"}
+              <span className="mr-1 text-[11px] font-normal text-zinc-400">تومان</span>
+            </p>
+          </div>
+          <div className="rounded-3xl border border-zinc-200/70 bg-white p-4 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center gap-2">
+              <ClayIcon name="deposit" size={34} />
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">کل واریزی‌ها</p>
+            </div>
+            <p className="mt-2.5 text-lg font-black text-zinc-800 dark:text-zinc-100">
+              {money ? faMoney(money.deposits) : "…"}
+              <span className="mr-1 text-[11px] font-normal text-zinc-400">تومان</span>
+            </p>
+          </div>
+          <div className="rounded-3xl border border-zinc-200/70 bg-white p-4 shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center gap-2">
+              <ClayIcon name="banknote" size={34} />
+              <p className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400">کل تسهیلات پرداختی</p>
+            </div>
+            <p className="mt-2.5 text-lg font-black text-zinc-800 dark:text-zinc-100">
+              {money ? faMoney(money.loans) : "…"}
+              <span className="mr-1 text-[11px] font-normal text-zinc-400">تومان</span>
             </p>
           </div>
         </div>

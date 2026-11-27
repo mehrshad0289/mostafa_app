@@ -267,33 +267,51 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       </header>
 
       <div className="mx-auto flex w-full max-w-6xl flex-1 gap-6 px-4 py-6">
-        {/* منوی کناری دسکتاپ — کارت سفالی با آیکون‌های سه‌بعدی */}
+        {/* منوی کناری دسکتاپ — جلسه ۶۰: پنل گرادیان آبی طبق طراحی PDF کاربر:
+            لوگوی «فم بانک» بالای پنل، آیتم فعال قرص سفید با متن آبی، خروج پایین */}
         <aside className="hidden w-60 shrink-0 md:block" data-noprint>
-          <nav className="sticky top-6 space-y-1 rounded-3xl border border-zinc-200/80 bg-white p-2 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            {MENU.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`clay-press flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm transition ${
-                    active
-                      ? "bg-gradient-to-l from-primary-700 to-primary-500 font-semibold text-white shadow-md shadow-primary-600/25"
-                      : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-900"
-                  }`}
-                >
-                  {active ? (
-                    <ClayIcon name={item.icon} size={30} ghost ghostColor="#fff" />
-                  ) : (
+          <nav className="sticky top-6 flex flex-col rounded-3xl bg-gradient-to-b from-primary-600 via-primary-700 to-primary-900 p-3 text-white shadow-lg shadow-primary-900/30">
+            <div className="flex items-center gap-2.5 px-2 pb-3 pt-1">
+              <HouseLogo size={40} />
+              <div className="min-w-0">
+                <h2 className="text-[15px] font-bold leading-5">فَم بانک</h2>
+                <p dir="ltr" className="mt-0.5 text-right text-[10px] font-medium leading-3 tracking-wide text-white/60">
+                  Fam Bank
+                </p>
+              </div>
+            </div>
+            <div className="h-px bg-white/15" aria-hidden />
+            <div className="flex-1 space-y-1 py-2">
+              {MENU.map((item) => {
+                const active = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`clay-press flex items-center gap-2.5 rounded-2xl px-3 py-2.5 text-sm transition ${
+                      active
+                        ? "bg-white font-bold text-primary-800 shadow-md shadow-black/20"
+                        : "text-white/85 hover:bg-white/15 hover:text-white"
+                    }`}
+                  >
                     <ClayIcon name={item.icon} size={30} ghost ghostColor="currentColor" />
-                  )}
-                  <span className="flex-1">{item.label}</span>
-                  {item.badgeKind === "requests" && <UnreadBadge count={unread} />}
-                  {item.badgeKind === "messages" && <UnreadBadge count={msgUnread} />}
-                </Link>
-              );
-            })}
-            <p className="px-3 pb-1 pt-2 text-[10px] leading-5 text-zinc-400">
+                    <span className="flex-1 truncate">{item.label}</span>
+                    {item.badgeKind === "requests" && <UnreadBadge count={unread} />}
+                    {item.badgeKind === "messages" && <UnreadBadge count={msgUnread} />}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="h-px bg-white/15" aria-hidden />
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="clay-press mt-2 flex items-center gap-2.5 rounded-2xl bg-red-500/20 px-3 py-2.5 text-sm font-semibold text-red-100 ring-1 ring-inset ring-red-300/30 transition hover:bg-red-500/30 hover:text-white"
+            >
+              <ClayIcon name="logout" size={26} ghost ghostColor="currentColor" />
+              خروج
+            </button>
+            <p className="px-3 pb-1 pt-2 text-[10px] leading-5 text-white/55">
               پنل مدیریت فَم بانک — نسخه وب
             </p>
           </nav>

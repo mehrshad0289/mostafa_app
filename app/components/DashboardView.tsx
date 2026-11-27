@@ -82,6 +82,39 @@ const STATUS_CLASS: Record<PaymentRequest["status"], string> = {
   rejected: "bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300",
 };
 
+/** جلسه ۶۰ — برچسب فارسی انواع دفتری برای «آخرین فعالیت‌ها» خانهٔ یوزر
+ *  (طبق طراحی PDF کاربر: فهرست آخرین فعالیت‌ها با فلش سبز/قرمز) */
+const ACTIVITY_LABELS: Record<string, string> = {
+  share: "پرداخت سهام",
+  misc: "واریز متفرقه",
+  profit: "تقسیم سود",
+  loan_interest: "سود بانک",
+  installment: "پرداخت قسط",
+  withdraw_misc: "برداشت متفرقه",
+  withdraw_share: "برداشت سهام",
+  withdraw_installment: "برداشت قسط",
+  withdraw_profit: "برداشت سود بانک",
+};
+
+/** فلش ↑ سبز برای واریز و ↓ قرمز برای برداشت — گلیف SVG کوچک (جلسه ۶۰) */
+function ActivityArrow({ up }: { up: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5"
+      aria-hidden
+    >
+      {up ? <path d="M12 19V5" /> : <path d="M12 5v14" />}
+      {up ? <path d="M5 12l7-7 7 7" /> : <path d="M19 12l-7 7-7-7" />}
+    </svg>
+  );
+}
+
 function faMoney(value: number): string {
   return Number(value || 0).toLocaleString("fa-IR");
 }
@@ -518,6 +551,37 @@ export default function DashboardView({
     return rows;
   }, [loans]);
 
+  /** جلسه ۶۰ (ظاهر جدید خانهٔ یوزر طبق طراحی PDF کاربر): موجودی سهام = جمع
+   *  واریزی‌های نوع share خود عضو — همان تعریف «موجودی سهام» جلسه ۵۴ */
+  const shareBalance = useMemo(
+    () =>
+      deposits
+        .filter((d) => d.type === "share")
+        .reduce((s, d) => s + (Number(d.amount) || 0), 0),
+    [deposits],
+  );
+  /** جمع اقساط پرداخت‌نشدهٔ وام‌های در جریان — «مانده اقساط» کارت آماری خانه */
+  const installmentsRemaining = useMemo(
+    () =>
+      installmentRows
+        .filter((r) => !r.paid && r.loanStatus === "active")
+        .reduce((s, r) => s + r.amount, 0),
+    [installmentRows],
+  );
+  /** خالص متفرقه برای کارت آماری خانه (واریز − برداشت) */
+  const miscNet = miscSummary.inSum - miscSummary.outSum;
+  /** آخرین فعالیت‌های عضو — ۴ تراکنش آخر با تاریخ شمسی و فلش سبز/قرمز */
+  const recentActivity = useMemo(
+    () =>
+      [...deposits]
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+        .slice(0, 4),
+    [deposits],
+  );
+  /** نام کوچک برای هیرو خوش‌آمدگویی («سلام علی عزیز» طبق PDF) */
+  const firstName =
+    (member?.name || me?.fullName || me?.username || "").trim().split(/\s+/)[0] || "دوست عزیز";
+
   /**
    * جلسه ۳۸ — یادآوری سررسید اقساط: هر قسط پرداخت‌نشدهٔ وام‌های در جریان
    * بر اساس فاصلهٔ سررسیدش دسته‌بندی می‌شود. قسطی که پرداختش (رسیدش) ثبت
@@ -936,10 +1000,60 @@ export default function DashboardView({
         )}
         {tab === "tiles" && (
           <section className="space-y-4">
-            {/* جلسه ۳۲: هر مربع تینت پاستلی هماهنگ با رنگ آیکونش می‌گیرد تا خانه
-                زنده‌تر دیده شود؛ ساختار و رفتار لمس مستقیم بدون تغییر مانده است.
-                جلسه ۵۹ (به درخواست کاربر): ۴ مربع/آیکون خانه کمی کوچکتر شدند —
-                شبکه جمع‌وجورتر (max-w) و آیکون ۵۴ → ۴۴ */}
+            {/* جلسه ۶۰ — بازطراحی خانهٔ یوزر طبق طراحی PDF کاربر:
+                ۱) بنر خوش‌آمدگویی با تصویر سه‌بعدی (گوشی + سپر + برگ‌ها) */}
+            <div className="relative overflow-hidden rounded-3xl shadow-md shadow-primary-900/20">
+              <img src="/hero-banner.png" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+              <div aria-hidden className="absolute inset-0 bg-gradient-to-l from-primary-950/80 via-primary-900/35 to-transparent" />
+              <div className="relative px-4 py-6 text-white">
+                <p className="text-base font-bold drop-shadow-sm">سلام {firstName} عزیز</p>
+                <p className="mt-1 text-[11px] text-white/85">به فَم بانک خوش آمدید</p>
+              </div>
+            </div>
+
+            {/* ۲) کارت موجودی با تصویر کیف پول سه‌بعدی — موجودی سهام (تعریف جلسه ۵۴) */}
+            <div className="relative overflow-hidden rounded-3xl shadow-md shadow-primary-900/25">
+              <img src="/wallet-card.png" alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+              <div aria-hidden className="absolute inset-0 bg-gradient-to-l from-primary-950/75 via-primary-900/30 to-transparent" />
+              <div className="relative px-4 py-4 text-white">
+                <p className="text-[11px] text-white/80">موجودی شما</p>
+                <p className="mt-1 text-2xl font-black tracking-tight drop-shadow-sm">
+                  {member ? `${faMoney(shareBalance)} تومان` : "…"}
+                </p>
+                <p className="mt-0.5 text-[10px] text-white/70">جمع واریزی‌های سهام شما</p>
+              </div>
+            </div>
+
+            {/* ۳) سه کارت آماری کوچک (سهام / مانده اقساط / متفرقه) */}
+            <div className="grid grid-cols-3 gap-2.5">
+              <div className="rounded-3xl border border-zinc-200/70 bg-white p-2.5 text-center shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+                <ClayIcon name="coins" size={34} />
+                <p className="mt-1.5 text-[9.5px] font-medium leading-3 text-zinc-500 dark:text-zinc-400">سهام شما</p>
+                <p className="mt-0.5 truncate text-[11px] font-black text-primary-700 dark:text-primary-300">
+                  {member ? faMoney(shareBalance) : "…"}
+                </p>
+                <p className="text-[8.5px] leading-3 text-zinc-400">تومان</p>
+              </div>
+              <div className="rounded-3xl border border-zinc-200/70 bg-white p-2.5 text-center shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+                <ClayIcon name="banknote" size={34} />
+                <p className="mt-1.5 text-[9.5px] font-medium leading-3 text-zinc-500 dark:text-zinc-400">مانده اقساط</p>
+                <p className="mt-0.5 truncate text-[11px] font-black text-primary-700 dark:text-primary-300">
+                  {member ? faMoney(installmentsRemaining) : "…"}
+                </p>
+                <p className="text-[8.5px] leading-3 text-zinc-400">تومان</p>
+              </div>
+              <div className="rounded-3xl border border-zinc-200/70 bg-white p-2.5 text-center shadow-md shadow-primary-900/5 dark:border-zinc-800 dark:bg-zinc-950">
+                <ClayIcon name="wallet" size={34} />
+                <p className="mt-1.5 text-[9.5px] font-medium leading-3 text-zinc-500 dark:text-zinc-400">متفرقه</p>
+                <p className="mt-0.5 truncate text-[11px] font-black text-primary-700 dark:text-primary-300">
+                  {member ? faMoney(miscNet) : "…"}
+                </p>
+                <p className="text-[8.5px] leading-3 text-zinc-400">تومان (خالص)</p>
+              </div>
+            </div>
+
+            {/* ۴) مربع‌های سر فصل‌ها — رفتار لمس مستقیم بدون تغییر (جلسه ۵۹:
+                شبکه جمع‌وجور max-w و آیکون ۴۴ حفظ شد) */}
             <div className="mx-auto grid w-full max-w-[21rem] grid-cols-2 gap-3">
               {HOME_TILES.map((t) => {
                 const [toneA, toneB] = toneForIcon(t.icon);
@@ -967,6 +1081,7 @@ export default function DashboardView({
                 );
               })}
             </div>
+
             {/* جلسه ۴۰ — کارت‌های یادآوری صفحهٔ اصلی: فقط ۵ روز قبل از سررسید؛
                 با دکمهٔ بستن — بعد از بستن، یادآوری فقط در بخش مربوطه دیده می‌شود */}
             {homeShareReminder && (
@@ -996,6 +1111,51 @@ export default function DashboardView({
                 openLabel="رفتن به بخش تسهیلات"
               />
             )}
+
+            {/* ۵) آخرین فعالیت‌ها — ۴ تراکنش آخر با فلش سبز/قرمز و تاریخ شمسی */}
+            <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="flex items-center gap-2">
+                <ClayIcon name="clock" size={26} />
+                <h3 className="text-sm font-bold">آخرین فعالیت‌ها</h3>
+              </div>
+              <div className="mt-3 space-y-2">
+                {recentActivity.length === 0 && (
+                  <p className="rounded-2xl border border-zinc-200 px-4 py-5 text-center text-xs leading-6 text-zinc-500 dark:border-zinc-800">
+                    هنوز فعالیتی ثبت نشده است؛ پرداخت‌ها و واریزی‌های شما این‌جا دیده می‌شود.
+                  </p>
+                )}
+                {recentActivity.map((d) => {
+                  const isUp = !isWithdrawType(d.type);
+                  return (
+                    <div key={d.id} className="flex items-center gap-2.5">
+                      <span
+                        className={`grid size-7 shrink-0 place-items-center rounded-full ${
+                          isUp
+                            ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400"
+                            : "bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400"
+                        }`}
+                      >
+                        <ActivityArrow up={isUp} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+                          {ACTIVITY_LABELS[d.type] ?? "تراکنش"}
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">{faDate(d.createdAt)}</p>
+                      </div>
+                      <p
+                        className={`shrink-0 text-[12.5px] font-black ${
+                          isUp ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
+                        }`}
+                      >
+                        {isUp ? "+" : "−"}
+                        {faMoney(d.amount)}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
             <p className="text-center text-[11px] leading-6 text-zinc-400">
               برای هر بخش فقط مربع آن را لمس کنید تا مستقیم وارد همان بخش شوید.
             </p>
