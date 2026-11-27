@@ -23,13 +23,22 @@ type TxDirection = "in" | "out" | "pending";
 
 type TxRow = {
   id: string;
-  kind: "share" | "loan_interest" | "profit" | "misc" | "installment" | "loan" | "pending-share" | "pending-installment";
+  kind:
+    | "share"
+    | "loan_interest"
+    | "profit"
+    | "misc"
+    | "withdraw_misc"
+    | "installment"
+    | "loan"
+    | "pending-share"
+    | "pending-installment";
   direction: TxDirection;
   title: string;
   subtitleName?: string;
   amount: number; // تومان
   at: string;
-  /** جلسه ۵۰ — رکورد مبدأ برای مودال جزئیات لمس تراکنش */
+  /** رکورد مبدأ برای مودال جزئیات لمس تراکنش */
   deposit?: BankDeposit;
   loan?: BankLoan;
   payment?: BankLoanPayment;
@@ -42,15 +51,20 @@ const DEPOSIT_META: Record<BankDeposit["type"], { icon: ClayIconName; tone: Clay
   loan_interest: { icon: "banknote", tone: ["#FFB3C6", "#E85E8A"] },
   profit: { icon: "chart", tone: ["#8FE0DC", "#2FA8A2"] },
   misc: { icon: "wallet", tone: ["#B5EBA5", "#54B854"] },
+  withdraw_misc: { icon: "withdraw", tone: ["#FFB8A8", "#E06848"] },
 };
 
-/** نام کانونی هر نوع واریز — جلسه ۲۶ (واریز سهام بانک، سود بانک، واریز متفرقه) */
+/** نام کانونی هر نوع واریز — جلسه ۲۶ + جلسه ۵۸ (برداشت متفرقه) */
 const DEPOSIT_KIND_LABEL: Record<BankDeposit["type"], string> = {
   share: "واریز سهام بانک",
   loan_interest: "سود بانک",
   profit: "سود بانک",
   misc: "واریز متفرقه",
+  withdraw_misc: "برداشت متفرقه",
 };
+
+/** جلسه ۵۸ — انواع «جدا از سهام و اقساط» برای بخش متفرقه و برچسب بدهکار/طلبکار */
+const MISC_FAMILY_KINDS = new Set<TxRow["kind"]>(["misc", "profit", "loan_interest", "withdraw_misc"]);
 
 function fa(value: number): string {
   return Number(value || 0).toLocaleString("fa-IR");
@@ -84,6 +98,10 @@ function txDescription(row: TxRow, isAdmin: boolean): string {
     return isAdmin
       ? "واریز بابت پرداخت قسط تسهیلات توسط عضو."
       : "برداشت بابت پرداخت قسط تسهیلات از حساب شما.";
+  if (row.kind === "withdraw_misc")
+    return isAdmin
+      ? "برداشت متفرقه توسط مدیر ثبت شد."
+      : "برداشت متفرقه از حساب شما توسط مدیر ثبت شد.";
   return isAdmin ? "واریز عضو به حساب بانک." : "واریز به حساب شما.";
 }
 
@@ -146,6 +164,15 @@ function detailLines(row: TxRow, isAdmin: boolean): { label: string; value: stri
     });
   } else {
     lines.push({ label: "وضعیت", value: "در انتظار تأیید مدیر", tone: "amber" });
+  }
+  // جلسه ۵۸ — تراکنش‌های جدا از سهام و اقساط (متفرقه/سود) در پنل یوزر با
+  // برچسب دفتری بدهکار (واریز) یا طلبکار (برداشت) مشخص می‌شوند (به درخواست کاربر)
+  if (!isAdmin && MISC_FAMILY_KINDS.has(row.kind)) {
+    lines.push({
+      label: "وضعیت حساب",
+      value: row.direction === "out" ? "طلبکار" : "بدهکار",
+      tone: row.direction === "out" ? "red" : "green",
+    });
   }
   if (row.deposit) {
     if (row.deposit.title && row.deposit.title !== typeLabel) {
@@ -241,6 +268,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
     // نوع/عنوان/دوره و بقیهٔ توضیحات در مودال جزئیاتِ بعد از لمس دیده می‌شود
     deposits.forEach((d) => {
       const kindLabel = DEPOSIT_KIND_LABEL[d.type || "share"];
+      const isWithdraw = d.type === "withdraw_misc";
       const extra = isAdmin
         ? d.memberName || undefined
         : d.title && d.title !== kindLabel
@@ -249,8 +277,10 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
       out.push({
         id: `d-${d.id}`,
         kind: d.type,
-        direction: "in",
-        title: "واریز",
+        // جلسه ۵۸ — برداشت متفرقه برای هر دو نقش «برداشت» قرمز است؛
+        // بقیهٔ واریزی‌ها «واریز» سبز
+        direction: isWithdraw ? "out" : "in",
+        title: isWithdraw ? "برداشت" : "واریز",
         subtitleName: extra,
         amount: d.amount,
         at: d.createdAt,
@@ -321,15 +351,22 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
     return out;
   }, [deposits, loans, requests, isAdmin]);
 
-  /** موجودی سر فصل (تومان) — جلسه ۵۴:
-   *  ادمین: موجودی بانک (واریزی‌ها منهای تسهیلات پرداختی)؛
-   *  عضو: موجودی سهام = جمع واریزی‌های «سهام» خودش (اعتبار طبق BANK_SPEC —
-   *  واریزی‌های متفرقه/سود دیگر داخلش نیست؛ برای عضو deposits فقط واریزی‌های خودش است). */
+  /**
+   * موجودی سر فصل (تومان) — جلسه ۵۴:
+   * ادمین: موجودی بانک (واریزی‌ها منهای تسهیلات پرداختی؛ جلسه ۵۸: منهای
+   * برداشت‌های متفرقه)؛
+   * عضو: موجودی سهام = جمع واریزی‌های «سهام» خودش (اعتبار طبق BANK_SPEC —
+   * واریزی‌های متفرقه/سود دیگر داخلش نیست؛ برای عضو deposits فقط واریزی‌های خودش است). */
   const balanceToman = useMemo(() => {
     if (isAdmin) {
-      const dep = deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+      const dep = deposits
+        .filter((d) => d.type !== "withdraw_misc")
+        .reduce((s, d) => s + (Number(d.amount) || 0), 0);
+      const withdrawals = deposits
+        .filter((d) => d.type === "withdraw_misc")
+        .reduce((s, d) => s + (Number(d.amount) || 0), 0);
       const out = loans.reduce((s, l) => s + (Number(l.disbursedAmount) || 0), 0);
-      return dep - out;
+      return dep - withdrawals - out;
     }
     return deposits
       .filter((d) => (d.type || "share") === "share")
@@ -355,7 +392,9 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
 
   const quickActions: { label: string; icon: ClayIconName; target: NavTarget | { href: string } }[] = isAdmin
     ? [
-        { label: "ثبت واریز", icon: "plus", target: { href: "/admin" } },
+        // جلسه ۵۸ — «ثبت واریز» به «ثبت تراکنش» تغییر کرد و مستقیم به فرم ثبت
+        // تراکنش (واریز/برداشت، یک عضو یا همه اعضا) در بخش تراکنش‌ها می‌رود
+        { label: "ثبت تراکنش", icon: "plus", target: { href: "/bank/transactions" } },
         // از جلسه ۲۷: اعضا مستقیم به بخش اعضای پنل مدیریت می‌رود (مدیریت کاربران فقط در پنل ادمین)
         { label: "اعضا", icon: "users", target: { href: "/bank/members" } },
         { label: "گزارش کامل", icon: "chart", target: { href: "/admin" } },

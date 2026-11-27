@@ -5,7 +5,7 @@ import type { BankDatabase } from "@/lib/db";
 
 // ---------- پشتیبان‌گیری و بازیابی JSON (استپ ۱۸) ----------
 
-const DEPOSIT_TYPES = new Set(["share", "loan_interest", "profit", "misc"]);
+const DEPOSIT_TYPES = new Set(["share", "loan_interest", "profit", "misc", "withdraw_misc"]);
 const GENDERS = new Set(["male", "female"]);
 const INTEREST_MODES = new Set(["beginning", "end"]);
 const LOAN_STATUSES = new Set(["active", "paid", "cancelled"]);

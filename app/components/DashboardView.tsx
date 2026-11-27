@@ -26,8 +26,11 @@ import type {
  *  جلسه ۵۲: تب «تنظیمات» از خانه حذف شد — همهٔ آیتم‌هایش مربع‌های گرید
  *  «خدمات» در نوار پایین پوسته موبایل هستند و «راهنما» هم آن‌جاست.
  *  جلسه ۵۳: «پروفایل» هم از خانه حذف شد (به درخواست کاربر — مربع «پروفایل من»
- *  در خدمات همان کار را می‌دهد) — خانه ۳ مربع است: سهام، تسهیلات، واریز. */
-export type TabKey = "shares" | "loans" | "deposit";
+ *  در خدمات همان کار را می‌دهد) — خانه ۳ مربع است: سهام، تسهیلات، واریز.
+ *  جلسه ۵۸ (به درخواست کاربر): مربع/تب جدید «متفرقه» اضافه شد — واریز و
+ *  برداشت‌های جدا از سهام و اقساط؛ واریزی سبز، برداشت قرمز و در جزئیات هر
+ *  مورد «وضعیت حساب» بدهکار/طلبکار نوشته می‌شود. خانه ۴ مربع است. */
+export type TabKey = "shares" | "loans" | "deposit" | "misc";
 
 /**
  * حالت خانه پوسته موبایل: "tiles" = شبکه مربع‌های سر فصل‌ها؛ بقیه = همان بخش؛
@@ -39,14 +42,14 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "shares", label: "سهام" },
   { key: "loans", label: "تسهیلات" },
   { key: "deposit", label: "واریز" },
+  { key: "misc", label: "متفرقه" },
 ];
 
 /** جلسه ۳۹ — ترتیب بخش‌ها برای ناوبری کشویی (swipe): حالت تعبیه‌شده از خانهٔ
- *  مربع‌ها شروع می‌شود و بخش‌ها بعد از آن؛ حالت مستقل فقط ۳ تب را دارد
- *  (جلسه ۵۲: تنظیمات حذف شد؛ جلسه ۵۳: پروفایل هم حذف شد). RTL: کشیدن
- *  انگشت به راست = بخش بعدی، به چپ = قبلی. */
-const SWIPE_ORDER_EMBEDDED: DashboardTab[] = ["tiles", "shares", "loans", "deposit"];
-const SWIPE_ORDER_STANDALONE: DashboardTab[] = ["shares", "loans", "deposit"];
+ *  مربع‌ها شروع می‌شود و بخش‌ها بعد از آن؛ حالت مستقل ۴ تب دارد (جلسه ۵۸:
+ *  متفرقه اضافه شد). RTL: کشیدن انگشت به راست = بخش بعدی، به چپ = قبلی. */
+const SWIPE_ORDER_EMBEDDED: DashboardTab[] = ["tiles", "shares", "loans", "deposit", "misc"];
+const SWIPE_ORDER_STANDALONE: DashboardTab[] = ["shares", "loans", "deposit", "misc"];
 
 /** کلید یکسان‌شدهٔ بخش برای ناوبری کشویی (پرش عمیق loans-installments = loans) */
 function swipeKey(tab: DashboardTab): Exclude<DashboardTab, "loans-installments"> {
@@ -57,11 +60,13 @@ function swipeKey(tab: DashboardTab): Exclude<DashboardTab, "loans-installments"
  * مربع‌های خانه پوسته موبایل — هر سر فصل «یک تیکه»: لمس هر مربع مستقیم همان
  * بخش را باز می‌کند (بدون واسط داشبورد کلی). جلسه ۲۶ مرحله ۲.
  * جلسه ۵۳: مربع «پروفایل» حذف شد — اطلاعات حساب از مربع «پروفایل من» در خدمات.
+ * جلسه ۵۸: مربع «متفرقه» اضافه شد (گرید ۲×۲).
  */
 const HOME_TILES: { key: TabKey; label: string; icon: ClayIconName }[] = [
   { key: "shares", label: "سهام", icon: "coins" },
   { key: "loans", label: "تسهیلات", icon: "banknote" },
   { key: "deposit", label: "واریز", icon: "wallet" },
+  { key: "misc", label: "متفرقه", icon: "swap" },
 ];
 
 const STATUS_LABEL: Record<PaymentRequest["status"], string> = {
@@ -331,6 +336,8 @@ export default function DashboardView({
   const [payModal, setPayModal] = useState<{ loan: BankLoan; row: { number: number; amount: number } } | null>(null);
   const [payReceipt, setPayReceipt] = useState("");
   const [payNote, setPayNote] = useState("");
+  /** مودال جزئیات تراکنش متفرقه لمس‌شده (جلسه ۵۸) */
+  const [miscDetail, setMiscDetail] = useState<BankDeposit | null>(null);
   const [loanAmount, setLoanAmount] = useState("");
   const [loanMonths, setLoanMonths] = useState("");
   const [loanReason, setLoanReason] = useState("");
@@ -351,6 +358,11 @@ export default function DashboardView({
     }
     if (payModal) {
       setPayModal(null);
+      return true;
+    }
+    // جلسه ۵۸ — مودال جزئیات متفرقه هم لایهٔ برگشت است
+    if (miscDetail) {
+      setMiscDetail(null);
       return true;
     }
     return false;
@@ -443,6 +455,27 @@ export default function DashboardView({
     const due = memberShareDue(member, deposits, settings.amountPerShare);
     return due;
   }, [member, settings, deposits]);
+
+  /** جلسه ۵۸ — تراکنش‌های «جدا از سهام و اقساط» بخش متفرقه: واریز متفرقه،
+   *  سود بانک، تقسیم سود و برداشت متفرقه — برای عضو deposits از قبل
+   *  مخصوص خودش است (API عضو فیلتر می‌کند). */
+  const MISC_TYPES = useMemo(() => new Set(["misc", "profit", "loan_interest", "withdraw_misc"]), []);
+  const miscRows = useMemo(
+    () =>
+      deposits
+        .filter((d) => MISC_TYPES.has(d.type))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
+    [deposits, MISC_TYPES],
+  );
+  const miscSummary = useMemo(() => {
+    let inSum = 0;
+    let outSum = 0;
+    miscRows.forEach((d) => {
+      if (d.type === "withdraw_misc") outSum += Number(d.amount) || 0;
+      else inSum += Number(d.amount) || 0;
+    });
+    return { inSum, outSum };
+  }, [miscRows]);
 
   const installmentRows = useMemo(() => {
     const rows: {
@@ -891,7 +924,7 @@ export default function DashboardView({
           <section className="space-y-4">
             {/* جلسه ۳۲: هر مربع تینت پاستلی هماهنگ با رنگ آیکونش می‌گیرد تا خانه
                 زنده‌تر دیده شود؛ ساختار و رفتار لمس مستقیم بدون تغییر مانده است */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {HOME_TILES.map((t) => {
                 const [toneA, toneB] = toneForIcon(t.icon);
                 // جلسه ۳۸: نقطهٔ هشدار روی مربع سهام/تسهیلات وقتی یادآوری فعال است
@@ -1285,6 +1318,99 @@ export default function DashboardView({
           </section>
         )}
 
+        {tab === "misc" && (
+          <section className="space-y-4">
+            {/* جلسه ۵۸ — بخش متفرقه: واریز و برداشت‌های جدا از سهام و اقساط */}
+            <p className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-xs leading-6 text-zinc-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              واریز و برداشت‌هایی جدا از سهام و اقساط این‌جا می‌آید — واریزی‌های
+              مدیر (متفرقه یا تقسیم سود) سبز و برداشت‌ها قرمز هستند. لمس هر مورد
+              جزئیات کامل را باز می‌کند.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <p className="text-[11px] text-emerald-800 dark:text-emerald-300">جمع واریزی متفرقه</p>
+                <p className="mt-1 text-sm font-black text-emerald-700 dark:text-emerald-400">
+                  {faMoney(miscSummary.inSum)} تومان
+                </p>
+              </div>
+              <div className="rounded-2xl border border-red-200 bg-red-50/70 p-4 dark:border-red-900 dark:bg-red-950/30">
+                <p className="text-[11px] text-red-800 dark:text-red-300">جمع برداشت متفرقه</p>
+                <p className="mt-1 text-sm font-black text-red-700 dark:text-red-400">
+                  {faMoney(miscSummary.outSum)} تومان
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {miscRows.length === 0 && (
+                <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-10 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+                  <ClayIcon name="swap" size={48} className="mx-auto opacity-90" />
+                  <p className="mt-3 text-xs text-zinc-500">
+                    هنوز تراکنش متفرقه‌ای ثبت نشده است؛ واریز یا برداشت متفرقه از
+                    سمت مدیر این‌جا دیده می‌شود.
+                  </p>
+                </div>
+              )}
+              {miscRows.map((d) => {
+                const isWithdraw = d.type === "withdraw_misc";
+                const typeLabel =
+                  d.type === "withdraw_misc"
+                    ? "برداشت متفرقه"
+                    : d.type === "profit"
+                      ? "تقسیم سود"
+                      : d.type === "loan_interest"
+                        ? "سود بانک"
+                        : "واریز متفرقه";
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => setMiscDetail(d)}
+                    aria-label={`جزئیات ${typeLabel}`}
+                    className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-right shadow-sm transition active:scale-[0.99] ${
+                      isWithdraw
+                        ? "border-red-200 bg-red-50/90 dark:border-red-900 dark:bg-red-950/30"
+                        : "border-emerald-200 bg-emerald-50/90 dark:border-emerald-900 dark:bg-emerald-950/30"
+                    }`}
+                  >
+                    <ClayIcon
+                      name={isWithdraw ? "withdraw" : "deposit"}
+                      size={40}
+                      tone={isWithdraw ? ["#FFB8A8", "#E06848"] : ["#B5EBA5", "#54B854"]}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold">
+                        {isWithdraw ? "برداشت" : "واریز"}
+                        <span
+                          className={`mr-2 rounded-lg px-2 py-0.5 text-[10px] font-normal ${
+                            isWithdraw
+                              ? "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300"
+                              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300"
+                          }`}
+                        >
+                          {typeLabel}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                        {faDate(d.createdAt)}
+                      </p>
+                    </div>
+                    <p
+                      className={`shrink-0 text-[13px] font-black ${
+                        isWithdraw
+                          ? "text-red-700 dark:text-red-400"
+                          : "text-emerald-700 dark:text-emerald-400"
+                      }`}
+                    >
+                      {isWithdraw ? "−" : "+"}
+                      {faMoney(d.amount)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
       </main>
 
       {!embedded && (
@@ -1384,6 +1510,80 @@ export default function DashboardView({
           </form>
         </Modal>
       )}
+
+      {/* جلسه ۵۸ — مودال جزئیات تراکنش متفرقه: وضعیت حساب بدهکار (واریز) یا طلبکار (برداشت) */}
+      {miscDetail &&
+        (() => {
+          const isWithdraw = miscDetail.type === "withdraw_misc";
+          const typeLabel =
+            miscDetail.type === "withdraw_misc"
+              ? "برداشت متفرقه"
+              : miscDetail.type === "profit"
+                ? "تقسیم سود"
+                : miscDetail.type === "loan_interest"
+                  ? "سود بانک"
+                  : "واریز متفرقه";
+          return (
+            <Modal
+              title={isWithdraw ? "جزئیات برداشت" : "جزئیات واریز"}
+              onClose={() => setMiscDetail(null)}
+            >
+              <div className="space-y-2">
+                {[
+                  { label: "نوع تراکنش", value: typeLabel },
+                  {
+                    label: "شرح",
+                    value: isWithdraw
+                      ? "برداشت متفرقه از حساب شما توسط مدیر ثبت شد."
+                      : "واریزی جدا از سهام و اقساط به حساب شما توسط مدیر ثبت شد.",
+                  },
+                  {
+                    label: "وضعیت حساب",
+                    value: isWithdraw ? "طلبکار" : "بدهکار",
+                    tone: isWithdraw ? ("red" as const) : ("green" as const),
+                  },
+                  {
+                    label: "مبلغ",
+                    value: `${faMoney(miscDetail.amount)} تومان`,
+                    tone: isWithdraw ? ("red" as const) : ("green" as const),
+                  },
+                  ...(miscDetail.title
+                    ? [{ label: "عنوان ثبت‌شده", value: miscDetail.title }]
+                    : []),
+                  {
+                    label: "تاریخ",
+                    value: faDate(miscDetail.createdAt),
+                  },
+                ].map((line, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-zinc-100 px-3 py-2 dark:border-zinc-900"
+                  >
+                    <span className="shrink-0 text-xs text-zinc-500">{line.label}</span>
+                    <span
+                      className={`min-w-0 text-left text-xs font-medium leading-6 ${
+                        line.tone === "green"
+                          ? "text-emerald-700 dark:text-emerald-400"
+                          : line.tone === "red"
+                            ? "text-red-700 dark:text-red-400"
+                            : ""
+                      }`}
+                    >
+                      {line.value}
+                    </span>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setMiscDetail(null)}
+                  className={`${btnPrimary} w-full`}
+                >
+                  بستن
+                </button>
+              </div>
+            </Modal>
+          );
+        })()}
 
       {/* جلسه ۳۶: جزئیات تسهیلات تأییدشده — اقساط، مبلغ واریز شده و ارسال شبا */}
       {loanDetail &&

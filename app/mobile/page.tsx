@@ -355,7 +355,16 @@ function AdminMobileHome({ name }: { name: string }) {
         const loans = Array.isArray(l) ? l : [];
         const members = Array.isArray(m) ? m : [];
         setSummary({
-          depositsTotal: deposits.reduce((s: number, x: { amount: number }) => s + (Number(x.amount) || 0), 0),
+          // جلسه ۵۸ — برداشت‌های متفرقه از جمع واریزی‌ها کسر می‌شود (مبلغ رکورد
+          // withdraw_misc با علامت منفی جمع می‌شود) تا «موجودی بانک» واقعی بماند
+          depositsTotal: deposits.reduce(
+            (s: number, x: { amount: number; type?: string }) =>
+              s +
+              (x.type === "withdraw_misc"
+                ? -(Number(x.amount) || 0)
+                : Number(x.amount) || 0),
+            0,
+          ),
           loansTotal: loans.reduce((s: number, x: { disbursedAmount: number }) => s + (Number(x.disbursedAmount) || 0), 0),
           members: members.length,
         });
@@ -379,7 +388,7 @@ function AdminMobileHome({ name }: { name: string }) {
           icon: "deposit",
           value: summary.depositsTotal,
           suffix: "تومان",
-          subtitle: "جمع همه واریزی‌های اعضا تا امروز",
+          subtitle: "جمع خالص واریزی‌های اعضا تا امروز (پس از کسر برداشت‌های متفرقه)",
         };
       if (openTile === "loans")
         return {

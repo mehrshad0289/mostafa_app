@@ -1,5 +1,5 @@
 import { requireAdmin, requireUser } from "@/lib/auth";
-import { createBankDeposit, getBank, normalizeDepositType } from "@/lib/db";
+import { createBankDeposits, getBank, normalizeDepositType } from "@/lib/db";
 
 export async function GET(request: Request) {
   const guard = await requireUser();
@@ -27,7 +27,10 @@ export async function POST(request: Request) {
   if ("error" in guard) return guard.error;
   const body = (await request.json()) as {
     type?: string;
+    /** جلسه ۵۸ — یک یا چند عضو یا همهٔ اعضا؛ memberId تک‌مقداری قدیمی هم پذیرفته می‌شود */
+    memberIds?: string[] | null;
     memberId?: string | null;
+    splitMode?: string;
     memberName?: string;
     title?: string;
     amount?: number;
@@ -37,39 +40,54 @@ export async function POST(request: Request) {
   const type = normalizeDepositType(body.type);
   if (!type) {
     return Response.json(
-      { error: "نوع واریزی باید یکی از مقادیر share، loan_interest، profit یا misc باشد." },
+      { error: "نوع تراکنش باید یکی از مقادیر share، loan_interest، profit، misc یا withdraw_misc باشد." },
       { status: 400 },
     );
   }
   const amount = Number(body.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
     return Response.json(
-      { error: "مبلغ واریزی باید عددی بزرگ‌تر از صفر باشد." },
+      { error: "مبلغ تراکنش باید عددی بزرگ‌تر از صفر باشد." },
       { status: 400 },
     );
   }
-  const memberId = body.memberId?.trim() || null;
-  if (type === "share" && !memberId) {
+  const splitMode = body.splitMode === "total" ? ("total" as const) : ("perMember" as const);
+
+  const rawIds = Array.isArray(body.memberIds)
+    ? body.memberIds.map((id) => String(id ?? "").trim()).filter(Boolean)
+    : [];
+  if (rawIds.length === 0 && typeof body.memberId === "string" && body.memberId.trim()) {
+    rawIds.push(body.memberId.trim());
+  }
+  const memberIds = [...new Set(rawIds)];
+  if (type === "share" && memberIds.length === 0) {
     return Response.json(
       { error: "برای واریز سهام باید عضو انتخاب شود." },
       { status: 400 },
     );
   }
-  if (memberId) {
+  if (memberIds.length > 0) {
     const bank = await getBank();
-    if (!bank.members.some((m) => m.id === memberId)) {
+    if (!memberIds.every((id) => bank.members.some((m) => m.id === id))) {
       return Response.json({ error: "عضو انتخاب‌شده پیدا نشد." }, { status: 400 });
     }
   }
+  if (memberIds.length > 1 && splitMode === "total" && amount < memberIds.length) {
+    return Response.json(
+      { error: "مبلغ کل برای تقسیم مساوی بین همهٔ اعضا کافی نیست." },
+      { status: 400 },
+    );
+  }
 
-  const deposit = await createBankDeposit({
+  const created = await createBankDeposits({
     type,
-    memberId,
+    memberIds: memberIds.length > 0 ? memberIds : null,
+    splitMode,
     memberName: body.memberName,
     title: body.title,
     amount,
     periodKey: body.periodKey,
   });
 
-  return Response.json(deposit, { status: 201 });
+  return Response.json(created, { status: 201 });
 }

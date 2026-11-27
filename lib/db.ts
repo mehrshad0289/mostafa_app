@@ -36,7 +36,13 @@ export function parseKind(value: string | null): ItemKind | undefined {
 
 // ---------- فم بانک: مدل داده مطابق docs/BANK_SPEC.md ----------
 
-export type BankDepositType = "share" | "loan_interest" | "profit" | "misc";
+/** جلسه ۵۸ — نوع withdraw_misc اضافه شد: برداشت متفرقهٔ ثبت‌شدهٔ مدیر از حساب عضو/بانک */
+export type BankDepositType = "share" | "loan_interest" | "profit" | "misc" | "withdraw_misc";
+
+/** برداشت متفرقه یک رکورد واریزی با علامت معکوس است — مبلغ همیشه مثبت ذخیره می‌شود */
+export function isWithdrawType(type: BankDepositType): boolean {
+  return type === "withdraw_misc";
+}
 
 /** حساب واریز بانک — ادمین در تنظیمات ثبت می‌کند و اعضا در تب «واریز» می‌بینند */
 export type DepositAccount = {
@@ -1228,6 +1234,7 @@ export const BANK_DEPOSIT_TYPES: BankDepositType[] = [
   "loan_interest",
   "profit",
   "misc",
+  "withdraw_misc",
 ];
 
 export function normalizeDepositType(value: unknown): BankDepositType | null {
@@ -1241,19 +1248,24 @@ const DEPOSIT_TITLE_INDEX: Record<BankDepositType, number> = {
   loan_interest: 1,
   profit: 2,
   misc: 3,
+  withdraw_misc: 4,
 };
 
 function defaultDepositTitle(bank: BankDatabase, type: BankDepositType): string {
   const titles = bank.settings.depositTitles ?? [];
+  if (type === "withdraw_misc") return titles[DEPOSIT_TITLE_INDEX[type]] ?? "برداشت متفرقه";
   return titles[DEPOSIT_TITLE_INDEX[type]] ?? "واریزی";
 }
 
-/** totalDeposited هر عضو = جمع همه واریزی‌های همان عضو (بازمحاسبه با هر ذخیره) */
+/** totalDeposited هر عضو = جمع خالص واریزی‌های همان عضو — جلسه ۵۸: برداشت متفرقه از آن کسر می‌شود */
 function recalcMemberTotals(bank: BankDatabase) {
   bank.members.forEach((m) => {
     m.totalDeposited = bank.deposits
       .filter((d) => d.memberId === m.id)
-      .reduce((sum, d) => sum + Number(d.amount || 0), 0);
+      .reduce(
+        (sum, d) => sum + (d.type === "withdraw_misc" ? -1 : 1) * Number(d.amount || 0),
+        0,
+      );
   });
 }
 
@@ -1261,6 +1273,113 @@ function faAmount(amount: number): string {
   return Number(amount).toLocaleString("fa-IR");
 }
 
+/** ساخت یک رکورد واریزی/برداشت — مشترک بین ثبت تکی و دسته‌ای (جلسه ۵۸) */
+function buildBankDepositRecord(
+  bank: BankDatabase,
+  input: {
+    type: BankDepositType;
+    member: BankMember | null;
+    fallbackName?: string;
+    title?: string;
+    amount: number;
+    periodKey?: string;
+    createdAt?: string;
+  },
+): BankDeposit {
+  const fallback =
+    input.fallbackName?.trim() ||
+    (input.type === "withdraw_misc" ? "برداشت متفرقه" : "واریزی متفرقه");
+  return {
+    id: bankUid(),
+    memberId: input.member ? input.member.id : null,
+    memberName: input.member ? input.member.name : fallback,
+    type: input.type,
+    title: input.title?.trim() || defaultDepositTitle(bank, input.type),
+    amount: input.amount,
+    periodKey:
+      input.type === "share" ? parseSharePeriod(input.periodKey ?? "", new Date()) : "",
+    createdAt: input.createdAt ?? new Date().toISOString(),
+  };
+}
+
+export type CreateBankDepositsInput = {
+  type: BankDepositType;
+  /** شناسهٔ اعضای هدف — یک یا چند عضو؛ null/خالی = یک رکورد بدون عضو (متفرقه) */
+  memberIds: string[] | null;
+  /** فقط وقتی چند عضو انتخاب شده: perMember = مبلغ برای هر عضو، total = مبلغ کل تقسیم مساوی */
+  splitMode?: "perMember" | "total";
+  amount: number;
+  memberName?: string;
+  title?: string;
+  periodKey?: string;
+};
+
+/**
+ * جلسه ۵۸ — ثبت تراکنش دسته‌ای: یک یا چند عضو یا همهٔ اعضا.
+ * تقسیم سود و واریزی متفرقهٔ گروهی با همین تابع ثبت می‌شود؛ برای «مبلغ کل،
+ * تقسیم مساوی» باقیماندهٔ تقسیم به اعضای اول داده می‌شود تا جمع دقیقاً برابر
+ * مبلغ کل بماند. هر فراخوانی = یک رکورد audit خلاصه.
+ */
+export async function createBankDeposits(
+  input: CreateBankDepositsInput,
+): Promise<BankDeposit[]> {
+  const db = await readDb();
+  const ids = (input.memberIds ?? []).map((id) => id.trim()).filter(Boolean);
+  const targets: (BankMember | null)[] =
+    ids.length > 0
+      ? ids
+          .map((id) => db.bank.members.find((m) => m.id === id))
+          .filter((m): m is BankMember => Boolean(m))
+      : [null];
+  const amounts: number[] =
+    targets.length === 1
+      ? [input.amount]
+      : input.splitMode === "total"
+        ? (() => {
+            const base = Math.floor(input.amount / targets.length);
+            const rem = input.amount - base * targets.length;
+            return targets.map((_, i) => (i < rem ? base + 1 : base));
+          })()
+        : targets.map(() => input.amount);
+  const createdAt = new Date().toISOString();
+  const created = targets.map((member, i) =>
+    buildBankDepositRecord(db.bank, {
+      type: input.type,
+      member,
+      fallbackName: input.memberName,
+      title: input.title,
+      amount: amounts[i],
+      periodKey: input.periodKey,
+      createdAt,
+    }),
+  );
+  db.bank.deposits.unshift(...created);
+  recalcMemberTotals(db.bank);
+  const total = amounts.reduce((sum, a) => sum + a, 0);
+  const isWithdraw = input.type === "withdraw_misc";
+  const kindLabel = input.title?.trim() || defaultDepositTitle(db.bank, input.type);
+  const action = isWithdraw ? "برداشت" : "واریزی";
+  let detail: string;
+  if (targets.length === 1) {
+    const member = targets[0];
+    detail = isWithdraw
+      ? `برداشت متفرقه «${kindLabel}» به مبلغ ${faAmount(total)} تومان ${
+          member ? `از حساب عضو «${member.name}»` : "بدون عضو"
+        } ثبت شد.`
+      : `${action} «${kindLabel}» به مبلغ ${faAmount(total)} تومان ${
+          member ? `برای عضو «${member.name}»` : "بدون عضو (متفرقه)"
+        } ثبت شد.`;
+  } else {
+    detail = isWithdraw
+      ? `برداشت متفرقه «${kindLabel}» جمعاً ${faAmount(total)} تومان از حساب ${faAmount(targets.length)} عضو ثبت شد.`
+      : `${action} «${kindLabel}» جمعاً ${faAmount(total)} تومان برای ${faAmount(targets.length)} عضو ثبت شد.`;
+  }
+  addAudit(db.bank, "ثبت", action, created[0].id, detail);
+  await writeDb(db);
+  return created;
+}
+
+/** ثبت تکی — برای سازگاری با فراخوان‌های قدیمی؛ از createBankDeposits استفاده می‌کند */
 export async function createBankDeposit(input: {
   type: BankDepositType;
   memberId: string | null;
@@ -1269,36 +1388,15 @@ export async function createBankDeposit(input: {
   amount: number;
   periodKey?: string;
 }): Promise<BankDeposit> {
-  const db = await readDb();
-  const member = input.memberId
-    ? db.bank.members.find((m) => m.id === input.memberId) ?? null
-    : null;
-  const deposit: BankDeposit = {
-    id: bankUid(),
-    memberId: member ? member.id : null,
-    memberName: member
-      ? member.name
-      : input.memberName?.trim() || "واریزی متفرقه",
+  const created = await createBankDeposits({
     type: input.type,
-    title: input.title?.trim() || defaultDepositTitle(db.bank, input.type),
+    memberIds: input.memberId ? [input.memberId] : null,
     amount: input.amount,
-    periodKey:
-      input.type === "share" ? parseSharePeriod(input.periodKey ?? "", new Date()) : "",
-    createdAt: new Date().toISOString(),
-  };
-  db.bank.deposits.unshift(deposit);
-  recalcMemberTotals(db.bank);
-  addAudit(
-    db.bank,
-    "ثبت",
-    "واریزی",
-    deposit.id,
-    `واریزی «${deposit.title}» به مبلغ ${faAmount(deposit.amount)} تومان ${
-      member ? `برای عضو «${member.name}»` : "بدون عضو (متفرقه)"
-    } ثبت شد.`,
-  );
-  await writeDb(db);
-  return deposit;
+    memberName: input.memberName,
+    title: input.title,
+    periodKey: input.periodKey,
+  });
+  return created[0];
 }
 
 export type BankDepositPatch = {

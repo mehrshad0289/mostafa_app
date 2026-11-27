@@ -18,6 +18,7 @@ const TYPE_LABELS: Record<BankDepositType, string> = {
   loan_interest: "سود وام",
   profit: "واریزی سود",
   misc: "متفرقه",
+  withdraw_misc: "برداشت متفرقه",
 };
 
 const FA_MONTHS = [
@@ -144,16 +145,17 @@ export default function ReportsTab({
   const years = useMemo(() => {
     const map = new Map<
       string,
-      { share: number; interest: number; profit: number; repayment: number; loanOut: number }
+      { share: number; interest: number; profit: number; withdraw: number; repayment: number; loanOut: number }
     >();
     months.forEach((row) => {
       const year = row.key.slice(0, 4);
       const acc =
         map.get(year) ??
-        { share: 0, interest: 0, profit: 0, repayment: 0, loanOut: 0 };
+        { share: 0, interest: 0, profit: 0, withdraw: 0, repayment: 0, loanOut: 0 };
       acc.share += row.share;
       acc.interest += row.interest;
       acc.profit += row.profit;
+      acc.withdraw += row.withdraw;
       acc.repayment += row.repayment;
       acc.loanOut += row.loanOut;
       map.set(year, acc);
@@ -181,7 +183,7 @@ export default function ReportsTab({
         faDate(d.createdAt),
         TYPE_LABELS[d.type],
         d.title || "—",
-        d.amount,
+        d.type === "withdraw_misc" ? -Math.abs(Number(d.amount) || 0) : d.amount,
       ]),
       [],
       ["وام‌ها و اقساط"],
@@ -214,12 +216,13 @@ export default function ReportsTab({
     "سهم",
     "سود وام",
     "سود واریزی",
+    "برداشت متفرقه",
     "بازپرداخت",
     "پرداخت وام",
   ];
   const flowTotal = (
-    row: { share: number; interest: number; profit: number; repayment: number; loanOut: number },
-  ) => [row.share, row.interest, row.profit, row.repayment, row.loanOut];
+    row: { share: number; interest: number; profit: number; withdraw: number; repayment: number; loanOut: number },
+  ) => [row.share, row.interest, row.profit, row.withdraw, row.repayment, row.loanOut];
 
   return (
     <div className="space-y-4" data-print-area="reports">
@@ -367,7 +370,16 @@ export default function ReportsTab({
                         </td>
                         <td className={cellClass}>{TYPE_LABELS[d.type]}</td>
                         <td className={cellClass}>{d.title || "—"}</td>
-                        <td className={cellClass}>{toMoney(d.amount)}</td>
+                        <td
+                          className={`${cellClass} ${
+                            d.type === "withdraw_misc"
+                              ? "text-red-700 dark:text-red-400"
+                              : ""
+                          }`}
+                        >
+                          {d.type === "withdraw_misc" ? "−" : ""}
+                          {toMoney(d.amount)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

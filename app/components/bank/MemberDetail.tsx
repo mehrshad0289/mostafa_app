@@ -24,6 +24,7 @@ const TYPE_LABELS: Record<BankDeposit["type"], string> = {
   loan_interest: "سود وام",
   profit: "واریزی سود",
   misc: "متفرقه",
+  withdraw_misc: "برداشت متفرقه",
 };
 
 const LOAN_STATUS_LABELS: Record<BankLoan["status"], string> = {

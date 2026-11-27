@@ -24,26 +24,26 @@ type DepositsTabProps = {
 /**
  * تب «تراکنش‌ها» (جلسه ۲۶ — نام قبلی: واریزی‌ها): همه تراکنش‌های بانک در یک
  * فهرست با زیرمجموعه واریز/برداشت — واریز سهام بانک، سود بانک، واریز متفرقه،
- * پرداخت اقساط تسهیلات و تسهیلات پرداختی. جلسه ۵۱: عنوان هر ردیف فقط «واریز»
- * و «برداشت» است (به درخواست کاربر) و نوع/توضیحات در بج کوچک و مودال جزئیاتِ
- * بعد از لمس دیده می‌شود. فرم ثبت واریزی و مدیریت عنوان‌ها
- * مثل قبل کار می‌کنند؛ فقط واریزی‌ها قابل حذف‌اند (اقساط/برداشت از تب وام‌ها
- * مدیریت می‌شوند).
+ * پرداخت اقساط تسهیلات، تسهیلات پرداختی و برداشت متفرقه.
+ * جلسه ۵۱: عنوان هر ردیف فقط «واریز» و «برداشت» است (به درخواست کاربر) و
+ * نوع/توضیحات در بج کوچک و مودال جزئیاتِ بعد از لمس دیده می‌شود.
+ * جلسه ۵۸ (به درخواست کاربر): دکمه و فرم «ثبت واریزی» به «ثبت تراکنش» تغییر
+ * کرد و حالا برداشت متفرقه هم ثبت می‌شود؛ انتخاب عضو «یک عضو» یا «همه اعضا»
+ * (برای تقسیم سود و واریزی متفرقهٔ گروهی) با دو حالت مبلغ «برای هر عضو» یا
+ * «مبلغ کل تقسیم مساوی». فقط رکوردهای این فرم (واریزی/برداشت متفرقه) قابل
+ * حذف‌اند؛ اقساط/برداشت تسهیلات از تب وام‌ها مدیریت می‌شوند.
  */
-
-const BANK_DEPOSIT_TYPES: BankDepositType[] = [
-  "share",
-  "loan_interest",
-  "profit",
-  "misc",
-];
 
 const TYPE_LABELS: Record<BankDepositType, string> = {
   share: "واریز سهام بانک",
   loan_interest: "سود بانک",
   profit: "واریز سود",
   misc: "واریز متفرقه",
+  withdraw_misc: "برداشت متفرقه",
 };
+
+/** انواع مجاز در فرم ثبت تراکنش — برداشت متفرقه جداگانه از گروه تراکنش می‌آید */
+const FORM_DEPOSIT_TYPES: BankDepositType[] = ["share", "loan_interest", "profit", "misc"];
 
 const GROUP_FILTERS: { key: TxGroupFilter; label: string }[] = [
   { key: "all", label: "همه" },
@@ -112,6 +112,11 @@ function loanStatusLabel(status: BankLoan["status"]): string {
 function txDescription(r: TxRow): string {
   if (r.payment) return "واریز بابت پرداخت قسط تسهیلات توسط عضو.";
   if (r.loan && r.group === "withdraw") return "برداشت مبلغ تسهیلات پرداخت‌شده به عضو از موجودی بانک.";
+  if (r.deposit?.type === "withdraw_misc") {
+    return r.member
+      ? "برداشت متفرقه از حساب عضو توسط مدیر ثبت شد."
+      : "برداشت متفرقه از موجودی بانک توسط مدیر ثبت شد.";
+  }
   return "واریز به حساب عضو در بانک ثبت شد.";
 }
 
@@ -169,9 +174,14 @@ export default function DepositsTab({
   const [query, setQuery] = useState("");
   const [group, setGroup] = useState<TxGroupFilter>("all");
   const [formOpen, setFormOpen] = useState(false);
+  /** جلسه ۵۸ — فرم «ثبت تراکنش»: گروه (واریز/برداشت) + عضو (یکی/همه/بدون عضو)
+   *  + نوع واریزی + حالت مبلغ گروهی. memberId = "all" یعنی همهٔ اعضا،
+   *  "" یعنی بدون عضو (متفرقه)، وگرنه شناسهٔ عضو مشخص. */
   const [form, setForm] = useState({
+    direction: "deposit" as "deposit" | "withdraw",
     memberId: "",
-    type: "share" as BankDepositType,
+    type: "misc" as BankDepositType,
+    splitMode: "perMember" as "perMember" | "total",
     title: "",
     amount: "",
     period: "",
@@ -190,17 +200,37 @@ export default function DepositsTab({
 
   /** دوره استاندارد سهام = پارس ورودی آزاد با مبنای تاریخ تقویم */
   const resolvedPeriod = useMemo(() => {
-    if (!hydrated || form.type !== "share") return null;
+    if (!hydrated || form.direction !== "deposit" || form.type !== "share") return null;
     return parseSharePeriod(form.period, dateIso ? new Date(dateIso) : undefined);
-  }, [hydrated, form.type, form.period, dateIso]);
+  }, [hydrated, form.direction, form.type, form.period, dateIso]);
 
-  /** همه تراکنش‌ها: واریزی‌ها + پرداخت اقساط تسهیلات + تسهیلات پرداختی */
+  /** جلسه ۵۸ — اعضای هدف فرم: همهٔ اعضا / یک عضو / بدون عضو */
+  const targetMemberIds = useMemo(() => {
+    if (form.memberId === "all") return members.map((m) => m.id);
+    if (form.memberId) return [form.memberId];
+    return [];
+  }, [form.memberId, members]);
+
+  /** مبلغ هر رکورد بعد از اعمال حالت گروهی (برای هشدار مشابه و پیش‌نمایش زنده) */
+  const targetAmounts = useMemo(() => {
+    const amount = parseAmount(form.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return [];
+    if (targetMemberIds.length === 0) return [amount];
+    if (targetMemberIds.length === 1 || form.splitMode === "perMember") {
+      return targetMemberIds.map(() => amount);
+    }
+    const base = Math.floor(amount / targetMemberIds.length);
+    const rem = amount - base * targetMemberIds.length;
+    return targetMemberIds.map((_, i) => (i < rem ? base + 1 : base));
+  }, [form.amount, form.splitMode, targetMemberIds]);
+
+  /** همه تراکنش‌ها: واریزی‌ها + برداشت‌های متفرقه + پرداخت اقساط + تسهیلات پرداختی */
   const txRows = useMemo<TxRow[]>(() => {
     const rows: TxRow[] = [];
     deposits.forEach((d) => {
       rows.push({
         id: `d-${d.id}`,
-        group: "deposit",
+        group: d.type === "withdraw_misc" ? "withdraw" : "deposit",
         kindLabel: TYPE_LABELS[d.type || "share"],
         title: d.title || "",
         member: d.memberId ? d.memberName || "" : `${d.memberName || ""} (بدون عضو)`,
@@ -267,7 +297,15 @@ export default function DepositsTab({
     setFormOpen(true);
     setDupPending(null);
     setError("");
-    setForm({ memberId: "", type: "share", title: "", amount: "", period: "" });
+    setForm({
+      direction: "deposit",
+      memberId: "",
+      type: "misc",
+      splitMode: "perMember",
+      title: TYPE_LABELS.misc,
+      amount: "",
+      period: "",
+    });
     setDateIso("");
   }
 
@@ -276,28 +314,59 @@ export default function DepositsTab({
     return d.type === "share" && d.periodKey ? d.periodKey : monthKey(new Date(d.createdAt));
   }
 
+  /** ماه تراکنش برای هشدار مشابه: سهام از دوره، بقیه از ماه تقویم/جاری */
+  function targetMonth(): string | null {
+    if (form.direction === "deposit" && form.type === "share") return resolvedPeriod;
+    return dateIso ? monthKey(new Date(dateIso)) : monthKey(new Date());
+  }
+
   function findDuplicate(): BankDeposit | null {
     if (settings?.duplicateWarning === false) return null;
-    const amount = parseAmount(form.amount);
-    if (!Number.isFinite(amount) || amount <= 0) return null;
-    const targetMonth =
-      form.type === "share"
-        ? resolvedPeriod
-        : dateIso
-          ? monthKey(new Date(dateIso))
-          : monthKey(new Date());
-    if (!targetMonth) return null;
+    if (targetAmounts.length === 0) return null;
+    const month = targetMonth();
+    if (!month) return null;
+    const amounts = new Set(targetAmounts.map((a) => Number(a)));
+    const ids = new Set(targetMemberIds);
     return (
       deposits.find(
         (d) =>
-          (d.memberId || null) === (form.memberId || null) &&
-          Number(d.amount) === amount &&
-          depositMonthOf(d) === targetMonth,
+          (targetMemberIds.length === 0
+            ? (d.memberId || null) === null
+            : ids.has(d.memberId || "")) &&
+          amounts.has(Number(d.amount)) &&
+          depositMonthOf(d) === month,
       ) || null
     );
   }
 
+  /** اعتبارسنجی سمت کلاینت قبل از ارسال — پیام فارسی دقیق برای هر خطا */
+  function validateForm(): string {
+    const amount = parseAmount(form.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return "مبلغ تراکنش باید عددی بزرگ‌تر از صفر باشد.";
+    }
+    if (form.memberId === "all" && members.length === 0) {
+      return "هنوز عضوی در بانک ثبت نشده است.";
+    }
+    if (form.direction === "deposit" && form.type === "share" && form.memberId === "") {
+      return "برای واریز سهام باید عضو انتخاب شود.";
+    }
+    if (
+      form.memberId === "all" &&
+      form.splitMode === "total" &&
+      amount < members.length
+    ) {
+      return "مبلغ کل برای تقسیم مساوی بین همهٔ اعضا کافی نیست.";
+    }
+    return "";
+  }
+
   async function submitForm(force = false) {
+    const invalid = validateForm();
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -314,21 +383,37 @@ export default function DepositsTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: form.type,
-          memberId: form.memberId || null,
-          memberName: members.find((m) => m.id === form.memberId)?.name,
+          type: form.direction === "withdraw" ? "withdraw_misc" : form.type,
+          memberIds:
+            form.memberId === "all"
+              ? members.map((m) => m.id)
+              : form.memberId
+                ? [form.memberId]
+                : null,
+          splitMode: form.splitMode,
           title: form.title.trim(),
           amount: parseAmount(form.amount),
-          periodKey: form.type === "share" ? resolvedPeriod || "" : undefined,
+          periodKey:
+            form.direction === "deposit" && form.type === "share"
+              ? resolvedPeriod || ""
+              : undefined,
         }),
       });
       const data = (await response.json()) as { error?: string };
       if (!response.ok) {
-        setError(data.error || "ثبت واریزی ناموفق بود.");
+        setError(data.error || "ثبت تراکنش ناموفق بود.");
         return;
       }
       setFormOpen(false);
-      setForm({ memberId: "", type: "share", title: "", amount: "", period: "" });
+      setForm({
+        direction: "deposit",
+        memberId: "",
+        type: "misc",
+        splitMode: "perMember",
+        title: TYPE_LABELS.misc,
+        amount: "",
+        period: "",
+      });
       setDateIso("");
       onRefresh();
     } catch {
@@ -400,7 +485,7 @@ export default function DepositsTab({
           onClick={openAdd}
           className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white dark:bg-primary-500 dark:text-white"
         >
-          ثبت واریزی
+          ثبت تراکنش
         </button>
         <button
           type="button"
@@ -506,16 +591,67 @@ export default function DepositsTab({
           }}
           className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950"
         >
-          <h3 className="text-sm font-medium">ثبت واریزی</h3>
+          <h3 className="text-sm font-medium">ثبت تراکنش</h3>
+
+          {/* جلسه ۵۸ — گروه تراکنش: واریز یا برداشت (هر دو به درخواست کاربر) */}
+          <div className="flex gap-2">
+            {([
+              { key: "deposit" as const, label: "واریز" },
+              { key: "withdraw" as const, label: "برداشت" },
+            ]).map((g) => (
+              <button
+                key={g.key}
+                type="button"
+                onClick={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    direction: g.key,
+                    title:
+                      prev.title === "" ||
+                      Object.values(TYPE_LABELS).includes(prev.title)
+                        ? g.key === "withdraw"
+                          ? TYPE_LABELS.withdraw_misc
+                          : TYPE_LABELS[prev.type]
+                        : prev.title,
+                  }))
+                }
+                className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] ${
+                  form.direction === g.key
+                    ? g.key === "deposit"
+                      ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/25"
+                      : "bg-red-600 text-white shadow-md shadow-red-600/25"
+                    : "border border-zinc-200 bg-white text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-400"
+                }`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-xs text-zinc-500">
               عضو
               <select
                 value={form.memberId}
-                onChange={(e) => setForm({ ...form, memberId: e.target.value })}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    memberId: e.target.value,
+                    // سهام نیاز به عضو دارد — با انتخاب «بدون عضو» نوع به متفرقه برمی‌گردد
+                    type:
+                      e.target.value === "" && prev.type === "share"
+                        ? ("misc" as BankDepositType)
+                        : prev.type,
+                  }))
+                }
                 className={`${inputClass} w-full`}
               >
-                <option value="">واریزی متفرقه (بدون عضو)</option>
+                <option value="all">همه اعضا ({faNum(members.length)} عضو)</option>
+                <option value="">
+                  {form.direction === "withdraw"
+                    ? "برداشت متفرقه (بدون عضو)"
+                    : "واریزی متفرقه (بدون عضو)"}
+                </option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
@@ -523,27 +659,60 @@ export default function DepositsTab({
                 ))}
               </select>
             </label>
-            <label className="space-y-1 text-xs text-zinc-500">
-              نوع واریزی
-              <select
-                value={form.type}
-                onChange={(e) => {
-                  const type = e.target.value as BankDepositType;
-                  setForm((prev) => ({
-                    ...prev,
-                    type,
-                    title: prev.title || TYPE_LABELS[type],
-                  }));
-                }}
-                className={`${inputClass} w-full`}
-              >
-                {BANK_DEPOSIT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {TYPE_LABELS[t]}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {form.direction === "deposit" ? (
+              <label className="space-y-1 text-xs text-zinc-500">
+                نوع واریزی
+                <select
+                  value={form.type}
+                  onChange={(e) => {
+                    const type = e.target.value as BankDepositType;
+                    setForm((prev) => ({
+                      ...prev,
+                      type,
+                      title: prev.title === "" || Object.values(TYPE_LABELS).includes(prev.title)
+                        ? TYPE_LABELS[type]
+                        : prev.title,
+                    }));
+                  }}
+                  className={`${inputClass} w-full`}
+                >
+                  {FORM_DEPOSIT_TYPES.filter(
+                    (t) => t !== "share" || form.memberId !== "",
+                  ).map((t) => (
+                    <option key={t} value={t}>
+                      {TYPE_LABELS[t]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label className="space-y-1 text-xs text-zinc-500">
+                نوع تراکنش
+                <div
+                  className={`${inputClass} w-full bg-red-50/60 font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300`}
+                >
+                  برداشت متفرقه
+                </div>
+              </label>
+            )}
+            {form.memberId === "all" && (
+              <label className="space-y-1 text-xs text-zinc-500">
+                حالت مبلغ گروهی
+                <select
+                  value={form.splitMode}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      splitMode: e.target.value === "total" ? ("total" as const) : ("perMember" as const),
+                    }))
+                  }
+                  className={`${inputClass} w-full`}
+                >
+                  <option value="perMember">مبلغ برای هر عضو</option>
+                  <option value="total">مبلغ کل — تقسیم مساوی بین همه</option>
+                </select>
+              </label>
+            )}
             <label className="space-y-1 text-xs text-zinc-500">
               عنوان
               <input
@@ -569,7 +738,7 @@ export default function DepositsTab({
                 className={`${inputClass} w-full`}
               />
             </label>
-            {form.type === "share" && (
+            {form.direction === "deposit" && form.type === "share" && (
               <label className="space-y-1 text-xs text-zinc-500">
                 دوره ماه شمسی
                 <input
@@ -587,13 +756,24 @@ export default function DepositsTab({
             )}
           </div>
 
+          {/* جلسه ۵۸ — پیش‌نمایش زندهٔ ثبت گروهی: هر عضو چه مبلغی می‌گیرد */}
+          {form.memberId === "all" && targetAmounts.length > 0 && (
+            <p className="rounded-xl border border-primary-200 bg-primary-50/60 px-3 py-2 text-[11px] leading-5 text-primary-800 dark:border-primary-900 dark:bg-primary-950/40 dark:text-primary-200">
+              {form.splitMode === "perMember"
+                ? `هر عضو ${faNum(targetAmounts[0])} تومان — جمع برای ${faNum(members.length)} عضو: ${faNum(targetAmounts[0] * members.length)} تومان`
+                : `مبلغ کل ${faNum(parseAmount(form.amount))} تومان بین ${faNum(members.length)} عضو تقسیم می‌شود — هر عضو حدود ${faNum(targetAmounts[0])} تومان`}
+              {" "}
+              (برای تقسیم سود یا واریزی متفرقهٔ گروهی)
+            </p>
+          )}
+
           <div className="space-y-1 text-xs text-zinc-500">
             تاریخ (از تقویم شمسی — برای دوره سهام به‌کار می‌رود)
             <JalaliCalendar
               value={dateIso}
               onChange={(iso) => {
                 setDateIso(iso);
-                if (form.type === "share") {
+                if (form.direction === "deposit" && form.type === "share") {
                   setForm((prev) => ({
                     ...prev,
                     period: monthKey(new Date(iso)),
@@ -606,7 +786,10 @@ export default function DepositsTab({
           {dupPending && (
             <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm dark:border-amber-900 dark:bg-amber-950/40">
               <p>
-                هشدار تراکنش مشابه: واریزی مشابهی همین حالا ثبت شده است —{" "}
+                هشدار تراکنش مشابه:{" "}
+                {form.memberId === "all"
+                  ? "برای یکی از اعضای هدف، تراکنش مشابهی همین حالا ثبت شده است — "
+                  : "تراکنش مشابهی همین حالا ثبت شده است — "}
                 {dupPending.memberName}، {toMoney(Number(dupPending.amount))}،{" "}
                 {TYPE_LABELS[dupPending.type]}
                 {dupPending.periodKey ? `، ماه ${dupPending.periodKey}` : ""}.
@@ -637,7 +820,7 @@ export default function DepositsTab({
               disabled={busy}
               className="rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-primary-500 dark:text-white"
             >
-              ثبت واریزی
+              ثبت تراکنش
             </button>
             <button
               type="button"
@@ -653,8 +836,9 @@ export default function DepositsTab({
       {deleting && (
         <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm dark:border-red-900 dark:bg-red-950/40">
           <p>
-            واریزی «{deleting.title}» به مبلغ {toMoney(Number(deleting.amount))}{" "}
-            حذف شود؟ این کار اعتبار و مانده اعضا را به‌روز می‌کند.
+            {deleting.type === "withdraw_misc" ? "برداشت متفرقه" : "واریزی"} «{" "}
+            {deleting.title}» به مبلغ {toMoney(Number(deleting.amount))} حذف شود؟
+            این کار اعتبار و مانده اعضا را به‌روز می‌کند.
           </p>
           <div className="mt-3 flex gap-2">
             <button
@@ -683,7 +867,7 @@ export default function DepositsTab({
       {filtered.length === 0 ? (
         <p className="text-sm text-zinc-500">
           {txRows.length === 0
-            ? "هنوز تراکنشی ثبت نشده است؛ با «ثبت واریزی» شروع کنید."
+            ? "هنوز تراکنشی ثبت نشده است؛ با «ثبت تراکنش» شروع کنید."
             : "تراکنشی مطابق جست‌وجو پیدا نشد."}
         </p>
       ) : (

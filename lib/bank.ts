@@ -381,12 +381,20 @@ export type BankFundSummary = {
   totalInterest: number;
 };
 
-/** موجودی بانک = همه واریزی‌ها + بازپرداخت‌ها − مبالغ پرداختی وام */
+/**
+ * موجودی بانک = همه واریزی‌ها + بازپرداخت‌ها − مبالغ پرداختی وام − برداشت‌های متفرقه
+ * (جلسه ۵۸: رکوردهای withdraw_misc واریزی نیستند؛ از موجودی کسر می‌شوند)
+ */
 export function recalcFund(
   bank: Pick<BankDatabase, "members" | "deposits" | "loans">,
 ): BankFundSummary {
   const totalShares = bank.members.reduce((sum, m) => sum + Number(m.shares || 0), 0);
-  const allDeposits = bank.deposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const allDeposits = bank.deposits
+    .filter((d) => d.type !== "withdraw_misc")
+    .reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const miscWithdrawals = bank.deposits
+    .filter((d) => d.type === "withdraw_misc")
+    .reduce((sum, d) => sum + Number(d.amount || 0), 0);
   const repayments = bank.loans.reduce((sum, l) => sum + loanPaid(l), 0);
   const loanOut = bank.loans.reduce(
     (sum, l) => sum + Number(l.disbursedAmount ?? l.principal ?? 0),
@@ -400,7 +408,7 @@ export function recalcFund(
     .reduce((sum, l) => sum + Number(l.interestAmount || 0), 0);
   return {
     totalShares,
-    balance: allDeposits + repayments - loanOut,
+    balance: allDeposits + repayments - loanOut - miscWithdrawals,
     totalInterest: recordedInterest + settledInterest,
   };
 }
@@ -410,6 +418,8 @@ export type BankMonthlyRow = {
   share: number;
   interest: number;
   profit: number;
+  /** جلسه ۵۸ — برداشت‌های متفرقهٔ ثبت‌شده در همان ماه */
+  withdraw: number;
   repayment: number;
   loanOut: number;
 };
@@ -426,11 +436,15 @@ export function monthlyTotals(
   ) => {
     const key = monthKey(date);
     if (!map.has(key)) {
-      map.set(key, { key, share: 0, interest: 0, profit: 0, repayment: 0, loanOut: 0 });
+      map.set(key, { key, share: 0, interest: 0, profit: 0, withdraw: 0, repayment: 0, loanOut: 0 });
     }
     map.get(key)![kind] += Number(amount || 0);
   };
   bank.deposits.forEach((d) => {
+    if (d.type === "withdraw_misc") {
+      add(d.createdAt, "withdraw", d.amount);
+      return;
+    }
     const kind =
       (d.type || "share") === "share"
         ? "share"
