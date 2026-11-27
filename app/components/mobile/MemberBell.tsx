@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import ClayIcon, { type ClayTone } from "./ClayIcon";
 import { jalaliParts } from "@/lib/bank";
+import { useBackHandler } from "./backGuard";
 import type { AdminMessage, LoanRequest, MemberMessage, MemberNotification, PaymentRequest } from "@/lib/db";
 
 /** جلسه ۴۰ — تِم طلایی زنگوله (هم‌خانوادهٔ رنگ طلایی آیکون‌های اپ) به درخواست کاربر */
@@ -72,6 +73,15 @@ export default function MemberBell() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [sendOk, setSendOk] = useState("");
+
+  /** جلسه ۵۴ — دکمهٔ برگشت گوشی پنل بازِ زنگوله را می‌بندد */
+  useBackHandler(() => {
+    if (open) {
+      setOpen(false);
+      return true;
+    }
+    return false;
+  }, 2);
 
   const refresh = useCallback(async () => {
     try {

@@ -5,14 +5,18 @@ import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName, type ClayTone } from "./ClayIcon";
 import { jalaliParts } from "@/lib/bank";
 import type { NavTarget } from "./nav";
+import { useBackHandler } from "./backGuard";
 import type { BankDeposit, BankLoan, BankLoanPayment, PaymentRequest, PublicUser } from "@/lib/db";
 
 /**
- * اسلاید تراکنش‌ها — هدر سرمه‌ای با موجودی ریالی، دکمه چشم و اکشن‌های سریع
+ * اسلاید تراکنش‌ها — هدر سرمه‌ای با موجودی، دکمه چشم و اکشن‌های سریع
  * + برگه سفید تراکنش‌های اخیر: واریزها با پس‌زمینه سبز روشن.
  * مبالغ دیتابیس تومان است؛ موجودی به درخواست کاربر به ریال نمایش داده می‌شود.
  * جلسه ۵۳: اکشن‌های سریع عضو فقط دو دکمهٔ «پرداخت سهام» و «پرداخت قسط»
  * است (تسهیلات حذف شد) — لمس هرکدام مستقیم اولین پرداخت در دسترس را باز می‌کند.
+ * جلسه ۵۴: سر فصل موجودی برای عضو «موجودی سهام» است — جمع واریزی‌های سهام
+ * همان عضو (همان «اعتبار» طبق BANK_SPEC؛ قبلاً جمع کل واریزی‌های هر نوع بود).
+ * جلسه ۵۴: مودال جزئیات باز با دکمهٔ برگشت گوشی بسته می‌شود (backGuard).
  */
 
 type TxDirection = "in" | "out" | "pending";
@@ -187,7 +191,6 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
   const [deposits, setDeposits] = useState<BankDeposit[]>([]);
   const [loans, setLoans] = useState<BankLoan[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
-  const [myTotal, setMyTotal] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -197,6 +200,15 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
 
   const isAdmin = me.role === "admin";
 
+  /** جلسه ۵۴ — برگشت گوشی مودال جزئیاتِ باز را می‌بندد */
+  useBackHandler(() => {
+    if (detailRow) {
+      setDetailRow(null);
+      return true;
+    }
+    return false;
+  }, 2);
+
   useEffect(() => {
     let alive = true;
     Promise.all([
@@ -205,20 +217,14 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
       isAdmin
         ? fetch("/api/admin/requests").then((r) => (r.ok ? r.json() : { paymentRequests: [] }))
         : fetch("/api/member/requests").then((r) => (r.ok ? r.json() : { paymentRequests: [] })),
-      isAdmin
-        ? Promise.resolve([])
-        : fetch("/api/bank/members").then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([d, l, req, m]) => {
+      .then(([d, l, req]) => {
         if (!alive) return;
         setDeposits(Array.isArray(d) ? d : []);
         setLoans(Array.isArray(l) ? l : []);
         const prs = req && Array.isArray(req.paymentRequests) ? req.paymentRequests : [];
         // فقط درخواست‌های در انتظار در جریان تراکنش می‌آیند؛ تأییدشده‌ها خودشان واریز شده‌اند
         setRequests(prs.filter((r: PaymentRequest) => r.status === "pending"));
-        if (!isAdmin && Array.isArray(m) && m.length > 0) {
-          setMyTotal(Number(m[0].totalDeposited) || 0);
-        }
         setLoading(false);
       })
       .catch(() => {
@@ -315,15 +321,20 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
     return out;
   }, [deposits, loans, requests, isAdmin]);
 
-  /** موجودی — عضو: مجموع واریزی‌هایش؛ ادمین: واریزی بانک منهای تسهیلات پرداختی (تومان) */
+  /** موجودی سر فصل (تومان) — جلسه ۵۴:
+   *  ادمین: موجودی بانک (واریزی‌ها منهای تسهیلات پرداختی)؛
+   *  عضو: موجودی سهام = جمع واریزی‌های «سهام» خودش (اعتبار طبق BANK_SPEC —
+   *  واریزی‌های متفرقه/سود دیگر داخلش نیست؛ برای عضو deposits فقط واریزی‌های خودش است). */
   const balanceToman = useMemo(() => {
     if (isAdmin) {
       const dep = deposits.reduce((s, d) => s + (Number(d.amount) || 0), 0);
       const out = loans.reduce((s, l) => s + (Number(l.disbursedAmount) || 0), 0);
       return dep - out;
     }
-    return myTotal ?? 0;
-  }, [isAdmin, deposits, loans, myTotal]);
+    return deposits
+      .filter((d) => (d.type || "share") === "share")
+      .reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  }, [isAdmin, deposits, loans]);
 
   const filtered = rows.filter((r) => (filter === "all" ? true : r.direction === filter));
   const visible = filtered.slice(0, limit);
@@ -375,7 +386,7 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         <div className="pointer-events-none absolute -left-10 -top-10 size-36 rounded-full bg-white/5" />
         <div className="pointer-events-none absolute -bottom-16 left-16 size-44 rounded-full bg-white/5" />
         <div className="relative">
-          <p className="text-xs font-medium text-white/70">{isAdmin ? "موجودی بانک" : "موجودی حساب"}</p>
+          <p className="text-xs font-medium text-white/70">{isAdmin ? "موجودی بانک" : "موجودی سهام"}</p>
           <div className="mt-1 flex items-center gap-2.5">
             <p className="text-[27px] font-black leading-9 tracking-tight">
               {balanceVisible ? (

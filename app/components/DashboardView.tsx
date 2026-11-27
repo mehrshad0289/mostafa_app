@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES, shareDeadlineState } from "@/lib/bank";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MemberBell from "@/app/components/mobile/MemberBell";
+// جلسه ۵۴: گارد دکمهٔ برگشت گوشی — مودال‌ها/تب‌های این داشبورد هم لایه حساب می‌شوند
+import { useBackGuardRoot, useBackHandler } from "@/app/components/mobile/backGuard";
 // جلسه ۵۲: راهنما دیگر در خانه رندر نمی‌شود؛ مربع «راهنما» در خدمات است.
 import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
 import { jalaliMonthKey, useAlertDismissed } from "@/app/components/useAlertDismiss";
@@ -245,6 +247,11 @@ export default function DashboardView({
   const [loansSub, setLoansSub] = useState<"request" | "installments">(
     initialTab === "loans-installments" ? "installments" : "request",
   );
+  /** جلسه ۵۴ — حالت مستقل: پشتهٔ تب‌های قبلی برای دکمهٔ برگشت گوشی */
+  const [tabSnapshots, setTabSnapshots] = useState<{ tab: DashboardTab }[]>([]);
+  /** جلسه ۵۴ — هشدار «برای خروج دوباره برگشت را بزنید» (فقط حالت مستقل) */
+  const [exitHint, setExitHint] = useState(false);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** مودال جزئیات تسهیلات تأییدشده — اقساط + مبلغ واریز شده + ارسال شبا (جلسه ۳۶) */
   const [loanDetail, setLoanDetail] = useState<LoanRequest | null>(null);
   const [payoutEditing, setPayoutEditing] = useState(false);
@@ -263,6 +270,11 @@ export default function DashboardView({
   function changeTab(next: DashboardTab) {
     const order = embedded ? SWIPE_ORDER_EMBEDDED : SWIPE_ORDER_STANDALONE;
     setNavDir(order.indexOf(swipeKey(next)) >= order.indexOf(swipeKey(tab)) ? "next" : "prev");
+    // جلسه ۵۴ — حالت مستقل: هر جابه‌جایی بخش یک «مرحله» است؛ در حالت تعبیه‌شده
+    // پوستهٔ /mobile از طریق onTabChange خودش پشته می‌سازد
+    if (!embedded) {
+      setTabSnapshots((s) => [...s.slice(-29), { tab }]);
+    }
     setTab(next);
     onTabChange?.(next);
   }
@@ -323,6 +335,49 @@ export default function DashboardView({
   const [loanMonths, setLoanMonths] = useState("");
   const [loanReason, setLoanReason] = useState("");
   const [busy, setBusy] = useState(false);
+
+  /** جلسه ۵۴ — گارد دکمهٔ برگشت گوشی/مرورگر:
+   *  ۱) اول مودال‌های باز این داشبورد بسته می‌شوند (هر دو حالت)؛
+   *  ۲) در حالت مستقل بعد از آن تب قبلی بازگردانده می‌شود؛
+   *  ۳) در ریشه، هشدار خروج از پوسته/گارد ریشه می‌آید. */
+  useBackHandler(() => {
+    if (loanDetail) {
+      setLoanDetail(null);
+      return true;
+    }
+    if (shareModal) {
+      setShareModal(false);
+      return true;
+    }
+    if (payModal) {
+      setPayModal(null);
+      return true;
+    }
+    return false;
+  }, 2);
+
+  useBackHandler(
+    () => {
+      if (embedded) return false;
+      if (tabSnapshots.length === 0) return false;
+      const prev = tabSnapshots[tabSnapshots.length - 1];
+      setTabSnapshots((all) => all.slice(0, -1));
+      setNavDir("prev");
+      setTab(prev.tab);
+      return true;
+    },
+    0,
+  );
+
+  /** جلسه ۵۴ — حالت مستقل ریشهٔ گارد است (تعبیه‌شده: پوستهٔ /mobile ریشه است) */
+  useBackGuardRoot(
+    (show) => {
+      setExitHint(show);
+      if (hintTimer.current) clearTimeout(hintTimer.current);
+      if (show) hintTimer.current = setTimeout(() => setExitHint(false), 2200);
+    },
+    !embedded,
+  );
 
   // گارد دسترسی — مهمان → /login، ادمین → /admin
   useEffect(() => {
@@ -1251,6 +1306,15 @@ export default function DashboardView({
             ))}
           </div>
         </nav>
+      )}
+
+      {/* جلسه ۵۴ — هشدار خروج با دکمهٔ برگشت گوشی در ریشهٔ حالت مستقل */}
+      {!embedded && exitHint && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-16 z-[60] mx-auto flex max-w-2xl justify-center px-6" data-noprint>
+          <p className="rounded-full bg-zinc-900/90 px-5 py-2.5 text-center text-[11px] font-medium text-white shadow-lg dark:bg-zinc-800/95">
+            برای خروج از فَم بانک، دوباره دکمهٔ برگشت را بزنید
+          </p>
+        </div>
       )}
 
       {shareModal && (

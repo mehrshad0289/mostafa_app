@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import ClayIcon, { toneForIcon, type ClayIconName } from "./ClayIcon";
 import ServiceDetailScreen from "./ServiceDetailScreen";
 import type { SettingsSection } from "./nav";
+import { useBackHandler } from "./backGuard";
 import type { PublicUser } from "@/lib/db";
 
 /**
@@ -58,6 +59,15 @@ export default function ServicesScreen({ me, section, onSectionChange }: Service
   // مودال تأیید خروج از حساب
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  /** جلسه ۵۴ — دکمهٔ برگشت گوشی مودال تأیید خروجِ باز را می‌بندد */
+  useBackHandler(() => {
+    if (confirmLogout) {
+      setConfirmLogout(false);
+      return true;
+    }
+    return false;
+  }, 2);
 
   function openTile(tile: ServiceTile) {
     if ("logout" in tile.target) {

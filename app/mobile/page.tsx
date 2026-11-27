@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ClayIcon from "@/app/components/mobile/ClayIcon";
 import HouseLogo from "@/app/components/mobile/HouseLogo";
 import LiveClock from "@/app/components/mobile/LiveClock";
 import MemberBell from "@/app/components/mobile/MemberBell";
+import { useBackGuardRoot, useBackHandler } from "@/app/components/mobile/backGuard";
 import BottomNav, { type MobileTab } from "@/app/components/mobile/BottomNav";
 import DashboardView, { type DashboardTab } from "@/app/components/DashboardView";
 import ServicesScreen from "@/app/components/mobile/ServicesScreen";
@@ -21,6 +22,14 @@ const TAB_ORDER: MobileTab[] = ["home", "transactions", "services"];
 
 /** جلسه ۵۳ — نوع پرش مستقیم به فرم پرداخت از اکشن‌های سریع تراکنش‌ها */
 type OpenPaymentKind = "share" | "installment";
+
+/** جلسه ۵۴ — یک «مرحله» داخلی اپ برای دکمهٔ برگشت گوشی (backGuard):
+ *  برگشت به‌جای خروج از برنامه، مرحلهٔ قبلی (تب/بخش قبلی) را باز می‌گرداند */
+type ShellSnapshot = {
+  active: MobileTab;
+  dashView: DashboardTab;
+  serviceSection: SettingsSection | null;
+};
 
 /**
  * پوسته موبایل فَم بانک — هدر برند (لوگوی خانه سه‌بعدی + فَم بانک + Fam Bank
@@ -49,6 +58,56 @@ export default function MobileAppPage() {
   const [serviceSection, setServiceSection] = useState<SettingsSection | null>(null);
   /** جهت آخرین جابه‌جایی صفحه برای انیمیشن ورود کشویی (جلسه ۳۹) */
   const [navDir, setNavDir] = useState<"next" | "prev">("next");
+  /** جلسه ۵۴ — پشتهٔ مراحل قبلی ناوبری داخلی برای دکمهٔ برگشت گوشی */
+  const [snapshots, setSnapshots] = useState<ShellSnapshot[]>([]);
+  /** جلسه ۵۴ — هشدار «برای خروج دوباره برگشت را بزنید» در ریشهٔ اپ */
+  const [exitHint, setExitHint] = useState(false);
+  const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** نقش کاربر — قبل از اولین render معلوم نیست؛ false موقتی است */
+  const isAdmin = me?.role === "admin";
+
+  /** جلسه ۵۴ — ریشهٔ گارد برگشت: نشانگر history + رویداد popstate؛
+ *  در ریشه (هیچ مرحلهٔ قبلی نبود) فقط هشدار خروج می‌آید و خروج واقعی
+   *  با زدن دوبارهٔ برگشت آزاد می‌شود */
+  useBackGuardRoot((show) => {
+    setExitHint(show);
+    if (hintTimer.current) clearTimeout(hintTimer.current);
+    if (show) hintTimer.current = setTimeout(() => setExitHint(false), 2200);
+  });
+
+  /** ثبت «مرحلهٔ» فعلی در پشته — قبل از هر جابه‌جایی داخلی صدا می‌شود؛
+   *  مرحلهٔ تکراریِ پشت سر هم دوبار ثبت نمی‌شود */
+  function pushSnapshot() {
+    const cur: ShellSnapshot = { active, dashView, serviceSection };
+    setSnapshots((s) => {
+      const last = s[s.length - 1];
+      if (last && last.active === cur.active && last.dashView === cur.dashView && last.serviceSection === cur.serviceSection) {
+        return s;
+      }
+      return [...s.slice(-29), cur];
+    });
+  }
+
+  /** جلسه ۵۴ — دکمهٔ برگشت گوشی وقتی هیچ لایهٔ مودالی باز نیست:
+   *  مرحلهٔ قبلی ناوبری داخلی (تب/بخش/جزئیات خدمات) بازگردانده می‌شود */
+  useBackHandler(() => {
+    if (snapshots.length === 0) return false;
+    const prev = snapshots[snapshots.length - 1];
+    setSnapshots((all) => all.slice(0, -1));
+    setNavDir("prev");
+    if (prev.active === "home" && !isAdmin) {
+      // بازگرداندن بخش قبلی داشبورد بدون remount (سینک initialTab);
+      // پرش خودکار پرداخت در حالت برگشت معنا ندارد
+      setHomeOpenPayment(undefined);
+      setDashView(prev.dashView);
+      setActive("home");
+    } else {
+      if (prev.active === "services") setServiceSection(prev.serviceSection);
+      setActive(prev.active);
+    }
+    return true;
+  }, 0);
 
   useEffect(() => {
     let alive = true;
@@ -75,6 +134,7 @@ export default function MobileAppPage() {
    *  پرداخت در دسترس خودکار باز می‌شود (موجودی برای بازگشت به مربع‌ها پاک می‌شود) */
   function goHomeTab(tab: DashboardTab, openPayment?: OpenPaymentKind) {
     if (active !== "home") setNavDir("prev"); // خانه در RTL اولین صفحه است (از راست وارد می‌شود)
+    pushSnapshot(); // جلسه ۵۴ — برگشت گوشی به همین مرحله برمی‌گردد
     setDashView(tab);
     setHomeOpenPayment(openPayment);
     setHomeKey((k) => k + 1);
@@ -84,6 +144,7 @@ export default function MobileAppPage() {
   /** تغییر تب پوسته با جهت انیمیشن کشویی — ترتیب RTL (جلسه ۳۹) */
   function goTab(t: MobileTab) {
     if (t === active) return;
+    pushSnapshot(); // جلسه ۵۴
     setNavDir(TAB_ORDER.indexOf(t) >= TAB_ORDER.indexOf(active) ? "next" : "prev");
     setActive(t);
   }
@@ -92,6 +153,7 @@ export default function MobileAppPage() {
   function stepShell(delta: 1 | -1) {
     const next = TAB_ORDER[TAB_ORDER.indexOf(active) + delta];
     if (!next) return;
+    pushSnapshot(); // جلسه ۵۴
     if (next === "home" && !isAdmin) {
       goHomeTab("tiles"); // خانه عضو همیشه از مربع‌های سر فصل‌ها شروع می‌شود
     } else {
@@ -112,6 +174,7 @@ export default function MobileAppPage() {
       return;
     }
     if (target.tab === "services") {
+      pushSnapshot(); // جلسه ۵۴ — برگشت گوشی به مرحلهٔ قبل برمی‌گردد
       setServiceSection(target.section ?? null);
     }
     setActive(target.tab);
@@ -128,8 +191,6 @@ export default function MobileAppPage() {
     );
   }
   if (me === null) return null; // در حال ریدایرکت به لاگین
-
-  const isAdmin = me.role === "admin";
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black dark:text-zinc-50">
@@ -171,9 +232,10 @@ export default function MobileAppPage() {
             </span>
           </div>
         </div>
-        {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) — جلسه ۵۳: فاصلهٔ پایینی کمی کم شد
-            تا خط جداکننده پایین هدر بالاتر بنشیند (به درخواست کاربر؛ جلسه ۴۸ آن را پایین‌تر برده بود) */}
-        <div className="relative mx-auto flex max-w-md justify-center px-4 pb-2.5">
+        {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) — جلسه ۵۴: فاصلهٔ پایینی باز هم کمتر
+            شد (pb-2.5 → pb-1.5) تا خط جداکنندهٔ پایین هدر ثابتِ لایه یوزر بالاتر
+            بنشیند (دومین درخواستِ بالاتر رفتن؛ جلسه ۴۸ آن را پایین برده بود) */}
+        <div className="relative mx-auto flex max-w-md justify-center px-4 pb-1.5">
           <LiveClock light />
         </div>
         <div className="relative h-[3px] bg-gradient-to-l from-sky-200 via-sky-300 to-primary-500" />
@@ -192,8 +254,14 @@ export default function MobileAppPage() {
                 embedded
                 initialTab={dashView}
                 initialOpenPayment={homeOpenPayment}
-                onBack={() => setDashView("tiles")}
-                onTabChange={setDashView}
+                onBack={() => {
+                  pushSnapshot(); // جلسه ۵۴ — دکمهٔ بازگشت UI هم مرحله را ثبت می‌کند
+                  setDashView("tiles");
+                }}
+                onTabChange={(t: DashboardTab) => {
+                  pushSnapshot(); // جلسه ۵۴ — سوایپ/لمس بخش داخل داشبورد هم مرحله است
+                  setDashView(t);
+                }}
               />
             ))}
 
@@ -202,7 +270,10 @@ export default function MobileAppPage() {
             <ServicesScreen
               me={me}
               section={serviceSection}
-              onSectionChange={(s: SettingsSection | null) => setServiceSection(s)}
+              onSectionChange={(s: SettingsSection | null) => {
+                pushSnapshot(); // جلسه ۵۴ — ورود/خروج جزئیات خدمات هم مرحله است
+                setServiceSection(s);
+              }}
             />
           )}
         </div>
@@ -221,6 +292,15 @@ export default function MobileAppPage() {
           }
         }}
       />
+
+      {/* جلسه ۵۴ — هشدار خروج با دکمهٔ برگشت گوشی در ریشهٔ اپ: خروج واقعی = دوباره زدن */}
+      {exitHint && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 mx-auto flex max-w-md justify-center px-6">
+          <p className="rounded-full bg-zinc-900/90 px-5 py-2.5 text-center text-[11px] font-medium text-white shadow-lg dark:bg-zinc-800/95">
+            برای خروج از فَم بانک، دوباره دکمهٔ برگشت را بزنید
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -234,6 +314,15 @@ function AdminMobileHome({ name }: { name: string }) {
   const [summary, setSummary] = useState<{ depositsTotal: number; loansTotal: number; members: number } | null>(null);
   /** مربع لمس‌شده — جزئیاتش در کارت زیر شبکه مربع‌ها دیده می‌شود */
   const [openTile, setOpenTile] = useState<"deposits" | "loans" | "members" | null>(null);
+
+  /** جلسه ۵۴ — دکمهٔ برگشت گوشی کارت جزئیات مربعِ باز را می‌بندد */
+  useBackHandler(() => {
+    if (openTile) {
+      setOpenTile(null);
+      return true;
+    }
+    return false;
+  }, 1);
 
   useEffect(() => {
     let alive = true;
