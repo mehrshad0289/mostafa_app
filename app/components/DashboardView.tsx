@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES, shareDeadlineState } from "@/lib/bank";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
@@ -22,8 +22,10 @@ import type {
 /** جلسه ۳۶: «اقساط» و «تسهیلات» دو بخش جدا نبودند — حالا فقط یک بخش «تسهیلات»
  *  با دو گزینهٔ داخلی (درخواست تسهیلات / اقساط) وجود دارد.
  *  جلسه ۵۲: تب «تنظیمات» از خانه حذف شد — همهٔ آیتم‌هایش مربع‌های گرید
- *  «خدمات» در نوار پایین پوسته موبایل هستند و «راهنما» هم آن‌جاست. */
-export type TabKey = "shares" | "loans" | "deposit" | "profile";
+ *  «خدمات» در نوار پایین پوسته موبایل هستند و «راهنما» هم آن‌جاست.
+ *  جلسه ۵۳: «پروفایل» هم از خانه حذف شد (به درخواست کاربر — مربع «پروفایل من»
+ *  در خدمات همان کار را می‌دهد) — خانه ۳ مربع است: سهام، تسهیلات، واریز. */
+export type TabKey = "shares" | "loans" | "deposit";
 
 /**
  * حالت خانه پوسته موبایل: "tiles" = شبکه مربع‌های سر فصل‌ها؛ بقیه = همان بخش؛
@@ -35,14 +37,14 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "shares", label: "سهام" },
   { key: "loans", label: "تسهیلات" },
   { key: "deposit", label: "واریز" },
-  { key: "profile", label: "پروفایل" },
 ];
 
 /** جلسه ۳۹ — ترتیب بخش‌ها برای ناوبری کشویی (swipe): حالت تعبیه‌شده از خانهٔ
- *  مربع‌ها شروع می‌شود و بخش‌ها بعد از آن؛ حالت مستقل فقط ۴ تب را دارد
- *  (جلسه ۵۲: تنظیمات حذف شد). RTL: کشیدن انگشت به راست = بخش بعدی، به چپ = قبلی. */
-const SWIPE_ORDER_EMBEDDED: DashboardTab[] = ["tiles", "shares", "loans", "deposit", "profile"];
-const SWIPE_ORDER_STANDALONE: DashboardTab[] = ["shares", "loans", "deposit", "profile"];
+ *  مربع‌ها شروع می‌شود و بخش‌ها بعد از آن؛ حالت مستقل فقط ۳ تب را دارد
+ *  (جلسه ۵۲: تنظیمات حذف شد؛ جلسه ۵۳: پروفایل هم حذف شد). RTL: کشیدن
+ *  انگشت به راست = بخش بعدی، به چپ = قبلی. */
+const SWIPE_ORDER_EMBEDDED: DashboardTab[] = ["tiles", "shares", "loans", "deposit"];
+const SWIPE_ORDER_STANDALONE: DashboardTab[] = ["shares", "loans", "deposit"];
 
 /** کلید یکسان‌شدهٔ بخش برای ناوبری کشویی (پرش عمیق loans-installments = loans) */
 function swipeKey(tab: DashboardTab): Exclude<DashboardTab, "loans-installments"> {
@@ -52,12 +54,12 @@ function swipeKey(tab: DashboardTab): Exclude<DashboardTab, "loans-installments"
 /**
  * مربع‌های خانه پوسته موبایل — هر سر فصل «یک تیکه»: لمس هر مربع مستقیم همان
  * بخش را باز می‌کند (بدون واسط داشبورد کلی). جلسه ۲۶ مرحله ۲.
+ * جلسه ۵۳: مربع «پروفایل» حذف شد — اطلاعات حساب از مربع «پروفایل من» در خدمات.
  */
 const HOME_TILES: { key: TabKey; label: string; icon: ClayIconName }[] = [
   { key: "shares", label: "سهام", icon: "coins" },
   { key: "loans", label: "تسهیلات", icon: "banknote" },
   { key: "deposit", label: "واریز", icon: "wallet" },
-  { key: "profile", label: "پروفایل", icon: "user" },
 ];
 
 const STATUS_LABEL: Record<PaymentRequest["status"], string> = {
@@ -213,6 +215,9 @@ type DashboardViewProps = {
   embedded?: boolean;
   /** نمای اولیه — "tiles" فقط در حالت تعبیه‌شده معنا دارد (خانه مربع‌ها) */
   initialTab?: DashboardTab;
+  /** جلسه ۵۳ — پرش مستقیم از اکشن‌های سریع تراکنش‌ها: بعد از لود داده، فرم
+   *  پرداخت همان نوع برای اولین پرداخت در دسترس خودکار باز می‌شود */
+  initialOpenPayment?: "share" | "installment";
   /** بازگشت به خانه مربع‌ها — اگر داده شود، بالای هر بخشِ باز دکمه بازگشت می‌آید */
   onBack?: () => void;
   /** گزارش هر تغییر بخش به والد تا state والد همیشه همگام بماند */
@@ -227,6 +232,7 @@ type DashboardViewProps = {
 export default function DashboardView({
   embedded = false,
   initialTab = "shares",
+  initialOpenPayment,
   onBack,
   onTabChange,
 }: DashboardViewProps) {
@@ -316,9 +322,6 @@ export default function DashboardView({
   const [loanAmount, setLoanAmount] = useState("");
   const [loanMonths, setLoanMonths] = useState("");
   const [loanReason, setLoanReason] = useState("");
-  const [pwCurrent, setPwCurrent] = useState("");
-  const [pwNew, setPwNew] = useState("");
-  const [pwNew2, setPwNew2] = useState("");
   const [busy, setBusy] = useState(false);
 
   // گارد دسترسی — مهمان → /login، ادمین → /admin
@@ -519,6 +522,59 @@ export default function DashboardView({
     return null;
   }
 
+  /**
+   * جلسه ۵۳ — پرش مستقیم به اولین پرداخت در دسترس از اکشن‌های سریع صفحهٔ
+   * تراکنش‌ها: «پرداخت سهام» فرم پرداخت سهام را با مبلغ پیش‌فرض (تعهد ماهانه)
+   * باز می‌کند و «پرداخت قسط» مودال اولین قسطِ پرداخت‌نشده را — قسطی که درخواست
+   * معلق دارد رد می‌شود (برای هر قسط فقط یک درخواست pending می‌شود) و اگر
+   * هیچ قسط قابل پرداختی نبود، اعلان متنی همان‌جا نمایش داده می‌شود. فقط یک‌بار
+   * در هر mount اجرا می‌شود؛ بعد از ثبت پرداخت و لود مجدد داده، مودال دوباره
+   * خودکار باز نمی‌شود.
+   */
+  const autoOpenPaymentRef = useRef(false);
+  useEffect(() => {
+    if (loading || autoOpenPaymentRef.current) return;
+    if (initialOpenPayment !== "share" && initialOpenPayment !== "installment") return;
+    autoOpenPaymentRef.current = true;
+    const timer = setTimeout(() => {
+      if (initialOpenPayment === "share") {
+        if (member && settings) {
+          setShareAmount(String(settings.amountPerShare * Math.max(1, member.shares)));
+          setShareReceipt("");
+          setShareNote("");
+          setShareModal(true);
+        }
+        return;
+      }
+      const first = installmentRows.find(
+        (r) =>
+          !r.paid &&
+          r.loanStatus !== "cancelled" &&
+          !paymentRequests.some(
+            (p) =>
+              p.kind === "installment" &&
+              p.loanId === r.loanId &&
+              p.installmentNumber === r.number &&
+              p.status === "pending",
+          ),
+      );
+      const loan = first ? loans.find((l) => l.id === first.loanId) : undefined;
+      if (first && loan) {
+        setPayModal({ loan, row: first });
+        setPayReceipt("");
+        setPayNote("");
+        return;
+      }
+      const anyUnpaid = installmentRows.some((r) => !r.paid && r.loanStatus !== "cancelled");
+      setNotice(
+        anyUnpaid
+          ? "پرداخت قسط شما ثبت شده و در انتظار تأیید مدیر است."
+          : "قسطی برای پرداخت در دسترس نیست؛ همهٔ اقساط تسویه شده‌اند.",
+      );
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [loading, initialOpenPayment, member, settings, installmentRows, paymentRequests, loans]);
+
   async function submitSharePayment(event: React.FormEvent) {
     event.preventDefault();
     if (!shareReceipt && !shareNote.trim()) {
@@ -673,37 +729,6 @@ export default function DashboardView({
       await load();
     } catch {
       setError("ارسال شماره حساب ناموفق بود.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitChangePassword(event: React.FormEvent) {
-    event.preventDefault();
-    if (pwNew !== pwNew2) {
-      setError("تکرار رمز جدید با رمز جدید یکسان نیست.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const response = await fetch("/api/auth/change-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword: pwCurrent, newPassword: pwNew }),
-      });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        setError(data.error || "تغییر رمز ناموفق بود.");
-        return;
-      }
-      setPwCurrent("");
-      setPwNew("");
-      setPwNew2("");
-      setNotice("رمز عبور با موفقیت عوض شد.");
-    } catch {
-      setError("تغییر رمز ناموفق بود.");
     } finally {
       setBusy(false);
     }
@@ -1202,47 +1227,6 @@ export default function DashboardView({
                 </>
               );
             })()}
-          </section>
-        )}
-
-        {tab === "profile" && (
-          <section className="space-y-4">
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between gap-3">
-                  <dt className="text-zinc-500">نام و نام خانوادگی</dt>
-                  <dd>{me.fullName || "—"}</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-zinc-500">نام کاربری</dt>
-                  <dd dir="ltr">{me.username}</dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-zinc-500">شماره تلفن</dt>
-                  <dd dir="ltr">{me.phone || "—"}</dd>
-                </div>
-              </dl>
-            </div>
-            <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <h3 className="mb-3 text-sm font-medium">تغییر رمز عبور</h3>
-              <form onSubmit={submitChangePassword} className="space-y-3">
-                <label className="block space-y-1 text-xs text-zinc-500">
-                  رمز فعلی
-                  <input type="password" value={pwCurrent} onChange={(e) => setPwCurrent(e.target.value)} dir="ltr" autoComplete="current-password" className={`${inputClass} text-left`} required />
-                </label>
-                <label className="block space-y-1 text-xs text-zinc-500">
-                  رمز جدید (حداقل ۶ نویسه)
-                  <input type="password" value={pwNew} onChange={(e) => setPwNew(e.target.value)} dir="ltr" autoComplete="new-password" className={`${inputClass} text-left`} required />
-                </label>
-                <label className="block space-y-1 text-xs text-zinc-500">
-                  تکرار رمز جدید
-                  <input type="password" value={pwNew2} onChange={(e) => setPwNew2(e.target.value)} dir="ltr" autoComplete="new-password" className={`${inputClass} text-left`} required />
-                </label>
-                <button type="submit" disabled={busy} className={`${btnPrimary} w-full`}>
-                  {busy ? "در حال ذخیره…" : "تغییر رمز عبور"}
-                </button>
-              </form>
-            </div>
           </section>
         )}
 

@@ -19,6 +19,9 @@ import type { PublicUser } from "@/lib/db";
  *  جلسه ۵۲: ۳ تب به ترتیب درخواست کاربر — خانه، تراکنش‌ها، خدمات (تنظیمات حذف شد) */
 const TAB_ORDER: MobileTab[] = ["home", "transactions", "services"];
 
+/** جلسه ۵۳ — نوع پرش مستقیم به فرم پرداخت از اکشن‌های سریع تراکنش‌ها */
+type OpenPaymentKind = "share" | "installment";
+
 /**
  * پوسته موبایل فَم بانک — هدر برند (لوگوی خانه سه‌بعدی + فَم بانک + Fam Bank
  * + روز/تاریخ/ساعت زنده) + نوار ناوبری پایین با ۳ آیتم به ترتیب
@@ -37,6 +40,9 @@ export default function MobileAppPage() {
   const [active, setActive] = useState<MobileTab>("home");
   /** نمای خانه عضو: "tiles" = مربع‌های سر فصل‌ها؛ بقیه = بخش باز با دکمه بازگشت */
   const [dashView, setDashView] = useState<DashboardTab>("tiles");
+  /** جلسه ۵۳ — پرش مستقیم به فرم پرداخت (سهام/قسط) از اکشن‌های سریع تراکنش‌ها؛
+   *  فقط همراه dashView معنادار است و هر goHomeTab دوباره مقدارش را می‌گذارد */
+  const [homeOpenPayment, setHomeOpenPayment] = useState<OpenPaymentKind | undefined>(undefined);
   /** کلید remount داشبورد برای refresh داده بعد از پرش از خدمات/تراکنش‌ها */
   const [homeKey, setHomeKey] = useState(0);
   /** بخش باز خدمات (وقتی از پرش ناوبری یا مربع خدمات به جزئیات می‌رویم) */
@@ -64,10 +70,13 @@ export default function MobileAppPage() {
     if (me === null) router.replace("/login");
   }, [me, router]);
 
-  /** باز کردن مستقیم یک سر فصل داشبورد (از خدمات/اکشن‌های سریع) — یک‌تیکه */
-  function goHomeTab(tab: DashboardTab) {
+  /** باز کردن مستقیم یک سر فصل داشبورد (از خدمات/اکشن‌های سریع) — یک‌تیکه.
+   *  جلسه ۵۳: openPayment = بعد از لود داده، فرم پرداخت همان نوع برای اولین
+   *  پرداخت در دسترس خودکار باز می‌شود (موجودی برای بازگشت به مربع‌ها پاک می‌شود) */
+  function goHomeTab(tab: DashboardTab, openPayment?: OpenPaymentKind) {
     if (active !== "home") setNavDir("prev"); // خانه در RTL اولین صفحه است (از راست وارد می‌شود)
     setDashView(tab);
+    setHomeOpenPayment(openPayment);
     setHomeKey((k) => k + 1);
     setActive("home");
   }
@@ -99,7 +108,7 @@ export default function MobileAppPage() {
   /** قرارداد ناوبری مشترک همه اسلایدها */
   function navigate(target: NavTarget) {
     if (target.tab === "home") {
-      goHomeTab(target.dashboardTab ?? "tiles");
+      goHomeTab(target.dashboardTab ?? "tiles", target.openPayment);
       return;
     }
     if (target.tab === "services") {
@@ -162,9 +171,9 @@ export default function MobileAppPage() {
             </span>
           </div>
         </div>
-        {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) — جلسه ۴۸: فاصلهٔ پایینی بیشتر تا
-            خط جداکننده پایین‌تر بنشیند و بالای صفحه فشرده نباشد */}
-        <div className="relative mx-auto flex max-w-md justify-center px-4 pb-4">
+        {/* روز، تاریخ و ساعت زنده (جلسه ۲۷) — جلسه ۵۳: فاصلهٔ پایینی کمی کم شد
+            تا خط جداکننده پایین هدر بالاتر بنشیند (به درخواست کاربر؛ جلسه ۴۸ آن را پایین‌تر برده بود) */}
+        <div className="relative mx-auto flex max-w-md justify-center px-4 pb-2.5">
           <LiveClock light />
         </div>
         <div className="relative h-[3px] bg-gradient-to-l from-sky-200 via-sky-300 to-primary-500" />
@@ -182,6 +191,7 @@ export default function MobileAppPage() {
                 key={homeKey}
                 embedded
                 initialTab={dashView}
+                initialOpenPayment={homeOpenPayment}
                 onBack={() => setDashView("tiles")}
                 onTabChange={setDashView}
               />

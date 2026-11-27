@@ -20,8 +20,11 @@ export type SettingsSection =
  *  جلسه ۳۶: dashboardTab از DashboardView است (شامل "loans-installments")
  *  جلسه ۵۲: تب «تنظیمات» حذف شد؛ پرش به بخش‌های جزئیاتی حالا با
  *  { tab: "services", section } است — نوار پایین ۳ آیتمی است:
- *  خانه، تراکنش‌ها، خدمات. */
+ *  خانه، تراکنش‌ها، خدمات.
+ *  جلسه ۵۳: openPayment (فقط با dashboardTab) = پرش مستققیم از اکشن‌های
+ *  سریع تراکنش‌ها به فرم اولین پرداخت در دسترس ("share" = پرداخت سهام،
+ *  "installment" = اولین قسط پرداخت‌نشده). */
 export type NavTarget =
-  | { tab: "home"; dashboardTab?: DashboardTab }
+  | { tab: "home"; dashboardTab?: DashboardTab; openPayment?: "share" | "installment" }
   | { tab: "services"; section?: SettingsSection }
   | { tab: "transactions" };

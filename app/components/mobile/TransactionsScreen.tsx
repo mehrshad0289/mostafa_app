@@ -8,9 +8,11 @@ import type { NavTarget } from "./nav";
 import type { BankDeposit, BankLoan, BankLoanPayment, PaymentRequest, PublicUser } from "@/lib/db";
 
 /**
- * اسلاید تراکنش‌ها — هدر سرمه‌ای با موجودی ریالی، دکمه چشم و سه اکشن سریع
+ * اسلاید تراکنش‌ها — هدر سرمه‌ای با موجودی ریالی، دکمه چشم و اکشن‌های سریع
  * + برگه سفید تراکنش‌های اخیر: واریزها با پس‌زمینه سبز روشن.
  * مبالغ دیتابیس تومان است؛ موجودی به درخواست کاربر به ریال نمایش داده می‌شود.
+ * جلسه ۵۳: اکشن‌های سریع عضو فقط دو دکمهٔ «پرداخت سهام» و «پرداخت قسط»
+ * است (تسهیلات حذف شد) — لمس هرکدام مستقیم اولین پرداخت در دسترس را باز می‌کند.
  */
 
 type TxDirection = "in" | "out" | "pending";
@@ -348,10 +350,10 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
         { label: "گزارش کامل", icon: "chart", target: { href: "/admin" } },
       ]
     : [
-        { label: "واریز سهام", icon: "coins", target: { tab: "home", dashboardTab: "shares" } },
-        // جلسه ۳۶: پرش مستقیم به گزینهٔ اقساط داخل بخش یکپارچهٔ تسهیلات
-        { label: "اقساط", icon: "calendar", target: { tab: "home", dashboardTab: "loans-installments" } },
-        { label: "تسهیلات", icon: "banknote", target: { tab: "home", dashboardTab: "loans" } },
+        // جلسه ۵۳: فقط دو اکشن به درخواست کاربر — لمس مستقیم فرم پرداخت همان نوع
+        // برای اولین پرداخت در دسترس را باز می‌کند (openPayment در DashboardView)
+        { label: "پرداخت سهام", icon: "coins", target: { tab: "home", dashboardTab: "shares", openPayment: "share" } },
+        { label: "پرداخت قسط", icon: "calendar", target: { tab: "home", dashboardTab: "loans-installments", openPayment: "installment" } },
       ];
 
   function openQuick(target: NavTarget | { href: string }) {
@@ -395,7 +397,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
           </div>
           <p className="mt-0.5 text-[11px] text-white/55">معادل {fa(balanceToman)} تومان</p>
 
-          <div className="mt-6 grid grid-cols-3 gap-2">
+          {/* جلسه ۵۳: ادمین ۳ اکشن؛ عضو فقط ۲ اکشن «پرداخت سهام» و «پرداخت قسط» — گرید دو ستونه */}
+          <div className={`mt-6 grid gap-2 ${isAdmin ? "grid-cols-3" : "grid-cols-2"}`}>
             {quickActions.map((a) => (
               <button key={a.label} type="button" onClick={() => openQuick(a.target)} className="clay-press flex flex-col items-center gap-1.5">
                 <span className="grid size-13 place-items-center rounded-full bg-white/15 ring-1 ring-white/25">
