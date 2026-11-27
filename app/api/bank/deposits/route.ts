@@ -40,7 +40,10 @@ export async function POST(request: Request) {
   const type = normalizeDepositType(body.type);
   if (!type) {
     return Response.json(
-      { error: "نوع تراکنش باید یکی از مقادیر share، loan_interest، profit، misc یا withdraw_misc باشد." },
+      {
+        error:
+          "نوع تراکنش باید یکی از مقادیر share، installment، loan_interest، profit، misc، withdraw_share، withdraw_installment، withdraw_profit یا withdraw_misc باشد.",
+      },
       { status: 400 },
     );
   }
@@ -60,9 +63,25 @@ export async function POST(request: Request) {
     rawIds.push(body.memberId.trim());
   }
   const memberIds = [...new Set(rawIds)];
-  if (type === "share" && memberIds.length === 0) {
+  // جلسه ۵۹ — سهام و پرداخت قسط (واریز) و برداشت سهام/قسط بدون عضو معنا ندارند
+  if (
+    (type === "share" ||
+      type === "installment" ||
+      type === "withdraw_share" ||
+      type === "withdraw_installment") &&
+    memberIds.length === 0
+  ) {
     return Response.json(
-      { error: "برای واریز سهام باید عضو انتخاب شود." },
+      {
+        error:
+          type === "share"
+            ? "برای واریز سهام باید عضو انتخاب شود."
+            : type === "installment"
+              ? "برای ثبت پرداخت قسط باید عضو انتخاب شود."
+              : type === "withdraw_share"
+                ? "برای برداشت سهام باید عضو انتخاب شود."
+                : "برای برداشت قسط باید عضو انتخاب شود.",
+      },
       { status: 400 },
     );
   }

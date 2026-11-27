@@ -36,13 +36,12 @@ export function parseKind(value: string | null): ItemKind | undefined {
 
 // ---------- فم بانک: مدل داده مطابق docs/BANK_SPEC.md ----------
 
-/** جلسه ۵۸ — نوع withdraw_misc اضافه شد: برداشت متفرقهٔ ثبت‌شدهٔ مدیر از حساب عضو/بانک */
-export type BankDepositType = "share" | "loan_interest" | "profit" | "misc" | "withdraw_misc";
-
-/** برداشت متفرقه یک رکورد واریزی با علامت معکوس است — مبلغ همیشه مثبت ذخیره می‌شود */
-export function isWithdrawType(type: BankDepositType): boolean {
-  return type === "withdraw_misc";
-}
+// جلسه ۵۹ — انواع تراکنش و توابع کمکی به lib/deposit-types.ts (client-safe)
+// منتقل شدند؛ از همین‌جا re-export می‌شوند تا مصرف‌کننده‌های قبلی دست‌نخورده بمانند
+import { isWithdrawType, normalizeDepositType } from "./deposit-types";
+import type { BankDepositType } from "./deposit-types";
+export { BANK_DEPOSIT_TYPES, isWithdrawType, normalizeDepositType } from "./deposit-types";
+export type { BankDepositType } from "./deposit-types";
 
 /** حساب واریز بانک — ادمین در تنظیمات ثبت می‌کند و اعضا در تب «واریز» می‌بینند */
 export type DepositAccount = {
@@ -1229,41 +1228,47 @@ export async function deleteBankMember(id: string): Promise<BankMember | null> {
 
 // ---------- فم بانک: عملیات واریزی‌ها ----------
 
-export const BANK_DEPOSIT_TYPES: BankDepositType[] = [
-  "share",
-  "loan_interest",
-  "profit",
-  "misc",
-  "withdraw_misc",
-];
+// انواع تراکنش در lib/deposit-types.ts تعریف و از بالای همین فایل re-export شده‌اند
 
-export function normalizeDepositType(value: unknown): BankDepositType | null {
-  return BANK_DEPOSIT_TYPES.includes(value as BankDepositType)
-    ? (value as BankDepositType)
-    : null;
-}
-
+/** جلسه ۵۹ — ایندکس عنوان آمادهٔ هر نوع در تنظیمات؛ عنوان پیش‌فرض هر نوع اگر
+ *  فهرست عنوان‌ها کوتاه‌تر باشد. */
 const DEPOSIT_TITLE_INDEX: Record<BankDepositType, number> = {
   share: 0,
   loan_interest: 1,
   profit: 2,
   misc: 3,
   withdraw_misc: 4,
+  installment: 5,
+  withdraw_share: 6,
+  withdraw_installment: 7,
+  withdraw_profit: 8,
+};
+
+const DEPOSIT_TITLE_FALLBACK: Record<BankDepositType, string> = {
+  share: "واریز سهام بانک",
+  loan_interest: "سود بانک",
+  profit: "سود بانک",
+  misc: "واریز متفرقه",
+  withdraw_misc: "برداشت متفرقه",
+  installment: "پرداخت قسط",
+  withdraw_share: "برداشت سهام",
+  withdraw_installment: "برداشت قسط",
+  withdraw_profit: "برداشت سود بانک",
 };
 
 function defaultDepositTitle(bank: BankDatabase, type: BankDepositType): string {
   const titles = bank.settings.depositTitles ?? [];
-  if (type === "withdraw_misc") return titles[DEPOSIT_TITLE_INDEX[type]] ?? "برداشت متفرقه";
-  return titles[DEPOSIT_TITLE_INDEX[type]] ?? "واریزی";
+  return titles[DEPOSIT_TITLE_INDEX[type]] ?? DEPOSIT_TITLE_FALLBACK[type];
 }
 
-/** totalDeposited هر عضو = جمع خالص واریزی‌های همان عضو — جلسه ۵۸: برداشت متفرقه از آن کسر می‌شود */
+/** totalDeposited هر عضو = جمع خالص واریزی‌های همان عضو — جلسه ۵۸: برداشت متفرقه از آن کسر
+ *  می‌شود؛ جلسه ۵۹: همهٔ انواع برداشت (withdraw_*) از آن کسر می‌شوند */
 function recalcMemberTotals(bank: BankDatabase) {
   bank.members.forEach((m) => {
     m.totalDeposited = bank.deposits
       .filter((d) => d.memberId === m.id)
       .reduce(
-        (sum, d) => sum + (d.type === "withdraw_misc" ? -1 : 1) * Number(d.amount || 0),
+        (sum, d) => sum + (isWithdrawType(d.type) ? -1 : 1) * Number(d.amount || 0),
         0,
       );
   });
@@ -1287,8 +1292,7 @@ function buildBankDepositRecord(
   },
 ): BankDeposit {
   const fallback =
-    input.fallbackName?.trim() ||
-    (input.type === "withdraw_misc" ? "برداشت متفرقه" : "واریزی متفرقه");
+    input.fallbackName?.trim() || DEPOSIT_TITLE_FALLBACK[input.type];
   return {
     id: bankUid(),
     memberId: input.member ? input.member.id : null,
@@ -1356,22 +1360,22 @@ export async function createBankDeposits(
   db.bank.deposits.unshift(...created);
   recalcMemberTotals(db.bank);
   const total = amounts.reduce((sum, a) => sum + a, 0);
-  const isWithdraw = input.type === "withdraw_misc";
+  const isWithdraw = isWithdrawType(input.type);
   const kindLabel = input.title?.trim() || defaultDepositTitle(db.bank, input.type);
   const action = isWithdraw ? "برداشت" : "واریزی";
   let detail: string;
   if (targets.length === 1) {
     const member = targets[0];
     detail = isWithdraw
-      ? `برداشت متفرقه «${kindLabel}» به مبلغ ${faAmount(total)} تومان ${
-          member ? `از حساب عضو «${member.name}»` : "بدون عضو"
+      ? `برداشت «${kindLabel}» به مبلغ ${faAmount(total)} تومان ${
+          member ? `از حساب عضو «${member.name}»` : "از موجودی بانک (بدون عضو)"
         } ثبت شد.`
       : `${action} «${kindLabel}» به مبلغ ${faAmount(total)} تومان ${
           member ? `برای عضو «${member.name}»` : "بدون عضو (متفرقه)"
         } ثبت شد.`;
   } else {
     detail = isWithdraw
-      ? `برداشت متفرقه «${kindLabel}» جمعاً ${faAmount(total)} تومان از حساب ${faAmount(targets.length)} عضو ثبت شد.`
+      ? `برداشت «${kindLabel}» جمعاً ${faAmount(total)} تومان از حساب ${faAmount(targets.length)} عضو ثبت شد.`
       : `${action} «${kindLabel}» جمعاً ${faAmount(total)} تومان برای ${faAmount(targets.length)} عضو ثبت شد.`;
   }
   addAudit(db.bank, "ثبت", action, created[0].id, detail);
@@ -1451,9 +1455,9 @@ export async function updateBankDeposit(
   addAudit(
     db.bank,
     "ویرایش",
-    "واریزی",
+    isWithdrawType(next.type) ? "برداشت" : "واریزی",
     id,
-    `واریزی «${next.title}» به مبلغ ${faAmount(next.amount)} تومان ویرایش شد.`,
+    `${isWithdrawType(next.type) ? "برداشت" : "واریزی"} «${next.title}» به مبلغ ${faAmount(next.amount)} تومان ویرایش شد.`,
   );
   await writeDb(db);
   return next;
@@ -1470,9 +1474,9 @@ export async function deleteBankDeposit(id: string): Promise<BankDeposit | null>
   addAudit(
     db.bank,
     "حذف",
-    "واریزی",
+    isWithdrawType(removed.type) ? "برداشت" : "واریزی",
     id,
-    `واریزی «${removed.title}» به مبلغ ${faAmount(removed.amount)} تومان حذف شد.`,
+    `${isWithdrawType(removed.type) ? "برداشت" : "واریزی"} «${removed.title}» به مبلغ ${faAmount(removed.amount)} تومان حذف شد.`,
   );
   await writeDb(db);
   return removed;

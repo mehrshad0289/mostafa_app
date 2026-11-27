@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { installmentStatuses, jalaliParts, memberShareDue, parseAmount, RECEIPT_COMPRESS_THRESHOLD_BYTES, RECEIPT_MAX_CHARS, RECEIPT_RAW_MAX_BYTES, shareDeadlineState } from "@/lib/bank";
+import { isWithdrawType } from "@/lib/deposit-types";
 import ClayIcon, { toneForIcon, type ClayIconName } from "@/app/components/mobile/ClayIcon";
 import MemberBell from "@/app/components/mobile/MemberBell";
 // جلسه ۵۴: گارد دکمهٔ برگشت گوشی — مودال‌ها/تب‌های این داشبورد هم لایه حساب می‌شوند
@@ -456,10 +457,23 @@ export default function DashboardView({
     return due;
   }, [member, settings, deposits]);
 
-  /** جلسه ۵۸ — تراکنش‌های «جدا از سهام و اقساط» بخش متفرقه: واریز متفرقه،
-   *  سود بانک، تقسیم سود و برداشت متفرقه — برای عضو deposits از قبل
-   *  مخصوص خودش است (API عضو فیلتر می‌کند). */
-  const MISC_TYPES = useMemo(() => new Set(["misc", "profit", "loan_interest", "withdraw_misc"]), []);
+  /** جلسه ۵۸ — تراکنش‌های «جدا از سهام و اقساط رسمی» بخش متفرقه؛ جلسه ۵۹: همهٔ
+   *  انواع دفتری مدیر (پرداخت قسط و برداشت‌های withdraw_*) هم اضافه شدند —
+   *  برای عضو deposits از قبل مخصوص خودش است (API عضو فیلتر می‌کند). */
+  const MISC_TYPES = useMemo(
+    () =>
+      new Set([
+        "misc",
+        "profit",
+        "loan_interest",
+        "withdraw_misc",
+        "installment",
+        "withdraw_share",
+        "withdraw_installment",
+        "withdraw_profit",
+      ]),
+    [],
+  );
   const miscRows = useMemo(
     () =>
       deposits
@@ -471,7 +485,7 @@ export default function DashboardView({
     let inSum = 0;
     let outSum = 0;
     miscRows.forEach((d) => {
-      if (d.type === "withdraw_misc") outSum += Number(d.amount) || 0;
+      if (isWithdrawType(d.type)) outSum += Number(d.amount) || 0;
       else inSum += Number(d.amount) || 0;
     });
     return { inSum, outSum };
@@ -923,8 +937,10 @@ export default function DashboardView({
         {tab === "tiles" && (
           <section className="space-y-4">
             {/* جلسه ۳۲: هر مربع تینت پاستلی هماهنگ با رنگ آیکونش می‌گیرد تا خانه
-                زنده‌تر دیده شود؛ ساختار و رفتار لمس مستقیم بدون تغییر مانده است */}
-            <div className="grid grid-cols-2 gap-3">
+                زنده‌تر دیده شود؛ ساختار و رفتار لمس مستقیم بدون تغییر مانده است.
+                جلسه ۵۹ (به درخواست کاربر): ۴ مربع/آیکون خانه کمی کوچکتر شدند —
+                شبکه جمع‌وجورتر (max-w) و آیکون ۵۴ → ۴۴ */}
+            <div className="mx-auto grid w-full max-w-[21rem] grid-cols-2 gap-3">
               {HOME_TILES.map((t) => {
                 const [toneA, toneB] = toneForIcon(t.icon);
                 // جلسه ۳۸: نقطهٔ هشدار روی مربع سهام/تسهیلات وقتی یادآوری فعال است
@@ -935,7 +951,7 @@ export default function DashboardView({
                     type="button"
                     onClick={() => changeTab(t.key)}
                     style={{ backgroundImage: `linear-gradient(145deg, ${toneA}33 0%, ${toneB}1a 55%, transparent 100%)` }}
-                    className="clay-press relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-zinc-200/70 bg-white shadow-md shadow-primary-900/5 transition hover:border-primary-300 hover:shadow-lg hover:shadow-primary-900/10 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-primary-700"
+                    className="clay-press relative flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border border-zinc-200/70 bg-white shadow-md shadow-primary-900/5 transition hover:border-primary-300 hover:shadow-lg hover:shadow-primary-900/10 dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-primary-700"
                   >
                     {dot && (
                       <span
@@ -945,7 +961,7 @@ export default function DashboardView({
                         }`}
                       />
                     )}
-                    <ClayIcon name={t.icon} size={54} />
+                    <ClayIcon name={t.icon} size={44} />
                     <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">{t.label}</span>
                   </button>
                 );
@@ -1351,15 +1367,24 @@ export default function DashboardView({
                 </div>
               )}
               {miscRows.map((d) => {
-                const isWithdraw = d.type === "withdraw_misc";
+                // جلسه ۵۹ — همهٔ انواع برداشت قرمز؛ برچسب هر نوع از نگاشت زیر
+                const isWithdraw = isWithdrawType(d.type);
                 const typeLabel =
                   d.type === "withdraw_misc"
                     ? "برداشت متفرقه"
-                    : d.type === "profit"
-                      ? "تقسیم سود"
-                      : d.type === "loan_interest"
-                        ? "سود بانک"
-                        : "واریز متفرقه";
+                    : d.type === "withdraw_share"
+                      ? "برداشت سهام"
+                      : d.type === "withdraw_installment"
+                        ? "برداشت قسط"
+                        : d.type === "withdraw_profit"
+                          ? "برداشت سود بانک"
+                          : d.type === "installment"
+                            ? "پرداخت قسط"
+                            : d.type === "profit"
+                              ? "تقسیم سود"
+                              : d.type === "loan_interest"
+                                ? "سود بانک"
+                                : "واریز متفرقه";
                 return (
                   <button
                     key={d.id}
@@ -1514,15 +1539,24 @@ export default function DashboardView({
       {/* جلسه ۵۸ — مودال جزئیات تراکنش متفرقه: وضعیت حساب بدهکار (واریز) یا طلبکار (برداشت) */}
       {miscDetail &&
         (() => {
-          const isWithdraw = miscDetail.type === "withdraw_misc";
+          // جلسه ۵۹ — همهٔ انواع برداشت: طلبکار قرمز؛ واریزها: بدهکار سبز
+          const isWithdraw = isWithdrawType(miscDetail.type);
           const typeLabel =
             miscDetail.type === "withdraw_misc"
               ? "برداشت متفرقه"
-              : miscDetail.type === "profit"
-                ? "تقسیم سود"
-                : miscDetail.type === "loan_interest"
-                  ? "سود بانک"
-                  : "واریز متفرقه";
+              : miscDetail.type === "withdraw_share"
+                ? "برداشت سهام"
+                : miscDetail.type === "withdraw_installment"
+                  ? "برداشت قسط"
+                  : miscDetail.type === "withdraw_profit"
+                    ? "برداشت سود بانک"
+                    : miscDetail.type === "installment"
+                      ? "پرداخت قسط"
+                      : miscDetail.type === "profit"
+                        ? "تقسیم سود"
+                        : miscDetail.type === "loan_interest"
+                          ? "سود بانک"
+                          : "واریز متفرقه";
           return (
             <Modal
               title={isWithdraw ? "جزئیات برداشت" : "جزئیات واریز"}

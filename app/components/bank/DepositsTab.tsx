@@ -7,6 +7,7 @@ import {
   parseAmount,
   parseSharePeriod,
 } from "@/lib/bank";
+import { isWithdrawType } from "@/lib/deposit-types";
 import type { BankDeposit, BankDepositType, BankLoan, BankLoanPayment, BankMember, BankSettings } from "@/lib/db";
 import JalaliCalendar from "./JalaliCalendar";
 import { useHydrated } from "./useHydrated";
@@ -34,16 +35,40 @@ type DepositsTabProps = {
  * حذف‌اند؛ اقساط/برداشت تسهیلات از تب وام‌ها مدیریت می‌شوند.
  */
 
+/** جلسه ۵۹ — برچسب فارسی همهٔ انواع تراکنش؛ در فرم و بج نوعِ فهرست استفاده می‌شود.
+ *  هر دو گروه واریز و برداشت همان دسته‌ها را دارند (به درخواست کاربر):
+ *  واریز: پرداخت قسط، پرداخت سهام، سود بانک، متفرقه —
+ *  برداشت: برداشت قسط، برداشت سهام، برداشت سود بانک، برداشت متفرقه. */
 const TYPE_LABELS: Record<BankDepositType, string> = {
-  share: "واریز سهام بانک",
+  share: "پرداخت سهام",
+  installment: "پرداخت قسط",
   loan_interest: "سود بانک",
-  profit: "واریز سود",
-  misc: "واریز متفرقه",
+  profit: "سود بانک",
+  misc: "متفرقه",
+  withdraw_installment: "برداشت قسط",
+  withdraw_share: "برداشت سهام",
+  withdraw_profit: "برداشت سود بانک",
   withdraw_misc: "برداشت متفرقه",
 };
 
-/** انواع مجاز در فرم ثبت تراکنش — برداشت متفرقه جداگانه از گروه تراکنش می‌آید */
-const FORM_DEPOSIT_TYPES: BankDepositType[] = ["share", "loan_interest", "profit", "misc"];
+/** انواع مجاز فرم در گروه واریز — loan_interest فقط خودکار ساخته می‌شود و در فرم نیست */
+const FORM_DEPOSIT_TYPES: BankDepositType[] = ["installment", "share", "profit", "misc"];
+
+/** انواع مجاز فرم در گروه برداشت — همان دسته‌های واریز (به درخواست کاربر) */
+const FORM_WITHDRAW_TYPES: BankDepositType[] = [
+  "withdraw_installment",
+  "withdraw_share",
+  "withdraw_profit",
+  "withdraw_misc",
+];
+
+/** انواعی که بدون عضو معنا ندارند — در فرم و سرور چک می‌شود */
+const MEMBER_REQUIRED_TYPES: BankDepositType[] = [
+  "share",
+  "installment",
+  "withdraw_share",
+  "withdraw_installment",
+];
 
 const GROUP_FILTERS: { key: TxGroupFilter; label: string }[] = [
   { key: "all", label: "همه" },
@@ -112,10 +137,15 @@ function loanStatusLabel(status: BankLoan["status"]): string {
 function txDescription(r: TxRow): string {
   if (r.payment) return "واریز بابت پرداخت قسط تسهیلات توسط عضو.";
   if (r.loan && r.group === "withdraw") return "برداشت مبلغ تسهیلات پرداخت‌شده به عضو از موجودی بانک.";
-  if (r.deposit?.type === "withdraw_misc") {
+  if (r.deposit && isWithdrawType(r.deposit.type)) {
     return r.member
-      ? "برداشت متفرقه از حساب عضو توسط مدیر ثبت شد."
-      : "برداشت متفرقه از موجودی بانک توسط مدیر ثبت شد.";
+      ? `${r.kindLabel} از حساب عضو توسط مدیر ثبت شد.`
+      : `${r.kindLabel} از موجودی بانک (بدون عضو) توسط مدیر ثبت شد.`;
+  }
+  if (r.deposit?.type === "installment") {
+    return r.member
+      ? "پرداخت قسط عضو توسط مدیر در بانک ثبت شد."
+      : "پرداخت قسط توسط مدیر در بانک ثبت شد.";
   }
   return "واریز به حساب عضو در بانک ثبت شد.";
 }
@@ -230,7 +260,8 @@ export default function DepositsTab({
     deposits.forEach((d) => {
       rows.push({
         id: `d-${d.id}`,
-        group: d.type === "withdraw_misc" ? "withdraw" : "deposit",
+        // جلسه ۵۹ — همهٔ انواع withdraw_* در گروه برداشت قرمز هستند
+        group: isWithdrawType(d.type) ? "withdraw" : "deposit",
         kindLabel: TYPE_LABELS[d.type || "share"],
         title: d.title || "",
         member: d.memberId ? d.memberName || "" : `${d.memberName || ""} (بدون عضو)`,
@@ -309,6 +340,30 @@ export default function DepositsTab({
     setDateIso("");
   }
 
+  /** جلسه ۵۹ — عنوان پیش‌فرض هر نوع؛ اگر مدیر عنوان دیگری نوشته باشد دست نمی‌خورد */
+  function titleForType(type: BankDepositType): string {
+    return TYPE_LABELS[type];
+  }
+
+  /** جلسه ۵۹ — تغییر گروه واریز/برداشت: نوع به مجموعهٔ همان گروه برمی‌گردد */
+  function switchDirection(direction: "deposit" | "withdraw") {
+    setForm((prev) => {
+      const type =
+        direction === "withdraw"
+          ? ("withdraw_misc" as BankDepositType)
+          : ("misc" as BankDepositType);
+      return {
+        ...prev,
+        direction,
+        type,
+        title:
+          prev.title === "" || Object.values(TYPE_LABELS).includes(prev.title)
+            ? titleForType(type)
+            : prev.title,
+      };
+    });
+  }
+
   /** ماه واریزی برای هشدار مشابه: سهام از دوره، بقیه از ماه جاری (createdAt سمت سرور) */
   function depositMonthOf(d: BankDeposit): string {
     return d.type === "share" && d.periodKey ? d.periodKey : monthKey(new Date(d.createdAt));
@@ -348,8 +403,11 @@ export default function DepositsTab({
     if (form.memberId === "all" && members.length === 0) {
       return "هنوز عضوی در بانک ثبت نشده است.";
     }
-    if (form.direction === "deposit" && form.type === "share" && form.memberId === "") {
-      return "برای واریز سهام باید عضو انتخاب شود.";
+    if (form.memberId === "" && MEMBER_REQUIRED_TYPES.includes(form.type)) {
+      if (form.type === "share") return "برای واریز سهام باید عضو انتخاب شود.";
+      if (form.type === "installment") return "برای ثبت پرداخت قسط باید عضو انتخاب شود.";
+      if (form.type === "withdraw_share") return "برای برداشت سهام باید عضو انتخاب شود.";
+      return "برای برداشت قسط باید عضو انتخاب شود.";
     }
     if (
       form.memberId === "all" &&
@@ -383,7 +441,8 @@ export default function DepositsTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: form.direction === "withdraw" ? "withdraw_misc" : form.type,
+          // جلسه ۵۹ — خودِ نوع جهت را حمل می‌کند: انواع withdraw_* برداشت‌اند
+          type: form.type,
           memberIds:
             form.memberId === "all"
               ? members.map((m) => m.id)
@@ -602,19 +661,7 @@ export default function DepositsTab({
               <button
                 key={g.key}
                 type="button"
-                onClick={() =>
-                  setForm((prev) => ({
-                    ...prev,
-                    direction: g.key,
-                    title:
-                      prev.title === "" ||
-                      Object.values(TYPE_LABELS).includes(prev.title)
-                        ? g.key === "withdraw"
-                          ? TYPE_LABELS.withdraw_misc
-                          : TYPE_LABELS[prev.type]
-                        : prev.title,
-                  }))
-                }
+                onClick={() => switchDirection(g.key)}
                 className={`flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.98] ${
                   form.direction === g.key
                     ? g.key === "deposit"
@@ -637,10 +684,13 @@ export default function DepositsTab({
                   setForm((prev) => ({
                     ...prev,
                     memberId: e.target.value,
-                    // سهام نیاز به عضو دارد — با انتخاب «بدون عضو» نوع به متفرقه برمی‌گردد
+                    // انواعی که عضو می‌خواهند (سهام، پرداخت قسط، برداشت سهام/قسط) با
+                    // انتخاب «بدون عضو» به نوع پیش‌فرض همان گروه برمی‌گردند
                     type:
-                      e.target.value === "" && prev.type === "share"
-                        ? ("misc" as BankDepositType)
+                      e.target.value === "" && MEMBER_REQUIRED_TYPES.includes(prev.type)
+                        ? prev.direction === "withdraw"
+                          ? ("withdraw_misc" as BankDepositType)
+                          : ("misc" as BankDepositType)
                         : prev.type,
                   }))
                 }
@@ -649,7 +699,7 @@ export default function DepositsTab({
                 <option value="all">همه اعضا ({faNum(members.length)} عضو)</option>
                 <option value="">
                   {form.direction === "withdraw"
-                    ? "برداشت متفرقه (بدون عضو)"
+                    ? "برداشت بدون عضو (از موجودی بانک)"
                     : "واریزی متفرقه (بدون عضو)"}
                 </option>
                 {members.map((m) => (
@@ -659,42 +709,37 @@ export default function DepositsTab({
                 ))}
               </select>
             </label>
-            {form.direction === "deposit" ? (
-              <label className="space-y-1 text-xs text-zinc-500">
-                نوع واریزی
-                <select
-                  value={form.type}
-                  onChange={(e) => {
-                    const type = e.target.value as BankDepositType;
-                    setForm((prev) => ({
-                      ...prev,
-                      type,
-                      title: prev.title === "" || Object.values(TYPE_LABELS).includes(prev.title)
-                        ? TYPE_LABELS[type]
-                        : prev.title,
-                    }));
-                  }}
-                  className={`${inputClass} w-full`}
-                >
-                  {FORM_DEPOSIT_TYPES.filter(
-                    (t) => t !== "share" || form.memberId !== "",
-                  ).map((t) => (
+            {/* جلسه ۵۹ — «نوع تراکنش» در هر دو گروه همان دسته‌ها را دارد:
+                واریز: پرداخت قسط، پرداخت سهام، سود بانک، متفرقه —
+                برداشت: برداشت قسط، برداشت سهام، برداشت سود بانک، برداشت متفرقه */}
+            <label className="space-y-1 text-xs text-zinc-500">
+              نوع تراکنش
+              <select
+                value={form.type}
+                onChange={(e) => {
+                  const type = e.target.value as BankDepositType;
+                  setForm((prev) => ({
+                    ...prev,
+                    type,
+                    title: prev.title === "" || Object.values(TYPE_LABELS).includes(prev.title)
+                      ? titleForType(type)
+                      : prev.title,
+                  }));
+                }}
+                className={`${inputClass} w-full`}
+              >
+                {(form.direction === "deposit" ? FORM_DEPOSIT_TYPES : FORM_WITHDRAW_TYPES)
+                  .filter(
+                    (t) =>
+                      !MEMBER_REQUIRED_TYPES.includes(t) || form.memberId !== "",
+                  )
+                  .map((t) => (
                     <option key={t} value={t}>
                       {TYPE_LABELS[t]}
                     </option>
                   ))}
-                </select>
-              </label>
-            ) : (
-              <label className="space-y-1 text-xs text-zinc-500">
-                نوع تراکنش
-                <div
-                  className={`${inputClass} w-full bg-red-50/60 font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300`}
-                >
-                  برداشت متفرقه
-                </div>
-              </label>
-            )}
+              </select>
+            </label>
             {form.memberId === "all" && (
               <label className="space-y-1 text-xs text-zinc-500">
                 حالت مبلغ گروهی
@@ -763,7 +808,7 @@ export default function DepositsTab({
                 ? `هر عضو ${faNum(targetAmounts[0])} تومان — جمع برای ${faNum(members.length)} عضو: ${faNum(targetAmounts[0] * members.length)} تومان`
                 : `مبلغ کل ${faNum(parseAmount(form.amount))} تومان بین ${faNum(members.length)} عضو تقسیم می‌شود — هر عضو حدود ${faNum(targetAmounts[0])} تومان`}
               {" "}
-              (برای تقسیم سود یا واریزی متفرقهٔ گروهی)
+              (برای ثبت گروهی — تقسیم سود، برداشت یا واریزی متفرقهٔ همه اعضا)
             </p>
           )}
 
@@ -836,7 +881,7 @@ export default function DepositsTab({
       {deleting && (
         <div className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm dark:border-red-900 dark:bg-red-950/40">
           <p>
-            {deleting.type === "withdraw_misc" ? "برداشت متفرقه" : "واریزی"} «{" "}
+            {isWithdrawType(deleting.type) ? "برداشت" : "واریزی"} «{" "}
             {deleting.title}» به مبلغ {toMoney(Number(deleting.amount))} حذف شود؟
             این کار اعتبار و مانده اعضا را به‌روز می‌کند.
           </p>

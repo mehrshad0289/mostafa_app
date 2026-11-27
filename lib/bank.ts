@@ -8,6 +8,8 @@ import type {
   BankLoanInstallment,
   BankMember,
 } from "./db";
+// جلسه ۵۹ — client-safe: از deposit-types می‌آید نه db (fs/promises فقط سرور)
+import { isWithdrawType } from "./deposit-types";
 
 // سقف نویسه‌های data URL عکس رسید (~۱٫۸ مگابایت داده باینری) — مشترک بین سرور و کلاینت
 // (جلسه هجدهم: با افزایش کیفیت فشرده‌سازی از ۱٫۶ میلیون به ۲٫۴ میلیون نویسه تغییر کرد)
@@ -382,18 +384,19 @@ export type BankFundSummary = {
 };
 
 /**
- * موجودی بانک = همه واریزی‌ها + بازپرداخت‌ها − مبالغ پرداختی وام − برداشت‌های متفرقه
- * (جلسه ۵۸: رکوردهای withdraw_misc واریزی نیستند؛ از موجودی کسر می‌شوند)
+ * موجودی بانک = همه واریزی‌ها + بازپرداخت‌ها − مبالغ پرداختی وام − برداشت‌های ثبت‌شده
+ * (جلسه ۵۸: رکوردهای withdraw_misc واریزی نیستند؛ از موجودی کسر می‌شوند —
+ * جلسه ۵۹: همهٔ انواع برداشت withdraw_* از موجودی کسر می‌شوند)
  */
 export function recalcFund(
   bank: Pick<BankDatabase, "members" | "deposits" | "loans">,
 ): BankFundSummary {
   const totalShares = bank.members.reduce((sum, m) => sum + Number(m.shares || 0), 0);
   const allDeposits = bank.deposits
-    .filter((d) => d.type !== "withdraw_misc")
+    .filter((d) => !isWithdrawType(d.type))
     .reduce((sum, d) => sum + Number(d.amount || 0), 0);
   const miscWithdrawals = bank.deposits
-    .filter((d) => d.type === "withdraw_misc")
+    .filter((d) => isWithdrawType(d.type))
     .reduce((sum, d) => sum + Number(d.amount || 0), 0);
   const repayments = bank.loans.reduce((sum, l) => sum + loanPaid(l), 0);
   const loanOut = bank.loans.reduce(
@@ -418,13 +421,13 @@ export type BankMonthlyRow = {
   share: number;
   interest: number;
   profit: number;
-  /** جلسه ۵۸ — برداشت‌های متفرقهٔ ثبت‌شده در همان ماه */
+  /** جلسه ۵۸ — برداشت‌های متفرقهٔ ثبت‌شده در همان ماه؛ جلسه ۵۹: همهٔ انواع برداشت */
   withdraw: number;
   repayment: number;
   loanOut: number;
 };
 
-/** گردش ماهانه بر کلید ماه شمسی؛ واریزی متفرقه در ستون profit جمع می‌شود (مطابق نمونه) */
+/** گردش ماهانه بر کلید ماه شمسی؛ واریزی متفرقه/قسط در ستون profit جمع می‌شود (مطابق نمونه) */
 export function monthlyTotals(
   bank: Pick<BankDatabase, "deposits" | "loans">,
 ): BankMonthlyRow[] {
@@ -441,7 +444,7 @@ export function monthlyTotals(
     map.get(key)![kind] += Number(amount || 0);
   };
   bank.deposits.forEach((d) => {
-    if (d.type === "withdraw_misc") {
+    if (isWithdrawType(d.type)) {
       add(d.createdAt, "withdraw", d.amount);
       return;
     }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { loanPaid, loanRemaining, memberShareDue, monthlyTotals } from "@/lib/bank";
+import { isWithdrawType } from "@/lib/deposit-types";
 import type { BankDeposit, BankDepositType, BankLoan, BankMember } from "@/lib/db";
 import { useHydrated } from "./useHydrated";
 import { downloadCsv } from "./csv";
@@ -18,7 +19,11 @@ const TYPE_LABELS: Record<BankDepositType, string> = {
   loan_interest: "سود وام",
   profit: "واریزی سود",
   misc: "متفرقه",
+  installment: "پرداخت قسط",
   withdraw_misc: "برداشت متفرقه",
+  withdraw_share: "برداشت سهام",
+  withdraw_installment: "برداشت قسط",
+  withdraw_profit: "برداشت سود بانک",
 };
 
 const FA_MONTHS = [
@@ -183,7 +188,7 @@ export default function ReportsTab({
         faDate(d.createdAt),
         TYPE_LABELS[d.type],
         d.title || "—",
-        d.type === "withdraw_misc" ? -Math.abs(Number(d.amount) || 0) : d.amount,
+        isWithdrawType(d.type) ? -Math.abs(Number(d.amount) || 0) : d.amount,
       ]),
       [],
       ["وام‌ها و اقساط"],
@@ -372,12 +377,12 @@ export default function ReportsTab({
                         <td className={cellClass}>{d.title || "—"}</td>
                         <td
                           className={`${cellClass} ${
-                            d.type === "withdraw_misc"
+                            isWithdrawType(d.type)
                               ? "text-red-700 dark:text-red-400"
                               : ""
                           }`}
                         >
-                          {d.type === "withdraw_misc" ? "−" : ""}
+                          {isWithdrawType(d.type) ? "−" : ""}
                           {toMoney(d.amount)}
                         </td>
                       </tr>

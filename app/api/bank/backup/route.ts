@@ -5,7 +5,19 @@ import type { BankDatabase } from "@/lib/db";
 
 // ---------- پشتیبان‌گیری و بازیابی JSON (استپ ۱۸) ----------
 
-const DEPOSIT_TYPES = new Set(["share", "loan_interest", "profit", "misc", "withdraw_misc"]);
+// جلسه ۵۹ — انواع برداشت withdraw_share/withdraw_installment/withdraw_profit و
+// پرداخت قسط (installment) هم اضافه شدند
+const DEPOSIT_TYPES = new Set([
+  "share",
+  "loan_interest",
+  "profit",
+  "misc",
+  "installment",
+  "withdraw_misc",
+  "withdraw_share",
+  "withdraw_installment",
+  "withdraw_profit",
+]);
 const GENDERS = new Set(["male", "female"]);
 const INTEREST_MODES = new Set(["beginning", "end"]);
 const LOAN_STATUSES = new Set(["active", "paid", "cancelled"]);

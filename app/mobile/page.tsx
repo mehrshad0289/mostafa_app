@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import ClayIcon from "@/app/components/mobile/ClayIcon";
@@ -14,7 +14,9 @@ import ServicesScreen from "@/app/components/mobile/ServicesScreen";
 import TransactionsScreen from "@/app/components/mobile/TransactionsScreen";
 import type { NavTarget, SettingsSection } from "@/app/components/mobile/nav";
 import { useSwipeNav } from "@/app/components/mobile/useSwipeNav";
-import type { PublicUser } from "@/lib/db";
+import { jalaliParts } from "@/lib/bank";
+import { isWithdrawType } from "@/lib/deposit-types";
+import type { BankDeposit, PublicUser } from "@/lib/db";
 
 /** ترتیب تب‌های پوسته برای ناوبری کشویی و جهت انیمیشن — RTL: راست = بعدی (جلسه ۳۹)
  *  جلسه ۵۲: ۳ تب به ترتیب درخواست کاربر — خانه، تراکنش‌ها، خدمات (تنظیمات حذف شد) */
@@ -326,15 +328,51 @@ export default function MobileAppPage() {
 /**
  * خانه مخصوص مدیر در پوسته موبایل — هیرو موجودی بانک + مربع‌های سه‌بعدی که
  * هیچ عددی روی خودشان ندارند و اطلاعات هر مربع فقط بعد از لمس دیده می‌شود
- * (جلسه ۲۶ مرحله ۵)؛ دو مربع آخر میان‌بر ناوبری‌اند.
+ * (جلسه ۲۶ مرحله ۵)؛ دو مربع میان‌بر ناوبری‌اند.
+ * جلسه ۵۹ (به درخواست کاربر): مربع ششم «تراکنش متفرقه» اضافه شد — لمسش
+ * فهرست تراکنش‌های متفرقهٔ بانک (واریز سبز / برداشت قرمز + جمع هر کدام) را
+ * زیر شبکه مربع‌ها باز می‌کند؛ دکمهٔ برگشت گوشی پنل را می‌بندد.
  */
+
+/** انواع «متفرقه» برای مربع خانهٔ مدیر — همان خانوادهٔ بخش متفرقهٔ یوزر:
+ *  همهٔ تراکنش‌های دفتری مدیر + سود خودکار وام */
+const ADMIN_MISC_TYPES = new Set([
+  "misc",
+  "profit",
+  "loan_interest",
+  "withdraw_misc",
+  "installment",
+  "withdraw_share",
+  "withdraw_installment",
+  "withdraw_profit",
+]);
+
+const ADMIN_MISC_TYPE_LABELS: Record<string, string> = {
+  misc: "واریز متفرقه",
+  profit: "تقسیم سود",
+  loan_interest: "سود بانک",
+  installment: "پرداخت قسط",
+  withdraw_misc: "برداشت متفرقه",
+  withdraw_share: "برداشت سهام",
+  withdraw_installment: "برداشت قسط",
+  withdraw_profit: "برداشت سود بانک",
+};
+
 function AdminMobileHome({ name }: { name: string }) {
   const [summary, setSummary] = useState<{ depositsTotal: number; loansTotal: number; members: number } | null>(null);
+  /** جلسه ۵۹ — همهٔ واریزی‌ها برای فهرست تراکنش‌های متفرقهٔ مربع ششم */
+  const [deposits, setDeposits] = useState<BankDeposit[]>([]);
   /** مربع لمس‌شده — جزئیاتش در کارت زیر شبکه مربع‌ها دیده می‌شود */
   const [openTile, setOpenTile] = useState<"deposits" | "loans" | "members" | null>(null);
+  /** جلسه ۵۹ — پنل تراکنش‌های متفرقه (مربع «تراکنش متفرقه») */
+  const [miscOpen, setMiscOpen] = useState(false);
 
-  /** جلسه ۵۴ — دکمهٔ برگشت گوشی کارت جزئیات مربعِ باز را می‌بندد */
+  /** جلسه ۵۴/۵۹ — دکمهٔ برگشت گوشی کارت جزئیات مربع یا پنل متفرقه را می‌بندد */
   useBackHandler(() => {
+    if (miscOpen) {
+      setMiscOpen(false);
+      return true;
+    }
     if (openTile) {
       setOpenTile(null);
       return true;
@@ -354,13 +392,15 @@ function AdminMobileHome({ name }: { name: string }) {
         const deposits = Array.isArray(d) ? d : [];
         const loans = Array.isArray(l) ? l : [];
         const members = Array.isArray(m) ? m : [];
+        setDeposits(deposits);
         setSummary({
-          // جلسه ۵۸ — برداشت‌های متفرقه از جمع واریزی‌ها کسر می‌شود (مبلغ رکورد
-          // withdraw_misc با علامت منفی جمع می‌شود) تا «موجودی بانک» واقعی بماند
+          // جلسه ۵۸/۵۹ — برداشت‌ها (همهٔ انواع withdraw_*) از جمع واریزی‌ها کسر
+          // می‌شوند (مبلغ رکورد برداشت با علامت منفی جمع می‌شود) تا «موجودی بانک»
+          // واقعی بماند
           depositsTotal: deposits.reduce(
             (s: number, x: { amount: number; type?: string }) =>
               s +
-              (x.type === "withdraw_misc"
+              (isWithdrawType((x.type || "misc") as BankDeposit["type"])
                 ? -(Number(x.amount) || 0)
                 : Number(x.amount) || 0),
             0,
@@ -377,6 +417,33 @@ function AdminMobileHome({ name }: { name: string }) {
 
   const fa = (v: number) => Number(v || 0).toLocaleString("fa-IR");
   const cash = summary ? summary.depositsTotal - summary.loansTotal : null;
+
+  /** جلسه ۵۹ — ردیف‌های تراکنش متفرقهٔ بانک (همهٔ اعضا + بدون عضو) */
+  const miscRows = useMemo(
+    () =>
+      deposits
+        .filter((d) => ADMIN_MISC_TYPES.has(d.type))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
+    [deposits],
+  );
+  const miscTotals = useMemo(() => {
+    let inSum = 0;
+    let outSum = 0;
+    miscRows.forEach((d) => {
+      if (isWithdrawType(d.type)) outSum += Number(d.amount) || 0;
+      else inSum += Number(d.amount) || 0;
+    });
+    return { inSum, outSum };
+  }, [miscRows]);
+
+  const faDate = (iso: string): string => {
+    try {
+      const p = jalaliParts(new Date(iso));
+      return `${p.year}/${String(p.month).padStart(2, "0")}/${String(p.day).padStart(2, "0")}`;
+    } catch {
+      return "—";
+    }
+  };
 
   /** جزئیات مربع آماری لمس‌شده */
   const detail: { title: string; icon: "deposit" | "banknote" | "users"; value: number; suffix: string; subtitle: string } | null =
@@ -464,6 +531,20 @@ function AdminMobileHome({ name }: { name: string }) {
           <ClayIcon name="users" size={44} />
           <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">اعضا</span>
         </button>
+        <button
+          type="button"
+          onClick={() => setMiscOpen((v) => !v)}
+          aria-pressed={miscOpen}
+          style={{ backgroundImage: "linear-gradient(145deg, #B5EBA533 0%, #54B8541a 55%, transparent 100%)" }}
+          className={`clay-press flex aspect-square flex-col items-center justify-center gap-2 rounded-3xl border p-2 shadow-md shadow-primary-900/5 transition hover:opacity-90 ${
+            miscOpen
+              ? "border-primary-400 bg-primary-50/70 ring-2 ring-primary-500/60 dark:border-primary-600 dark:bg-primary-950/50"
+              : "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+          }`}
+        >
+          <ClayIcon name="swap" size={44} />
+          <span className="text-center text-[11px] font-semibold leading-4 text-zinc-700 dark:text-zinc-200">تراکنش متفرقه</span>
+        </button>
         <Link
           href="/admin"
           style={{ backgroundImage: "linear-gradient(145deg, #B9C4E833 0%, #6878B81a 55%, transparent 100%)" }}
@@ -508,6 +589,95 @@ function AdminMobileHome({ name }: { name: string }) {
             </button>
           </div>
           <p className="mt-2 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">{detail.subtitle}</p>
+        </div>
+      )}
+
+      {/* جلسه ۵۹ — پنل تراکنش‌های متفرقهٔ مربع «تراکنش متفرقه»: جمع واریز/برداشت
+          + فهرست همهٔ تراکنش‌های متفرقهٔ بانک (واریز سبز، برداشت قرمز) */}
+      {miscOpen && (
+        <div className="space-y-3 rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-bold">تراکنش‌های متفرقه</h3>
+            <button
+              type="button"
+              onClick={() => setMiscOpen(false)}
+              className="rounded-full px-3 py-1.5 text-[11px] font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              بستن
+            </button>
+          </div>
+          <p className="text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">
+            واریز و برداشت‌های جدا از سهام و اقساط رسمی — متفرقه، تقسیم سود، سود بانک
+            و پرداخت/برداشت قسط؛ برای همهٔ اعضا و بدون عضو.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+              <p className="text-[11px] text-emerald-800 dark:text-emerald-300">جمع واریز متفرقه</p>
+              <p className="mt-1 text-sm font-black text-emerald-700 dark:text-emerald-400">{fa(miscTotals.inSum)} تومان</p>
+            </div>
+            <div className="rounded-2xl border border-red-200 bg-red-50/70 p-3 dark:border-red-900 dark:bg-red-950/30">
+              <p className="text-[11px] text-red-800 dark:text-red-300">جمع برداشت متفرقه</p>
+              <p className="mt-1 text-sm font-black text-red-700 dark:text-red-400">{fa(miscTotals.outSum)} تومان</p>
+            </div>
+          </div>
+          <div className="max-h-96 space-y-2 overflow-y-auto pl-1">
+            {miscRows.length === 0 && (
+              <p className="rounded-2xl border border-zinc-200 bg-white px-4 py-6 text-center text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950">
+                هنوز تراکنش متفرقه‌ای ثبت نشده است؛ از «ثبت تراکنش» در تب تراکنش‌ها شروع کنید.
+              </p>
+            )}
+            {miscRows.map((d) => {
+              const isWithdraw = isWithdrawType(d.type);
+              return (
+                <div
+                  key={d.id}
+                  className={`flex items-center gap-3 rounded-2xl border p-3 ${
+                    isWithdraw
+                      ? "border-red-200 border-r-4 border-r-red-500 bg-red-50/70 dark:border-red-900 dark:border-r-red-500 dark:bg-red-950/30"
+                      : "border-emerald-200 border-r-4 border-r-emerald-500 bg-emerald-50/70 dark:border-emerald-900 dark:border-r-emerald-500 dark:bg-emerald-950/30"
+                  }`}
+                >
+                  <ClayIcon
+                    name={isWithdraw ? "withdraw" : "deposit"}
+                    size={36}
+                    tone={isWithdraw ? ["#FFB8A8", "#E06848"] : ["#B5EBA5", "#54B854"]}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold">
+                      {isWithdraw ? "برداشت" : "واریز"}
+                      <span
+                        className={`mr-2 rounded-lg px-2 py-0.5 text-[10px] font-normal ${
+                          isWithdraw
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300"
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300"
+                        }`}
+                      >
+                        {ADMIN_MISC_TYPE_LABELS[d.type] ?? d.type}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 truncate text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                      {[d.memberName || "بدون عضو", d.title !== (ADMIN_MISC_TYPE_LABELS[d.type] ?? d.type) ? d.title : "", faDate(d.createdAt)]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <p
+                    className={`shrink-0 text-[13px] font-black ${
+                      isWithdraw ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
+                    }`}
+                  >
+                    {isWithdraw ? "−" : "+"}
+                    {fa(d.amount)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          {miscRows.length > 0 && (
+            <p className="text-center text-[10.5px] leading-5 text-zinc-400">
+              {fa(miscRows.length)} تراکنش متفرقه — همهٔ تراکنش‌ها در تب «تراکنش‌ها» هم دیده می‌شود.
+            </p>
+          )}
         </div>
       )}
 

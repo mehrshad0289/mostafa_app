@@ -78,7 +78,11 @@ const DEPOSIT_TYPE_FA: Record<string, string> = {
   loan_interest: "سود وام",
   profit: "سود بانک",
   misc: "متفرقه",
+  installment: "پرداخت قسط",
   withdraw_misc: "برداشت متفرقه",
+  withdraw_share: "برداشت سهام",
+  withdraw_installment: "برداشت قسط",
+  withdraw_profit: "برداشت سود بانک",
 };
 
 const KIND_FA: Record<string, string> = {

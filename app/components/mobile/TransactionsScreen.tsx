@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import ClayIcon, { type ClayIconName, type ClayTone } from "./ClayIcon";
 import { jalaliParts } from "@/lib/bank";
+import { isWithdrawType } from "@/lib/deposit-types";
 import type { NavTarget } from "./nav";
 import { useBackHandler } from "./backGuard";
 import type { BankDeposit, BankLoan, BankLoanPayment, PaymentRequest, PublicUser } from "@/lib/db";
@@ -23,13 +24,19 @@ type TxDirection = "in" | "out" | "pending";
 
 type TxRow = {
   id: string;
+  /** جلسه ۵۹ — انواع جدید دفتر مدیر (installment و withdraw_*) اضافه شدند؛
+   *  پرداخت قسط وام‌ها (loan_payment) از نوع دفتری «پرداخت قسط» جدا شد */
   kind:
     | "share"
     | "loan_interest"
     | "profit"
     | "misc"
-    | "withdraw_misc"
     | "installment"
+    | "withdraw_misc"
+    | "withdraw_share"
+    | "withdraw_installment"
+    | "withdraw_profit"
+    | "loan_payment"
     | "loan"
     | "pending-share"
     | "pending-installment";
@@ -51,20 +58,38 @@ const DEPOSIT_META: Record<BankDeposit["type"], { icon: ClayIconName; tone: Clay
   loan_interest: { icon: "banknote", tone: ["#FFB3C6", "#E85E8A"] },
   profit: { icon: "chart", tone: ["#8FE0DC", "#2FA8A2"] },
   misc: { icon: "wallet", tone: ["#B5EBA5", "#54B854"] },
+  installment: { icon: "calendar", tone: ["#B5EBA5", "#54B854"] },
   withdraw_misc: { icon: "withdraw", tone: ["#FFB8A8", "#E06848"] },
+  withdraw_share: { icon: "coins", tone: ["#FFB8A8", "#E06848"] },
+  withdraw_installment: { icon: "calendar", tone: ["#FFB8A8", "#E06848"] },
+  withdraw_profit: { icon: "chart", tone: ["#FFB8A8", "#E06848"] },
 };
 
-/** نام کانونی هر نوع واریز — جلسه ۲۶ + جلسه ۵۸ (برداشت متفرقه) */
+/** نام کانونی هر نوع واریز — جلسه ۲۶ + ۵۸ (برداشت متفرقه) + ۵۹ (انواع جدید) */
 const DEPOSIT_KIND_LABEL: Record<BankDeposit["type"], string> = {
-  share: "واریز سهام بانک",
+  share: "پرداخت سهام",
   loan_interest: "سود بانک",
   profit: "سود بانک",
   misc: "واریز متفرقه",
+  installment: "پرداخت قسط",
   withdraw_misc: "برداشت متفرقه",
+  withdraw_share: "برداشت سهام",
+  withdraw_installment: "برداشت قسط",
+  withdraw_profit: "برداشت سود بانک",
 };
 
-/** جلسه ۵۸ — انواع «جدا از سهام و اقساط» برای بخش متفرقه و برچسب بدهکار/طلبکار */
-const MISC_FAMILY_KINDS = new Set<TxRow["kind"]>(["misc", "profit", "loan_interest", "withdraw_misc"]);
+/** جلسه ۵۸/۵۹ — انواع «جدا از سهام و اقساط رسمی» برای بخش متفرقه و برچسب بدهکار/طلبکار:
+ *  همهٔ تراکنش‌های دفتری مدیر (ثبت‌شده با فرم ثبت تراکنش) + سود خودکار وام */
+const MISC_FAMILY_KINDS = new Set<TxRow["kind"]>([
+  "misc",
+  "profit",
+  "loan_interest",
+  "withdraw_misc",
+  "installment",
+  "withdraw_share",
+  "withdraw_installment",
+  "withdraw_profit",
+]);
 
 function fa(value: number): string {
   return Number(value || 0).toLocaleString("fa-IR");
@@ -94,20 +119,27 @@ function txDescription(row: TxRow, isAdmin: boolean): string {
     return isAdmin
       ? "برداشت مبلغ تسهیلات پرداخت‌شده به عضو از موجودی بانک."
       : "واریز مبلغ تسهیلات به حساب شما.";
-  if (row.kind === "installment")
+  if (row.kind === "loan_payment")
     return isAdmin
       ? "واریز بابت پرداخت قسط تسهیلات توسط عضو."
       : "برداشت بابت پرداخت قسط تسهیلات از حساب شما.";
-  if (row.kind === "withdraw_misc")
+  // جلسه ۵۹ — انواع دفتری مدیر (ثبت‌شده با فرم ثبت تراکنش)
+  if (row.kind === "installment")
     return isAdmin
-      ? "برداشت متفرقه توسط مدیر ثبت شد."
-      : "برداشت متفرقه از حساب شما توسط مدیر ثبت شد.";
+      ? "پرداخت قسط توسط مدیر در بانک ثبت شد."
+      : "پرداخت قسط شما توسط مدیر در بانک ثبت شد.";
+  if (row.deposit && isWithdrawType(row.deposit.type)) {
+    const label = DEPOSIT_KIND_LABEL[row.deposit.type];
+    return isAdmin
+      ? `${label} توسط مدیر ثبت شد.`
+      : `${label} از حساب شما توسط مدیر ثبت شد.`;
+  }
   return isAdmin ? "واریز عضو به حساب بانک." : "واریز به حساب شما.";
 }
 
 function rowVisual(row: TxRow): { icon: ClayIconName; tone: ClayTone } {
   switch (row.kind) {
-    case "installment":
+    case "loan_payment":
       // جلسه ۵۰ — پرداخت قسط از نگاه مدیر ورود پول به بانک است (واریز سبز)،
       // از نگاه عضو برداشت از حساب اوست (قرمز)
       return row.direction === "in"
@@ -130,7 +162,7 @@ function detailLines(row: TxRow, isAdmin: boolean): { label: string; value: stri
   const typeLabel =
     row.kind === "loan"
       ? "تسهیلات"
-      : row.kind === "installment"
+      : row.kind === "loan_payment"
         ? "قسط تسهیلات"
         : row.kind === "pending-share"
           ? "درخواست پرداخت سهام"
@@ -268,7 +300,9 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
     // نوع/عنوان/دوره و بقیهٔ توضیحات در مودال جزئیاتِ بعد از لمس دیده می‌شود
     deposits.forEach((d) => {
       const kindLabel = DEPOSIT_KIND_LABEL[d.type || "share"];
-      const isWithdraw = d.type === "withdraw_misc";
+      // جلسه ۵۹ — همهٔ انواع withdraw_* برای هر دو نقش «برداشت» قرمز هستند؛
+      // بقیهٔ واریزی‌ها «واریز» سبز
+      const isWithdraw = isWithdrawType(d.type);
       const extra = isAdmin
         ? d.memberName || undefined
         : d.title && d.title !== kindLabel
@@ -277,8 +311,6 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
       out.push({
         id: `d-${d.id}`,
         kind: d.type,
-        // جلسه ۵۸ — برداشت متفرقه برای هر دو نقش «برداشت» قرمز است؛
-        // بقیهٔ واریزی‌ها «واریز» سبز
         direction: isWithdraw ? "out" : "in",
         title: isWithdraw ? "برداشت" : "واریز",
         subtitleName: extra,
@@ -318,7 +350,8 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
       loan.payments.forEach((p, i) => {
         out.push({
           id: `p-${p.id}-${i}`,
-          kind: "installment",
+          // جلسه ۵۹ — قسط وام‌ها در UI با نوع دفتری «پرداخت قسط» (installment جدید) فرق دارد
+          kind: "loan_payment",
           // پرداخت قسط برای عضو برداشت از حساب اوست (قرمز)،
           // اما برای مدیر ورود پول به بانک است (واریز سبز)
           direction: isAdmin ? "in" : "out",
@@ -359,11 +392,12 @@ export default function TransactionsScreen({ me, onNavigate }: TransactionsScree
    * واریزی‌های متفرقه/سود دیگر داخلش نیست؛ برای عضو deposits فقط واریزی‌های خودش است). */
   const balanceToman = useMemo(() => {
     if (isAdmin) {
+      // جلسه ۵۹ — همهٔ انواع برداشت (withdraw_*) از موجودی بانک کسر می‌شوند
       const dep = deposits
-        .filter((d) => d.type !== "withdraw_misc")
+        .filter((d) => !isWithdrawType(d.type))
         .reduce((s, d) => s + (Number(d.amount) || 0), 0);
       const withdrawals = deposits
-        .filter((d) => d.type === "withdraw_misc")
+        .filter((d) => isWithdrawType(d.type))
         .reduce((s, d) => s + (Number(d.amount) || 0), 0);
       const out = loans.reduce((s, l) => s + (Number(l.disbursedAmount) || 0), 0);
       return dep - withdrawals - out;
