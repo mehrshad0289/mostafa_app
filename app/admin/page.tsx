@@ -2,11 +2,13 @@
 /* eslint-disable @next/next/no-img-element */
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminShell from "@/app/components/admin/AdminShell";
 import ClayIcon, { toneForIcon, type ClayIconName, type ClayTone } from "@/app/components/mobile/ClayIcon";
 import { useAlertDismissed, useAlertSetVisible } from "@/app/components/useAlertDismiss";
 import { jalaliParts } from "@/lib/bank";
+import { isWithdrawType } from "@/lib/deposit-types";
+import type { BankDeposit } from "@/lib/db";
 
 /** نمایش اعداد به فارسی با جداکننده هزارگان */
 function faMoney(value: number): string {
@@ -280,9 +282,121 @@ function detailValueTone(variant: TileVariant): string {
       : "text-primary-700 dark:text-primary-300";
 }
 
+/** جلسه ۶۲ — برچسب فارسی انواع تراکنش برای «آخرین تراکنش‌ها» و پنل متفرقهٔ
+ *  داشبورد دسکتاپ (هماهنگ با خانهٔ موبایل مدیر) */
+const DEPOSIT_LABELS: Record<string, string> = {
+  share: "پرداخت سهام",
+  misc: "واریز متفرقه",
+  profit: "تقسیم سود",
+  loan_interest: "سود بانک",
+  installment: "پرداخت قسط",
+  withdraw_misc: "برداشت متفرقه",
+  withdraw_share: "برداشت سهام",
+  withdraw_installment: "برداشت قسط",
+  withdraw_profit: "برداشت سود بانک",
+};
+
+/** انواع «متفرقه» — همان خانوادهٔ پنل متفرقهٔ خانهٔ موبایل مدیر */
+const MISC_TYPES: Set<string> = new Set([
+  "misc",
+  "profit",
+  "loan_interest",
+  "withdraw_misc",
+  "installment",
+  "withdraw_share",
+  "withdraw_installment",
+  "withdraw_profit",
+]);
+
+/** نام ماه‌های شمسی برای نمودار ماهانه */
+const JALALI_MONTHS = [
+  "فروردین",
+  "اردیبهشت",
+  "خرداد",
+  "تیر",
+  "مرداد",
+  "شهریور",
+  "مهر",
+  "آبان",
+  "آذر",
+  "دی",
+  "بهمن",
+  "اسفند",
+];
+
+/** فلش ↑ سبز واریز و ↓ قرمز برداشت — همان گلیف خانهٔ موبایل مدیر (جلسه ۶۲) */
+function TxArrow({ up }: { up: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-3.5"
+      aria-hidden
+    >
+      {up ? <path d="M12 19V5" /> : <path d="M12 5v14" />}
+      {up ? <path d="M5 12l7-7 7 7" /> : <path d="M19 12l-7 7-7-7" />}
+    </svg>
+  );
+}
+
+/** جلسه ۶۲ — نمودار ستونی ماهانهٔ واریز/برداشت صندوق برای داشبورد دسکتاپ
+ *  (طبق طراحی PDF کاربر: نمودار زیر کارت‌های آماری) — SVG خالص بدون کتابخانه؛
+ *  ستون سبز واریز و ستون قرمز برداشت برای شش ماه شمسی آخر */
+function FundChart({ data }: { data: { label: string; inSum: number; outSum: number }[] }) {
+  const max = Math.max(1, ...data.map((b) => Math.max(b.inSum, b.outSum)));
+  const W = 340;
+  const H = 152;
+  const baseY = 116;
+  const chartH = 92;
+  const groupW = W / Math.max(1, data.length);
+  const barW = Math.min(18, groupW * 0.28);
+  const gap = 8;
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="mt-2 h-40 w-full"
+      role="img"
+      aria-label="نمودار ماهانهٔ واریز و برداشت صندوق"
+    >
+      <defs>
+        <linearGradient id="chartIn" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#54B854" />
+          <stop offset="100%" stopColor="#B5EBA5" />
+        </linearGradient>
+        <linearGradient id="chartOut" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#E06848" />
+          <stop offset="100%" stopColor="#FFB8A8" />
+        </linearGradient>
+      </defs>
+      <line x1={6} x2={W - 6} y1={baseY} y2={baseY} className="stroke-zinc-200 dark:stroke-zinc-800" strokeWidth={1.5} />
+      {data.map((b, i) => {
+        const cx = groupW * i + groupW / 2;
+        const hIn = Math.round((b.inSum / max) * chartH);
+        const hOut = Math.round((b.outSum / max) * chartH);
+        return (
+          <g key={i}>
+            <rect x={cx - gap / 2 - barW} y={baseY - hIn} width={barW} height={hIn} rx={5} fill="url(#chartIn)" />
+            <rect x={cx + gap / 2} y={baseY - hOut} width={barW} height={hOut} rx={5} fill="url(#chartOut)" />
+            <text x={cx} y={baseY + 20} textAnchor="middle" fontSize={10.5} className="fill-zinc-500 dark:fill-zinc-400">
+              {b.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 /**
  * داشبورد ادمین — جلسه ۶۰: هیرو تصویری خوش‌آمدگویی طبق طراحی PDF + ۴ کارت آماری
  * (اعضا / موجودی صندوق / واریزی‌ها / تسهیلات) + مربع‌های سه‌بعدی لمسی + اعلان‌ها.
+ * جلسه ۶۲ (به درخواست کاربر): خانهٔ ادمین کامل‌تر شد — نمودار ماهانهٔ واریز/برداشت
+ * صندوق + پنل «آخرین تراکنش‌ها» کنار هم، و پنل همیشه‌بازِ «تراکنش‌های متفرقه»
+ * روی خودِ داشبورد.
  */
 export default function AdminDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
@@ -293,6 +407,8 @@ export default function AdminDashboardPage() {
   const [money, setMoney] = useState<{ deposits: number; loans: number } | null>(null);
   /** مربع لمس‌شده — جزئیاتش در کارت زیر شبکه مربع‌ها دیده می‌شود */
   const [openTile, setOpenTile] = useState<TileKey | null>(null);
+  /** جلسه ۶۲ — رکوردهای تراکنش برای پنل‌های جدید داشبورد دسکتاپ */
+  const [deposits, setDeposits] = useState<BankDeposit[]>([]);
 
   /**
    * جلسه ۴۰ — بستن اعلان‌های سررسید داشبورد (ذخیره در localStorage همین دستگاه؛
@@ -320,8 +436,11 @@ export default function AdminDashboardPage() {
         fetch("/api/bank/loans").then((r) => (r.ok ? r.json() : [])),
       ]);
       if (d) setData(d as DashboardData);
-      const deposits: { amount: number }[] = Array.isArray(dep) ? dep : [];
+      // جلسه ۶۲ — رکوردهای کامل تراکنش نگه داشته می‌شوند تا نمودار ماهانه،
+      // «آخرین تراکنش‌ها» و پنل متفرقهٔ داشبورد از همان یک fetch پر شوند
+      const deposits: BankDeposit[] = Array.isArray(dep) ? dep : [];
       const loans: { disbursedAmount: number }[] = Array.isArray(lo) ? lo : [];
+      setDeposits(deposits);
       setMoney({
         deposits: deposits.reduce((x, v) => x + (Number(v.amount) || 0), 0),
         loans: loans.reduce((x, v) => x + (Number(v.disbursedAmount) || 0), 0),
@@ -346,6 +465,78 @@ export default function AdminDashboardPage() {
   function toggleTile(key: TileKey) {
     setOpenTile((cur) => (cur === key ? null : key));
   }
+
+  /** جلسه ۶۲ — آخرین تراکنش‌ها برای پنل داشبورد دسکتاپ (۶ مورد آخر، همهٔ انواع) */
+  const lastTx = useMemo(
+    () =>
+      [...deposits]
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""))
+        .slice(0, 6),
+    [deposits],
+  );
+
+  /** جلسه ۶۲ — ردیف‌های تراکنش متفرقهٔ بانک (همهٔ اعضا + بدون عضو) */
+  const miscRows = useMemo(
+    () =>
+      deposits
+        .filter((d) => MISC_TYPES.has(d.type))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
+    [deposits],
+  );
+
+  const miscTotals = useMemo(() => {
+    let inSum = 0;
+    let outSum = 0;
+    miscRows.forEach((d) => {
+      if (isWithdrawType(d.type)) outSum += Number(d.amount) || 0;
+      else inSum += Number(d.amount) || 0;
+    });
+    return { inSum, outSum };
+  }, [miscRows]);
+
+  /** جلسه ۶۲ — دادهٔ نمودار ماهانهٔ صندوق: شش ماه شمسی آخر از امروز.
+   *  «امروز» طبق الگوی پروژه (جلسه ۳۸: prerender به تاریخ نیفتد) در
+   *  useEffect خوانده می‌شود — نه هنگام رندر سرور */
+  const [nowYM, setNowYM] = useState<{ y: number; m: number } | null>(null);
+  useEffect(() => {
+    try {
+      const p = jalaliParts(new Date());
+      setNowYM({ y: p.year, m: p.month });
+    } catch {
+      // بی‌خطر — نمودار بدون ماه جاری خالی می‌ماند
+    }
+  }, []);
+
+  const monthlyChart = useMemo(() => {
+    if (!nowYM) return [];
+    const { y, m } = nowYM;
+    const keys: string[] = [];
+    const buckets: { label: string; inSum: number; outSum: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      let mm = m - i;
+      let yy = y;
+      while (mm <= 0) {
+        mm += 12;
+        yy -= 1;
+      }
+      keys.push(`${yy}-${mm}`);
+      buckets.push({ label: JALALI_MONTHS[mm - 1] ?? "", inSum: 0, outSum: 0 });
+    }
+    deposits.forEach((d) => {
+      if (!d.createdAt) return;
+      let p;
+      try {
+        p = jalaliParts(new Date(d.createdAt));
+      } catch {
+        return;
+      }
+      const idx = keys.indexOf(`${p.year}-${p.month}`);
+      if (idx === -1) return;
+      if (isWithdrawType(d.type)) buckets[idx].outSum += Number(d.amount) || 0;
+      else buckets[idx].inSum += Number(d.amount) || 0;
+    });
+    return buckets;
+  }, [deposits, nowYM]);
 
   /** ساخت جزئیات مربع لمس‌شده از داده واقعی داشبورد — value = null یعنی در حال بارگذاری */
   const detail: DetailSpec | null = (() => {
@@ -563,6 +754,173 @@ export default function AdminDashboardPage() {
               <span className="mr-1 text-[11px] font-normal text-zinc-400">تومان</span>
             </p>
           </div>
+        </div>
+
+        {/* جلسه ۶۲ (به درخواست کاربر) — داشبورد کامل‌تر طبق طراحی PDF:
+            نمودار ماهانهٔ واریز/برداشت صندوق + «آخرین تراکنش‌ها» کنار هم، و
+            زیرشان پنل همیشه‌بازِ «تراکنش‌های متفرقه» */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* نمودار ماهانهٔ صندوق — ستون سبز واریز، ستون قرمز برداشت (۶ ماه شمسی آخر) */}
+          <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ClayIcon name="chart" size={26} />
+                <h3 className="text-sm font-bold">نمودار واریز و برداشت صندوق</h3>
+              </div>
+              <div className="flex items-center gap-3 text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-full bg-[#54B854]" />
+                  واریز
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="size-2.5 rounded-full bg-[#E06848]" />
+                  برداشت
+                </span>
+              </div>
+            </div>
+            <FundChart data={monthlyChart} />
+            <p className="text-center text-[10.5px] leading-5 text-zinc-400">
+              شش ماه شمسی اخیر — جمع واریز و برداشت هر ماه (تومان)
+            </p>
+          </div>
+
+          {/* آخرین تراکنش‌ها — ۶ مورد آخر با فلش سبز/قرمز طبق طراحی PDF */}
+          <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+            <div className="flex items-center gap-2">
+              <ClayIcon name="clock" size={26} />
+              <h3 className="text-sm font-bold">آخرین تراکنش‌ها</h3>
+            </div>
+            <div className="mt-3 space-y-2">
+              {lastTx.length === 0 && (
+                <p className="rounded-2xl border border-zinc-200 px-4 py-5 text-center text-xs leading-6 text-zinc-500 dark:border-zinc-800">
+                  هنوز تراکنشی ثبت نشده است؛ از «ثبت تراکنش» در بانک شروع کنید.
+                </p>
+              )}
+              {lastTx.map((d) => {
+                const isUp = !isWithdrawType(d.type);
+                return (
+                  <div key={d.id} className="flex items-center gap-2.5">
+                    <span
+                      className={`grid size-7 shrink-0 place-items-center rounded-full ${
+                        isUp
+                          ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400"
+                          : "bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-400"
+                      }`}
+                    >
+                      <TxArrow up={isUp} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12.5px] font-semibold text-zinc-800 dark:text-zinc-100">
+                        {DEPOSIT_LABELS[d.type] ?? "تراکنش"}
+                      </p>
+                      <p className="mt-0.5 truncate text-[10px] text-zinc-500 dark:text-zinc-400">
+                        {[d.memberName || "بدون عضو", faDate(d.createdAt)].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <p
+                      className={`shrink-0 text-[12.5px] font-black ${
+                        isUp ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"
+                      }`}
+                    >
+                      {isUp ? "+" : "−"}
+                      {faMoney(d.amount)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* جلسه ۶۲ — پنل همیشه‌بازِ «تراکنش‌های متفرقه» روی داشبورد دسکتاپ:
+            همان جمع سبز/قرمز و فهرست خانهٔ موبایل مدیر */}
+        <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ClayIcon name="swap" size={26} />
+              <h3 className="text-sm font-bold">تراکنش‌های متفرقه</h3>
+            </div>
+            <Link
+              href="/bank/transactions"
+              className="rounded-full bg-primary-50 px-3 py-1.5 text-[11px] font-semibold text-primary-700 transition hover:bg-primary-100 dark:bg-primary-950/60 dark:text-primary-300 dark:hover:bg-primary-900/60"
+            >
+              گردش کامل حساب
+            </Link>
+          </div>
+          <p className="mt-2 text-[11px] leading-5 text-zinc-500 dark:text-zinc-400">
+            واریز و برداشت‌های جدا از سهام و اقساط رسمی — متفرقه، تقسیم سود، سود بانک
+            و پرداخت/برداشت قسط؛ برای همهٔ اعضا و بدون عضو.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+              <p className="text-[11px] text-emerald-800 dark:text-emerald-300">جمع واریز متفرقه</p>
+              <p className="mt-1 text-sm font-black text-emerald-700 dark:text-emerald-400">
+                {faMoney(miscTotals.inSum)} تومان
+              </p>
+            </div>
+            <div className="rounded-2xl border border-red-200 bg-red-50/70 p-3 dark:border-red-900 dark:bg-red-950/30">
+              <p className="text-[11px] text-red-800 dark:text-red-300">جمع برداشت متفرقه</p>
+              <p className="mt-1 text-sm font-black text-red-700 dark:text-red-400">
+                {faMoney(miscTotals.outSum)} تومان
+              </p>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            {miscRows.length === 0 && (
+              <p className="rounded-2xl border border-zinc-200 px-4 py-5 text-center text-xs leading-6 text-zinc-500 md:col-span-2 dark:border-zinc-800">
+                هنوز تراکنش متفرقه‌ای ثبت نشده است؛ از «ثبت تراکنش» شروع کنید.
+              </p>
+            )}
+            {miscRows.slice(0, 6).map((d) => {
+              const isWithdraw = isWithdrawType(d.type);
+              return (
+                <div
+                  key={d.id}
+                  className={`flex items-center gap-2.5 rounded-2xl border p-3 ${
+                    isWithdraw
+                      ? "border-red-200 border-r-4 border-r-red-500 bg-red-50/70 dark:border-red-900 dark:border-r-red-500 dark:bg-red-950/30"
+                      : "border-emerald-200 border-r-4 border-r-emerald-500 bg-emerald-50/70 dark:border-emerald-900 dark:border-r-emerald-500 dark:bg-emerald-950/30"
+                  }`}
+                >
+                  <ClayIcon
+                    name={isWithdraw ? "withdraw" : "deposit"}
+                    size={34}
+                    tone={isWithdraw ? ["#FFB8A8", "#E06848"] : ["#B5EBA5", "#54B854"]}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12.5px] font-semibold">
+                      {isWithdraw ? "برداشت" : "واریز"}
+                      <span
+                        className={`mr-2 rounded-lg px-2 py-0.5 text-[10px] font-normal ${
+                          isWithdraw
+                            ? "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300"
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300"
+                        }`}
+                      >
+                        {DEPOSIT_LABELS[d.type] ?? d.type}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 truncate text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                      {[d.memberName || "بدون عضو", faDate(d.createdAt)].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <p
+                    className={`shrink-0 text-[12.5px] font-black ${
+                      isWithdraw ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
+                    }`}
+                  >
+                    {isWithdraw ? "−" : "+"}
+                    {faMoney(d.amount)}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          {miscRows.length > 0 && (
+            <p className="mt-3 text-center text-[10.5px] leading-5 text-zinc-400">
+              {faMoney(miscRows.length)} تراکنش متفرقه — شش مورد آخر این‌جا دیده می‌شود.
+            </p>
+          )}
         </div>
 
         {/* اعلان‌های مهلت — جلسه ۳۸: سهام تا روز ۵ ماه؛ اقساط معوق همیشه قرمز؛

@@ -1112,7 +1112,95 @@ export default function DashboardView({
               />
             )}
 
-            {/* ۵) آخرین فعالیت‌ها — ۴ تراکنش آخر با فلش سبز/قرمز و تاریخ شمسی */}
+            {/* ۵) جلسه ۶۲ (به درخواست کاربر) — پنل «تراکنش‌های متفرقه» روی خودِ
+                خانهٔ یوزر: جمع واریز/برداشت + ۳ مورد آخر، بدون نیاز به لمس مربع
+                متفرقه؛ لمس هر ردیف همان مودال جزئیات را باز می‌کند و دکمهٔ «همه»
+                بخش کامل متفرقه را */}
+            <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ClayIcon name="swap" size={26} />
+                  <h3 className="text-sm font-bold">تراکنش‌های متفرقه</h3>
+                </div>
+                {member && miscRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => changeTab("misc")}
+                    className="rounded-full bg-primary-50 px-3 py-1.5 text-[11px] font-semibold text-primary-700 transition hover:bg-primary-100 dark:bg-primary-950/60 dark:text-primary-300 dark:hover:bg-primary-900/60"
+                  >
+                    همه ({faMoney(miscRows.length)} مورد)
+                  </button>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2.5">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-2.5 dark:border-emerald-900 dark:bg-emerald-950/30">
+                  <p className="text-[10.5px] text-emerald-800 dark:text-emerald-300">جمع واریز متفرقه</p>
+                  <p className="mt-0.5 text-[12.5px] font-black text-emerald-700 dark:text-emerald-400">
+                    {member ? `${faMoney(miscSummary.inSum)} تومان` : "…"}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-red-200 bg-red-50/70 p-2.5 dark:border-red-900 dark:bg-red-950/30">
+                  <p className="text-[10.5px] text-red-800 dark:text-red-300">جمع برداشت متفرقه</p>
+                  <p className="mt-0.5 text-[12.5px] font-black text-red-700 dark:text-red-400">
+                    {member ? `${faMoney(miscSummary.outSum)} تومان` : "…"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 space-y-2">
+                {member && miscRows.length === 0 && (
+                  <p className="rounded-2xl border border-zinc-200 px-3 py-4 text-center text-[11px] leading-5 text-zinc-500 dark:border-zinc-800">
+                    هنوز تراکنش متفرقه‌ای ثبت نشده است؛ واریز و برداشت‌های متفرقهٔ مدیر این‌جا دیده می‌شود.
+                  </p>
+                )}
+                {miscRows.slice(0, 3).map((d) => {
+                  const isWithdraw = isWithdrawType(d.type);
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setMiscDetail(d)}
+                      aria-label={`جزئیات ${ACTIVITY_LABELS[d.type] ?? "تراکنش متفرقه"}`}
+                      className={`flex w-full items-center gap-2.5 rounded-2xl border p-2.5 text-right transition active:scale-[0.99] ${
+                        isWithdraw
+                          ? "border-red-200 bg-red-50/80 dark:border-red-900 dark:bg-red-950/30"
+                          : "border-emerald-200 bg-emerald-50/80 dark:border-emerald-900 dark:bg-emerald-950/30"
+                      }`}
+                    >
+                      <ClayIcon
+                        name={isWithdraw ? "withdraw" : "deposit"}
+                        size={32}
+                        tone={isWithdraw ? ["#FFB8A8", "#E06848"] : ["#B5EBA5", "#54B854"]}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12px] font-semibold">
+                          {isWithdraw ? "برداشت" : "واریز"}
+                          <span
+                            className={`mr-1.5 rounded-lg px-1.5 py-0.5 text-[9.5px] font-normal ${
+                              isWithdraw
+                                ? "bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300"
+                                : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300"
+                            }`}
+                          >
+                            {ACTIVITY_LABELS[d.type] ?? "متفرقه"}
+                          </span>
+                        </p>
+                        <p className="mt-0.5 text-[10px] text-zinc-500 dark:text-zinc-400">{faDate(d.createdAt)}</p>
+                      </div>
+                      <p
+                        className={`shrink-0 text-[12px] font-black ${
+                          isWithdraw ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"
+                        }`}
+                      >
+                        {isWithdraw ? "−" : "+"}
+                        {faMoney(d.amount)}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ۶) آخرین فعالیت‌ها — ۴ تراکنش آخر با فلش سبز/قرمز و تاریخ شمسی */}
             <div className="rounded-3xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
               <div className="flex items-center gap-2">
                 <ClayIcon name="clock" size={26} />
